@@ -87,12 +87,34 @@ export default function AdminSidebar({ role, userName, onClose }: Props) {
         })}
       </nav>
 
-      {/* Footer: usuario + logout */}
+      {/* Footer: usuario + perfil + logout */}
       <div className="p-3 border-t border-gray-100 space-y-1">
-        <div className="px-3 py-2">
-          <p className="text-xs font-semibold text-gray-800 truncate">{userName}</p>
-          <p className="text-xs text-gray-400">{isAdmin ? "Administrador" : "Cobrador"}</p>
-        </div>
+        <Link
+          href="/admin/perfil"
+          className={[
+            "flex items-center gap-2.5 px-3 py-2 w-full rounded-lg transition-all",
+            pathname === "/admin/perfil"
+              ? "text-white shadow-sm"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+          ].join(" ")}
+          style={pathname === "/admin/perfil" ? { background: "linear-gradient(135deg, #6366f1, #4f46e5)" } : undefined}
+        >
+          <div className={[
+            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+            pathname === "/admin/perfil" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-600",
+          ].join(" ")}>
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold truncate leading-none">{userName}</p>
+            <p className={[
+              "text-xs leading-none mt-0.5",
+              pathname === "/admin/perfil" ? "text-white/70" : "text-gray-400",
+            ].join(" ")}>
+              {isAdmin ? "Administrador" : "Cobrador"}
+            </p>
+          </div>
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="flex items-center gap-2.5 px-3 py-2 w-full rounded-lg text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all"
