@@ -54,7 +54,7 @@ export default async function NuevoClientePage() {
 
       <form action={crearCliente} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Nombre del cliente" name="nombre" placeholder="Centro Bambú" required />
           <Field label="Dominio" name="dominio" placeholder="centrobambu.cl" required />
         </div>
@@ -74,7 +74,7 @@ export default async function NuevoClientePage() {
           hint="Variable GOBERNANZA_MASTER_KEY del .env del cliente"
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Plan

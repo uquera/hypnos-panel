@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import {
   LayoutDashboard,
-  Users,
   UserCog,
   LogOut,
   ShieldCheck,
+  X,
 } from "lucide-react"
 
 interface NavItem {
@@ -25,11 +25,12 @@ const navItems: NavItem[] = [
 ]
 
 interface Props {
-  role:     string
-  userName: string
+  role:      string
+  userName:  string
+  onClose?:  () => void
 }
 
-export default function AdminSidebar({ role, userName }: Props) {
+export default function AdminSidebar({ role, userName, onClose }: Props) {
   const pathname = usePathname()
   const isAdmin  = role === "ADMIN"
 
@@ -45,10 +46,19 @@ export default function AdminSidebar({ role, userName }: Props) {
                style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
             <ShieldCheck size={16} className="text-white" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-bold text-gray-900 leading-none">Hypnos</p>
             <p className="text-xs text-gray-400 leading-none mt-0.5">Panel</p>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Cerrar menú"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 
