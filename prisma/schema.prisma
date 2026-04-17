@@ -1,0 +1,46 @@
+// Hypnos Panel — Schema de base de datos
+// SQLite + Prisma v6
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── USUARIOS DEL PANEL ────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("COBRADOR") // ADMIN | COBRADOR
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ─── CLIENTES SaaS ────────────────────────────────────────────────────────────
+
+model Cliente {
+  id               String   @id @default(cuid())
+  nombre           String                        // "Centro Bambú"
+  dominio          String                        // "centrobambu.cl"
+  apiUrl           String                        // "https://centrobambu.cl/api/gobernanza/licencia"
+  masterKey        String                        // GOBERNANZA_MASTER_KEY de esa instancia
+  plan             String   @default("BASICO")   // BASICO | PRO | ENTERPRISE
+  fechaVencimiento DateTime
+  suspendida       Boolean  @default(false)
+  notasAdmin       String?
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("clientes")
+}
+
+// ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────
