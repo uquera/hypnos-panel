@@ -39,23 +39,25 @@ function formatMonto(monto: number, moneda: string): string {
   }).format(monto)
 }
 
+// Todas las fechas se almacenan como UTC midnight → siempre mostrar en UTC
+// para evitar que la zona horaria local (ej: UTC-3 Santiago) las desplace al día anterior.
 function formatFecha(iso: string): string {
   return new Date(iso).toLocaleDateString("es-CL", {
-    day: "numeric", month: "short", year: "numeric",
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
   })
 }
 
 function formatPeriodo(inicio: string, fin: string): string {
-  const i = new Date(inicio.substring(0, 10) + "T12:00:00")
-  const f = new Date(fin.substring(0, 10) + "T12:00:00")
-  if (i.getFullYear() === f.getFullYear() && i.getMonth() === f.getMonth()) {
-    const label = i.toLocaleDateString("es-CL", { month: "long", year: "numeric" })
+  const i = new Date(inicio)
+  const f = new Date(fin)
+  if (i.getUTCFullYear() === f.getUTCFullYear() && i.getUTCMonth() === f.getUTCMonth()) {
+    const label = i.toLocaleDateString("es-CL", { month: "long", year: "numeric", timeZone: "UTC" })
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
   return (
-    i.toLocaleDateString("es-CL", { day: "numeric", month: "short" }) +
+    i.toLocaleDateString("es-CL", { day: "numeric", month: "short", timeZone: "UTC" }) +
     " – " +
-    f.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })
+    f.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
   )
 }
 
