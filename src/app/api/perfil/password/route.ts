@@ -13,7 +13,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
+  // Busca por id si está disponible, si no por email (compatibilidad con sesiones antiguas)
+  const where = session.user.id
+    ? { id: session.user.id }
+    : { email: session.user.email! }
+
+  const user = await prisma.user.findUnique({ where })
   if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
 
   const valida = await bcrypt.compare(actual, user.passwordHash)
