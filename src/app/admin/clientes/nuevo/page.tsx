@@ -17,17 +17,35 @@ async function crearCliente(formData: FormData) {
   const fechaVencimiento = formData.get("fechaVencimiento") as string
   const notasAdmin       = formData.get("notasAdmin") as string
 
-  await prisma.cliente.create({
-    data: {
-      nombre,
-      dominio,
-      apiUrl,
-      masterKey,
-      plan,
-      fechaVencimiento: new Date(fechaVencimiento),
-      notasAdmin: notasAdmin || null,
-    },
-  })
+  const { auth } = await import("@/lib/auth")
+  const { logActividad } = await import("@/lib/actividad")
+
+  const [cliente, session] = await Promise.all([
+    prisma.cliente.create({
+      data: {
+        nombre,
+        dominio,
+        apiUrl,
+        masterKey,
+        plan,
+        fechaVencimiento: new Date(fechaVencimiento),
+        notasAdmin: notasAdmin || null,
+      },
+    }),
+    auth(),
+  ])
+
+  if (session?.user?.id) {
+    await logActividad({
+      usuarioId:     session.user.id,
+      usuarioNombre: session.user.name ?? "Usuario",
+      clienteId:     cliente.id,
+      clienteNombre: cliente.nombre,
+      accion:        "CLIENTE_CREADO",
+      detalle:       `Plan ${plan}`,
+    })
+  }
+
   redirect("/admin")
 }
 

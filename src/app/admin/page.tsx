@@ -2,27 +2,83 @@ import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { calcularEstado } from "@/lib/licencia-utils"
-import { PlusCircle, ExternalLink, Edit2, Users } from "lucide-react"
+import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
+import RenovarButton from "./_components/RenovarButton"
 
 export const metadata = { title: "Clientes — Hypnos Panel" }
 export const dynamic = "force-dynamic"
 
-export default async function AdminPage() {
-  const session  = await auth()
-  const clientes = await prisma.cliente.findMany({
-    where:   { activo: true },
-    orderBy: { nombre: "asc" },
-  })
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const total       = clientes.length
-  const suspendidos = clientes.filter(c => c.suspendida || new Date(c.fechaVencimiento) <= new Date()).length
-  const porVencer   = clientes.filter(c => {
-    const dias = Math.ceil((new Date(c.fechaVencimiento).getTime() - Date.now()) / 86_400_000)
-    return !c.suspendida && dias > 0 && dias <= 7
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60)  return "ahora"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60)  return `hace ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24)    return `hace ${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days === 1)    return "hace 1 día"
+  if (days < 7)      return `hace ${days} días`
+  return date.toLocaleDateString("es-CL", { day: "numeric", month: "short", timeZone: "UTC" })
+}
+
+const ACCION_LABEL: Record<string, string> = {
+  LICENCIA_SYNC:     "sincronizó licencia de",
+  PAGO_REGISTRADO:   "registró pago de",
+  RENOVACION:        "renovó licencia de",
+  CLIENTE_CREADO:    "creó el cliente",
+  CLIENTE_ARCHIVADO: "archivó el cliente",
+}
+
+function formatCLP(monto: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+  }).format(monto)
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function AdminPage() {
+  await auth()
+
+  const now             = new Date()
+  const primerDiaMes    = new Date(now.getFullYear(), now.getMonth(), 1)
+  const primerDiaSigMes = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+  const [clientes, mrrAgg, totalAgg, actividadReciente] = await Promise.all([
+    prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: "asc" } }),
+    // Ingresos CLP este mes
+    prisma.pago.aggregate({
+      _sum: { monto: true },
+      where: { moneda: "CLP", fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
+    }),
+    // Total histórico CLP
+    prisma.pago.aggregate({
+      _sum: { monto: true },
+      where: { moneda: "CLP" },
+    }),
+    // Últimas 10 acciones
+    prisma.actividadLog.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+    }),
+  ])
+
+  const mrr           = mrrAgg._sum.monto ?? 0
+  const totalHistorico = totalAgg._sum.monto ?? 0
+
+  const porVencer = clientes.filter((c) => {
+    const dias = Math.ceil((new Date(c.fechaVencimiento).getTime() - now.getTime()) / 86_400_000)
+    return !c.suspendida && dias > 0 && dias <= 30
   }).length
 
+  const problemas = clientes.filter(
+    (c) => c.suspendida || new Date(c.fechaVencimiento) <= now
+  ).length
+
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="max-w-5xl space-y-6">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -41,21 +97,46 @@ export default async function AdminPage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Total",       value: total,       color: "text-gray-900" },
-          { label: "Por vencer",  value: porVencer,   color: "text-amber-600" },
-          { label: "Suspendidos", value: suspendidos, color: "text-red-600" },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate">{s.label}</p>
-            <p className={`text-2xl sm:text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+      {/* Stats — 4 tarjetas */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet size={14} className="text-indigo-500" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ingresos mes</p>
           </div>
-        ))}
+          <p className="text-xl font-bold text-gray-900">{formatCLP(mrr)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">CLP · {now.toLocaleDateString("es-CL", { month: "long" })}</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp size={14} className="text-indigo-500" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total histórico</p>
+          </div>
+          <p className="text-xl font-bold text-gray-900">{formatCLP(totalHistorico)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">CLP acumulado</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-amber-100 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={14} className="text-amber-500" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Por vencer</p>
+          </div>
+          <p className="text-xl font-bold text-amber-600">{porVencer}</p>
+          <p className="text-xs text-gray-400 mt-0.5">próximos 30 días</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-red-100 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <XCircle size={14} className="text-red-500" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencidos</p>
+          </div>
+          <p className="text-xl font-bold text-red-600">{problemas}</p>
+          <p className="text-xs text-gray-400 mt-0.5">suspendidos o expirados</p>
+        </div>
       </div>
 
-      {/* Contenido */}
+      {/* Lista de clientes */}
       {clientes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <Users size={40} className="text-gray-300 mx-auto mb-3" />
@@ -69,7 +150,7 @@ export default async function AdminPage() {
             {clientes.map((c) => {
               const estado = calcularEstado(c)
               const fecha  = new Date(c.fechaVencimiento).toLocaleDateString("es-CL", {
-                day: "numeric", month: "short", year: "numeric",
+                day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
               })
               return (
                 <div key={c.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -89,6 +170,7 @@ export default async function AdminPage() {
                     <span className="text-xs text-gray-500">{fecha}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                    <RenovarButton clienteId={c.id} clienteNombre={c.nombre} />
                     <Link
                       href={`/admin/clientes/${c.id}`}
                       className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
@@ -125,7 +207,7 @@ export default async function AdminPage() {
                 {clientes.map((c) => {
                   const estado = calcularEstado(c)
                   const fecha  = new Date(c.fechaVencimiento).toLocaleDateString("es-CL", {
-                    day: "numeric", month: "short", year: "numeric",
+                    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
                   })
                   return (
                     <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
@@ -155,6 +237,7 @@ export default async function AdminPage() {
                           >
                             <ExternalLink size={15} />
                           </a>
+                          <RenovarButton clienteId={c.id} clienteNombre={c.nombre} />
                           <Link
                             href={`/admin/clientes/${c.id}`}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
@@ -172,6 +255,37 @@ export default async function AdminPage() {
           </div>
         </>
       )}
+
+      {/* Log de actividad reciente */}
+      {actividadReciente.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Actividad reciente</h2>
+          <div className="space-y-3.5">
+            {actividadReciente.map((log) => (
+              <div key={log.id} className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                  {log.usuarioNombre.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-700 leading-snug">
+                    <span className="font-semibold">{log.usuarioNombre}</span>
+                    {" "}
+                    <span className="text-gray-500">{ACCION_LABEL[log.accion] ?? log.accion}</span>
+                    {log.clienteNombre && (
+                      <span className="font-medium text-gray-800"> {log.clienteNombre}</span>
+                    )}
+                  </p>
+                  {log.detalle && (
+                    <p className="text-xs text-gray-400 mt-0.5">{log.detalle}</p>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 shrink-0 mt-0.5">{timeAgo(log.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

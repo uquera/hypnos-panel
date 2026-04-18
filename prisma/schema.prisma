@@ -65,4 +65,21 @@ model Pago {
   @@map("pagos")
 }
 
+// ─── LOG DE ACTIVIDAD ─────────────────────────────────────────────────────────
+// Tabla de auditoría. Denormalizada a propósito: si se archiva un cliente o
+// se elimina un usuario, el log histórico permanece intacto.
+
+model ActividadLog {
+  id            String   @id @default(cuid())
+  usuarioId     String
+  usuarioNombre String
+  clienteId     String?
+  clienteNombre String?
+  accion        String   // LICENCIA_SYNC | PAGO_REGISTRADO | RENOVACION | CLIENTE_CREADO | CLIENTE_ARCHIVADO
+  detalle       String?
+  createdAt     DateTime @default(now())
+
+  @@map("actividad_log")
+}
+
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────

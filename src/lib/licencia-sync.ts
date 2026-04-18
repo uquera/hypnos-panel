@@ -1,6 +1,8 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
+import { logActividad } from "@/lib/actividad"
 import { revalidatePath } from "next/cache"
 
 export interface SyncData {
@@ -60,6 +62,23 @@ export async function syncLicencia(
     syncError = err instanceof Error && err.name === "AbortError"
       ? `Tiempo de espera agotado conectando a ${cliente.dominio}`
       : `No se pudo conectar con ${cliente.dominio}`
+  }
+
+  // Log de actividad
+  const session = await auth()
+  if (session?.user?.id) {
+    const detalles: string[] = []
+    if (data.plan)             detalles.push(`Plan: ${data.plan}`)
+    if (data.fechaVencimiento) detalles.push(`Vence: ${data.fechaVencimiento}`)
+    if (data.suspendida !== undefined) detalles.push(data.suspendida ? "Suspendida" : "Reactivada")
+    await logActividad({
+      usuarioId:     session.user.id,
+      usuarioNombre: session.user.name ?? "Usuario",
+      clienteId:     clienteId,
+      clienteNombre: cliente.nombre,
+      accion:        "LICENCIA_SYNC",
+      detalle:       detalles.join(" · ") || undefined,
+    })
   }
 
   revalidatePath("/admin")

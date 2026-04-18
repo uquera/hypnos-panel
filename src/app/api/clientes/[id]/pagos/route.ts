@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -90,6 +91,17 @@ export async function POST(
       registradoPorId,
     },
     include: { registradoPor: { select: { nombre: true } } },
+  })
+
+  // Log de actividad
+  const periodoLabel = new Date(periodoInicio).toLocaleDateString("es-CL", { month: "long", year: "numeric", timeZone: "UTC" })
+  await logActividad({
+    usuarioId:     registradoPorId,
+    usuarioNombre: session.user.name ?? "Usuario",
+    clienteId:     clienteId,
+    clienteNombre: cliente.nombre,
+    accion:        "PAGO_REGISTRADO",
+    detalle:       `${new Intl.NumberFormat("es-CL", { style: "currency", currency: moneda, maximumFractionDigits: moneda === "CLP" ? 0 : 2 }).format(monto)} · ${periodoLabel.charAt(0).toUpperCase() + periodoLabel.slice(1)}`,
   })
 
   // Sincronizar pago al servidor del cliente (best-effort, no falla el request)
