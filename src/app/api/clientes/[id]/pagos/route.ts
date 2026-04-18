@@ -92,5 +92,27 @@ export async function POST(
     include: { registradoPor: { select: { nombre: true } } },
   })
 
-  return NextResponse.json({ pago }, { status: 201 })
+  // Sincronizar pago al servidor del cliente (best-effort, no falla el request)
+  let syncedRemote = false
+  try {
+    const pagosUrl = cliente.apiUrl.replace(/\/licencia$/, "/pagos")
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
+
+    const res = await fetch(pagosUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": cliente.masterKey,
+      },
+      body: JSON.stringify({ monto, moneda, periodoInicio, periodoFin, fechaPago, notas }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    syncedRemote = res.ok
+  } catch {
+    // Cliente caído o sin endpoint — no bloquea el registro local
+  }
+
+  return NextResponse.json({ pago, syncedRemote }, { status: 201 })
 }
