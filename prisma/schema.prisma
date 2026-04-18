@@ -20,6 +20,7 @@ model User {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  pagos        Pago[]
 
   @@map("users")
 }
@@ -39,8 +40,29 @@ model Cliente {
   activo           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  pagos            Pago[]
 
   @@map("clientes")
+}
+
+// ─── PAGOS ────────────────────────────────────────────────────────────────────
+
+model Pago {
+  id              String   @id @default(cuid())
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  monto           Float
+  moneda          String   @default("CLP")      // CLP | USD | EUR
+  periodoInicio   DateTime
+  periodoFin      DateTime
+  fechaPago       DateTime @default(now())
+  comprobante     String?                        // nombre del archivo en uploads/comprobantes/
+  notas           String?
+  registradoPorId String
+  registradoPor   User     @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@map("pagos")
 }
 
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────

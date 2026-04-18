@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import SyncLicenciaForm from "./SyncLicenciaForm"
 import EditClienteForm from "./EditClienteForm"
+import PagosSection from "./PagosSection"
 
 export const metadata = { title: "Editar cliente — Hypnos Panel" }
 
@@ -67,7 +68,10 @@ export default async function EditarClientePage({ params }: Props) {
         />
       </div>
 
-      {/* Sección 2: Datos técnicos — solo ADMIN */}
+      {/* Sección 2: Historial de pagos — todos */}
+      <PagosSection clienteId={cliente.id} isAdmin={isAdmin} />
+
+      {/* Sección 3: Datos técnicos — solo ADMIN */}
       {isAdmin && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
           <div>
