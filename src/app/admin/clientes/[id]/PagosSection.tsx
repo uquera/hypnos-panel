@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import {
-  Plus, X, FileText, Trash2, Loader2, ChevronDown, ExternalLink,
+  Plus, X, FileText, Trash2, Loader2, ChevronDown, ExternalLink, Pencil,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -88,14 +88,21 @@ const EMPTY_FORM = {
 }
 
 export default function PagosSection({ clienteId, isAdmin }: Props) {
-  const [pagos, setPagos]         = useState<PagoItem[]>([])
+  const [pagos, setPagos]             = useState<PagoItem[]>([])
   const [loadingList, setLoadingList] = useState(true)
-  const [showForm, setShowForm]   = useState(false)
-  const [form, setForm]           = useState(EMPTY_FORM)
-  const [file, setFile]           = useState<File | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showForm, setShowForm]       = useState(false)
+  const [form, setForm]               = useState(EMPTY_FORM)
+  const [file, setFile]               = useState<File | null>(null)
+  const [submitting, setSubmitting]   = useState(false)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Edit state
+  const [editingPago, setEditingPago]     = useState<PagoItem | null>(null)
+  const [editForm, setEditForm]           = useState(EMPTY_FORM)
+  const [editFile, setEditFile]           = useState<File | null>(null)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const editFileRef = useRef<HTMLInputElement>(null)
 
   // ── Fetch list ───────────────────────────────────────────────────────────
   async function fetchPagos() {
@@ -176,6 +183,58 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
       toast.error("Error de red al eliminar")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  // ── Open edit modal ──────────────────────────────────────────────────────
+  function handleEdit(pago: PagoItem) {
+    setEditingPago(pago)
+    setEditFile(null)
+    setEditForm({
+      monto:          String(pago.monto),
+      moneda:         pago.moneda,
+      periodoInicio:  pago.periodoInicio.split("T")[0],
+      periodoFin:     pago.periodoFin.split("T")[0],
+      fechaPago:      pago.fechaPago.split("T")[0],
+      notas:          pago.notas ?? "",
+    })
+  }
+
+  // ── Submit edit ──────────────────────────────────────────────────────────
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingPago) return
+    if (parseFloat(editForm.monto) <= 0 || isNaN(parseFloat(editForm.monto))) {
+      toast.error("El monto debe ser mayor a 0")
+      return
+    }
+
+    setEditSubmitting(true)
+    try {
+      const fd = new FormData()
+      fd.append("monto", editForm.monto)
+      fd.append("moneda", editForm.moneda)
+      fd.append("periodoInicio", editForm.periodoInicio)
+      fd.append("periodoFin", editForm.periodoFin)
+      fd.append("fechaPago", editForm.fechaPago)
+      if (editForm.notas) fd.append("notas", editForm.notas)
+      if (editFile) fd.append("comprobante", editFile)
+
+      const res  = await fetch(`/api/pagos/${editingPago.id}`, { method: "PATCH", body: fd })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error ?? "Error al guardar")
+        return
+      }
+
+      setPagos((prev) => prev.map((p) => p.id === editingPago.id ? data.pago : p))
+      setEditingPago(null)
+      toast.success("Pago actualizado")
+    } catch {
+      toast.error("Error de red al guardar")
+    } finally {
+      setEditSubmitting(false)
     }
   }
 
@@ -389,7 +448,7 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
                   <th className="text-right pb-2 pr-4">Monto</th>
                   <th className="text-left pb-2 pr-4">Comprobante</th>
                   <th className="text-left pb-2 pr-4">Registrado por</th>
-                  {isAdmin && <th className="pb-2" />}
+                  {isAdmin && <th className="pb-2 w-16" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -417,16 +476,26 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
                     <td className="py-3 pr-4 text-gray-400 text-xs">{p.registradoPor.nombre}</td>
                     {isAdmin && (
                       <td className="py-3 text-right">
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          disabled={deletingId === p.id}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                        >
-                          {deletingId === p.id
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <Trash2 size={14} />
-                          }
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleEdit(p)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                            title="Editar"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={deletingId === p.id}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                            title="Eliminar"
+                          >
+                            {deletingId === p.id
+                              ? <Loader2 size={14} className="animate-spin" />
+                              : <Trash2 size={14} />
+                            }
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -461,16 +530,26 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
                   )}
                   <span className="text-xs text-gray-400 ml-auto">{p.registradoPor.nombre}</span>
                   {isAdmin && (
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      disabled={deletingId === p.id}
-                      className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                    >
-                      {deletingId === p.id
-                        ? <Loader2 size={13} className="animate-spin" />
-                        : <Trash2 size={13} />
-                      }
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleEdit(p)}
+                        className="p-1 rounded-lg text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                        title="Editar"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        disabled={deletingId === p.id}
+                        className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                        title="Eliminar"
+                      >
+                        {deletingId === p.id
+                          ? <Loader2 size={13} className="animate-spin" />
+                          : <Trash2 size={13} />
+                        }
+                      </button>
+                    </>
                   )}
                 </div>
                 {p.notas && <p className="text-xs text-gray-400 mt-2 italic">{p.notas}</p>}
@@ -478,6 +557,171 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
             ))}
           </div>
         </>
+      )}
+
+      {/* ── Edit modal ────────────────────────────────────────────────────── */}
+      {editingPago && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900">Editar pago</h3>
+              <button
+                onClick={() => setEditingPago(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              {/* Monto + Moneda */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Monto <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number" min="1" step="any" required
+                    value={editForm.monto}
+                    onChange={(e) => setEditForm({ ...editForm, monto: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Moneda</label>
+                  <select
+                    value={editForm.moneda}
+                    onChange={(e) => setEditForm({ ...editForm, moneda: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                  >
+                    <option value="CLP">CLP</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Periodo */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Periodo cobrado <span className="text-red-400">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-400">Desde</p>
+                    <input
+                      type="date" required
+                      value={editForm.periodoInicio}
+                      onChange={(e) => setEditForm({ ...editForm, periodoInicio: e.target.value })}
+                      className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-400">Hasta</p>
+                    <input
+                      type="date" required
+                      value={editForm.periodoFin}
+                      onChange={(e) => setEditForm({ ...editForm, periodoFin: e.target.value })}
+                      className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Fecha de pago */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Fecha de pago <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="date" required
+                  value={editForm.fechaPago}
+                  onChange={(e) => setEditForm({ ...editForm, fechaPago: e.target.value })}
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                />
+              </div>
+
+              {/* Comprobante */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Comprobante
+                </label>
+                {editingPago.comprobante && !editFile && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <FileText size={13} className="text-indigo-500" />
+                    <a
+                      href={`/api/pagos/${editingPago.id}/comprobante`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:underline"
+                    >
+                      Ver archivo actual
+                    </a>
+                    <span className="text-gray-400">— sube uno nuevo para reemplazarlo</span>
+                  </div>
+                )}
+                <div
+                  className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 bg-white cursor-pointer hover:border-indigo-400 transition-colors"
+                  onClick={() => editFileRef.current?.click()}
+                >
+                  <FileText size={16} className="text-gray-400 shrink-0" />
+                  <span className="text-sm text-gray-500 truncate">
+                    {editFile ? editFile.name : "PDF, JPEG, PNG o WebP — máx. 10 MB"}
+                  </span>
+                  {editFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditFile(null); if (editFileRef.current) editFileRef.current.value = "" }}
+                      className="ml-auto text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={editFileRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+
+              {/* Notas */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notas</label>
+                <textarea
+                  value={editForm.notas}
+                  onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
+                  rows={2}
+                  placeholder="Notas internas sobre este pago..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPago(null)}
+                  className="flex-1 h-10 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="flex-1 h-10 flex items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+                >
+                  {editSubmitting
+                    ? <><Loader2 size={14} className="animate-spin" /> Guardando...</>
+                    : "Guardar cambios"
+                  }
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
