@@ -9,6 +9,7 @@ import {
   LogOut,
   ShieldCheck,
   X,
+  CreditCard,
 } from "lucide-react"
 
 interface NavItem {
@@ -21,6 +22,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/admin",           label: "Clientes",  icon: LayoutDashboard, exact: true },
+  { href: "/admin/pagos",     label: "Pagos",     icon: CreditCard },
   { href: "/admin/usuarios",  label: "Usuarios",  icon: UserCog, adminOnly: true },
 ]
 
