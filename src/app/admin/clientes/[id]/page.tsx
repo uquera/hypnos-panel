@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react"
 import SyncLicenciaForm from "./SyncLicenciaForm"
 import EditClienteForm from "./EditClienteForm"
 import PagosSection from "./PagosSection"
+import PagoRenovarButton from "./PagoRenovarButton"
 
 export const metadata = { title: "Editar cliente — Hypnos Panel" }
 
@@ -69,6 +70,9 @@ export default async function EditarClientePage({ params }: Props) {
       </div>
 
       {/* Sección 2: Historial de pagos — todos */}
+      <div className="flex justify-end">
+        <PagoRenovarButton clienteId={cliente.id} clienteNombre={cliente.nombre} />
+      </div>
       <PagosSection clienteId={cliente.id} isAdmin={isAdmin} />
 
       {/* Sección 3: Datos técnicos — solo ADMIN */}
@@ -84,6 +88,7 @@ export default async function EditarClientePage({ params }: Props) {
             dominio={cliente.dominio}
             apiUrl={cliente.apiUrl}
             masterKey={cliente.masterKey}
+            emailContacto={cliente.emailContacto}
           />
         </div>
       )}

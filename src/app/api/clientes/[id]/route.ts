@@ -11,12 +11,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json()
 
-  const { nombre, dominio, apiUrl, masterKey } = body
+  const { nombre, dominio, apiUrl, masterKey, emailContacto } = body
   const data: Record<string, unknown> = {}
-  if (nombre    !== undefined) data.nombre    = nombre
-  if (dominio   !== undefined) data.dominio   = dominio
-  if (apiUrl    !== undefined) data.apiUrl    = apiUrl
-  if (masterKey !== undefined) data.masterKey = masterKey
+  if (nombre        !== undefined) data.nombre        = nombre
+  if (dominio       !== undefined) data.dominio       = dominio
+  if (apiUrl        !== undefined) data.apiUrl        = apiUrl
+  if (masterKey     !== undefined) data.masterKey     = masterKey
+  if (emailContacto !== undefined) data.emailContacto = emailContacto
 
   const cliente = await prisma.cliente.update({ where: { id }, data })
   return NextResponse.json({ ok: true, cliente })

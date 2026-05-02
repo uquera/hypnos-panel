@@ -5,18 +5,19 @@ import { toast } from "sonner"
 import { Save } from "lucide-react"
 
 interface Props {
-  clienteId: string
-  nombre:    string
-  dominio:   string
-  apiUrl:    string
-  masterKey: string
+  clienteId:    string
+  nombre:       string
+  dominio:      string
+  apiUrl:       string
+  masterKey:    string
+  emailContacto: string | null
 }
 
 export default function EditClienteForm({
-  clienteId, nombre, dominio, apiUrl, masterKey,
+  clienteId, nombre, dominio, apiUrl, masterKey, emailContacto,
 }: Props) {
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ nombre, dominio, apiUrl, masterKey })
+  const [form, setForm] = useState({ nombre, dominio, apiUrl, masterKey, emailContacto: emailContacto ?? "" })
   const [showKey, setShowKey] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,7 +27,7 @@ export default function EditClienteForm({
       const res = await fetch(`/api/clientes/${clienteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, emailContacto: form.emailContacto || null }),
       })
       if (res.ok) {
         toast.success("Datos del cliente actualizados")
@@ -92,6 +93,17 @@ export default function EditClienteForm({
             {showKey ? "Ocultar" : "Ver"}
           </button>
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Email de contacto (alertas)</label>
+        <input
+          type="email"
+          value={form.emailContacto}
+          onChange={(e) => setForm({ ...form, emailContacto: e.target.value })}
+          placeholder="contacto@cliente.com"
+          className="w-full h-11 px-3.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+        />
+        <p className="text-xs text-gray-400">Recibirá alertas automáticas cuando la licencia esté por vencer</p>
       </div>
       <button
         type="submit"

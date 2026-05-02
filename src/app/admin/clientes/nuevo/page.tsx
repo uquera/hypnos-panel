@@ -16,6 +16,7 @@ async function crearCliente(formData: FormData) {
   const plan             = formData.get("plan") as string
   const fechaVencimiento = formData.get("fechaVencimiento") as string
   const notasAdmin       = formData.get("notasAdmin") as string
+  const emailContacto    = formData.get("emailContacto") as string
 
   const { auth } = await import("@/lib/auth")
   const { logActividad } = await import("@/lib/actividad")
@@ -29,7 +30,8 @@ async function crearCliente(formData: FormData) {
         masterKey,
         plan,
         fechaVencimiento: new Date(fechaVencimiento),
-        notasAdmin: notasAdmin || null,
+        notasAdmin:       notasAdmin || null,
+        emailContacto:    emailContacto || null,
       },
     }),
     auth(),
@@ -115,6 +117,14 @@ export default async function NuevoClientePage() {
             required
           />
         </div>
+
+        <Field
+          label="Email de contacto (alertas)"
+          name="emailContacto"
+          type="email"
+          placeholder="contacto@cliente.com"
+          hint="Recibirá alertas automáticas de vencimiento"
+        />
 
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">

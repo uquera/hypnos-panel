@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { calcularEstado } from "@/lib/licencia-utils"
 import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
 import RenovarButton from "./_components/RenovarButton"
+import HealthMonitor from "./_components/HealthMonitor"
 
 export const metadata = { title: "Clientes — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -135,6 +136,14 @@ export default async function AdminPage() {
           <p className="text-xs text-gray-400 mt-0.5">suspendidos o expirados</p>
         </div>
       </div>
+
+      {/* Health Monitor */}
+      <HealthMonitor clientes={clientes.map(c => ({
+        id:            c.id,
+        nombre:        c.nombre,
+        ultimoCheck:   c.ultimoCheck?.toISOString() ?? null,
+        ultimoCheckOk: c.ultimoCheckOk,
+      }))} />
 
       {/* Lista de clientes */}
       {clientes.length === 0 ? (
