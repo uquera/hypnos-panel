@@ -32,9 +32,9 @@ const ACCION_LABEL: Record<string, string> = {
   CLIENTE_ARCHIVADO: "archivó el cliente",
 }
 
-function formatCLP(monto: number): string {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+function formatUSD(monto: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(monto)
 }
 
@@ -49,15 +49,15 @@ export default async function AdminPage() {
 
   const [clientes, mrrAgg, totalAgg, actividadReciente] = await Promise.all([
     prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: "asc" } }),
-    // Ingresos CLP este mes
+    // Ingresos USD este mes
     prisma.pago.aggregate({
       _sum: { monto: true },
-      where: { moneda: "CLP", fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
+      where: { moneda: "USD", fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
     }),
-    // Total histórico CLP
+    // Total histórico USD
     prisma.pago.aggregate({
       _sum: { monto: true },
-      where: { moneda: "CLP" },
+      where: { moneda: "USD" },
     }),
     // Últimas 10 acciones
     prisma.actividadLog.findMany({
@@ -66,7 +66,7 @@ export default async function AdminPage() {
     }),
   ])
 
-  const mrr           = mrrAgg._sum.monto ?? 0
+  const mrr            = mrrAgg._sum.monto  ?? 0
   const totalHistorico = totalAgg._sum.monto ?? 0
 
   const porVencer = clientes.filter((c) => {
@@ -105,8 +105,8 @@ export default async function AdminPage() {
             <Wallet size={14} className="text-indigo-500" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ingresos mes</p>
           </div>
-          <p className="text-xl font-bold text-gray-900">{formatCLP(mrr)}</p>
-          <p className="text-xs text-gray-400 mt-0.5">CLP · {now.toLocaleDateString("es-CL", { month: "long" })}</p>
+          <p className="text-xl font-bold text-gray-900">{formatUSD(mrr)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">USD · {now.toLocaleDateString("es-CL", { month: "long" })}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -114,8 +114,8 @@ export default async function AdminPage() {
             <TrendingUp size={14} className="text-indigo-500" />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total histórico</p>
           </div>
-          <p className="text-xl font-bold text-gray-900">{formatCLP(totalHistorico)}</p>
-          <p className="text-xs text-gray-400 mt-0.5">CLP acumulado</p>
+          <p className="text-xl font-bold text-gray-900">{formatUSD(totalHistorico)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">USD acumulado</p>
         </div>
 
         <div className="bg-white rounded-xl border border-amber-100 shadow-sm p-4">

@@ -31,24 +31,24 @@ export default async function PagosPage() {
       orderBy: { nombre: "asc" },
     }),
     prisma.pago.findMany({
-      where:  { fechaPago: { gte: hace12Meses }, moneda: "CLP" },
+      where:  { fechaPago: { gte: hace12Meses }, moneda: "USD" },
       select: { fechaPago: true, monto: true },
     }),
   ])
 
-  // KPIs
+  // KPIs — moneda de referencia: USD
   const totalEsteMes = pagos
-    .filter(p => p.moneda === "CLP" && new Date(p.fechaPago) >= inicioMes)
+    .filter(p => p.moneda === "USD" && new Date(p.fechaPago) >= inicioMes)
     .reduce((s, p) => s + p.monto, 0)
 
   const totalMesAnterior = pagos
-    .filter(p => p.moneda === "CLP" &&
+    .filter(p => p.moneda === "USD" &&
       new Date(p.fechaPago) >= inicioMesAnterior &&
       new Date(p.fechaPago) <= finMesAnterior)
     .reduce((s, p) => s + p.monto, 0)
 
   const totalHistorico = pagos
-    .filter(p => p.moneda === "CLP")
+    .filter(p => p.moneda === "USD")
     .reduce((s, p) => s + p.monto, 0)
 
   const variacionPct = totalMesAnterior > 0

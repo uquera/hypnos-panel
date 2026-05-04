@@ -55,7 +55,7 @@ model Pago {
   clienteId       String
   cliente         Cliente  @relation(fields: [clienteId], references: [id])
   monto           Float
-  moneda          String   @default("CLP")      // CLP | USD | EUR
+  moneda          String   @default("USD")      // USD | CLP | EUR
   periodoInicio   DateTime
   periodoFin      DateTime
   fechaPago       DateTime @default(now())

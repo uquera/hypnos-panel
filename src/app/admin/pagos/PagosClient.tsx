@@ -50,14 +50,14 @@ interface Props {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatCLP(n: number) {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+function formatUSD(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(n)
 }
 
 function formatMonto(monto: number, moneda: string) {
-  if (moneda === "CLP") return formatCLP(monto)
+  if (moneda === "USD") return formatUSD(monto)
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: moneda }).format(monto)
 }
 
@@ -136,7 +136,7 @@ function BarChart({ months, mesActualKey }: { months: ChartMonth[]; mesActualKey
           className="absolute -top-10 pointer-events-none z-10 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg shadow-lg whitespace-nowrap"
           style={{ left: `${(tooltip.idx / months.length) * 100}%`, transform: "translateX(-50%)" }}
         >
-          {months[tooltip.idx].total > 0 ? formatCLP(months[tooltip.idx].total) : "Sin pagos"}
+          {months[tooltip.idx].total > 0 ? formatUSD(months[tooltip.idx].total) : "Sin pagos"}
         </div>
       )}
     </div>
@@ -160,7 +160,7 @@ function ModalRegistrarPago({
   const [form, setForm] = useState({
     clienteId:    clientePreseleccionado ?? (clientes[0]?.id ?? ""),
     monto:        "",
-    moneda:       "CLP",
+    moneda:       "USD",
     periodoInicio: mes.inicio,
     periodoFin:    mes.fin,
     fechaPago:     todayISO(),
@@ -457,7 +457,7 @@ export default function PagosClient({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="col-span-2 lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-500 font-medium">Ingresado este mes</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatCLP(kpis.totalEsteMes)}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{formatUSD(kpis.totalEsteMes)}</p>
           <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${variacionColor}`}>
             <VariacionIcon size={12} />
             {variacion === null ? "Sin referencia" : `${variacion > 0 ? "+" : ""}${variacion}% vs mes anterior`}
@@ -466,12 +466,12 @@ export default function PagosClient({
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-500 font-medium">Mes anterior</p>
-          <p className="text-xl font-bold text-gray-700 mt-1">{formatCLP(kpis.totalMesAnterior)}</p>
+          <p className="text-xl font-bold text-gray-700 mt-1">{formatUSD(kpis.totalMesAnterior)}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-500 font-medium">Total histórico</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{formatCLP(kpis.totalHistorico)}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{formatUSD(kpis.totalHistorico)}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
@@ -501,7 +501,7 @@ export default function PagosClient({
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-800">Ingresos CLP — últimos 12 meses</h2>
-          <span className="text-xs text-gray-400">Solo pagos en CLP</span>
+          <span className="text-xs text-gray-400">Solo pagos en USD</span>
         </div>
         <BarChart months={chartMonths} mesActualKey={mesActualKey} />
       </div>
