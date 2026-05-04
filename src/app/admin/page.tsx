@@ -47,17 +47,23 @@ export default async function AdminPage() {
   const primerDiaMes    = new Date(now.getFullYear(), now.getMonth(), 1)
   const primerDiaSigMes = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
-  const [clientes, mrrAgg, totalAgg, actividadReciente] = await Promise.all([
+  // Convierte cualquier pago a USD (1 USD = 1000 CLP)
+  function toUSD(monto: number, moneda: string): number {
+    if (moneda === "USD") return monto
+    if (moneda === "CLP") return monto / 1000
+    return monto
+  }
+
+  const [clientes, pagosMes, pagosTotal, actividadReciente] = await Promise.all([
     prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: "asc" } }),
-    // Ingresos USD este mes
-    prisma.pago.aggregate({
-      _sum: { monto: true },
-      where: { moneda: "USD", fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
+    // Pagos del mes actual (todos los pagos, convertir a USD luego)
+    prisma.pago.findMany({
+      where: { fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
+      select: { monto: true, moneda: true },
     }),
-    // Total histórico USD
-    prisma.pago.aggregate({
-      _sum: { monto: true },
-      where: { moneda: "USD" },
+    // Todos los pagos históricos
+    prisma.pago.findMany({
+      select: { monto: true, moneda: true },
     }),
     // Últimas 10 acciones
     prisma.actividadLog.findMany({
@@ -66,8 +72,8 @@ export default async function AdminPage() {
     }),
   ])
 
-  const mrr            = mrrAgg._sum.monto  ?? 0
-  const totalHistorico = totalAgg._sum.monto ?? 0
+  const mrr            = pagosMes.reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
+  const totalHistorico = pagosTotal.reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
 
   const porVencer = clientes.filter((c) => {
     const dias = Math.ceil((new Date(c.fechaVencimiento).getTime() - now.getTime()) / 86_400_000)

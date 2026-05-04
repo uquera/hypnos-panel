@@ -31,25 +31,29 @@ export default async function PagosPage() {
       orderBy: { nombre: "asc" },
     }),
     prisma.pago.findMany({
-      where:  { fechaPago: { gte: hace12Meses }, moneda: "USD" },
-      select: { fechaPago: true, monto: true },
+      where:  { fechaPago: { gte: hace12Meses } },
+      select: { fechaPago: true, monto: true, moneda: true },
     }),
   ])
 
-  // KPIs — moneda de referencia: USD
+  // Convierte cualquier pago a USD (1 USD = 1000 CLP)
+  function toUSD(monto: number, moneda: string): number {
+    if (moneda === "USD") return monto
+    if (moneda === "CLP") return monto / 1000
+    return monto // EUR y otros: 1:1 para no perderlos
+  }
+
+  // KPIs — todos los pagos convertidos a USD
   const totalEsteMes = pagos
-    .filter(p => p.moneda === "USD" && new Date(p.fechaPago) >= inicioMes)
-    .reduce((s, p) => s + p.monto, 0)
+    .filter(p => new Date(p.fechaPago) >= inicioMes)
+    .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
 
   const totalMesAnterior = pagos
-    .filter(p => p.moneda === "USD" &&
-      new Date(p.fechaPago) >= inicioMesAnterior &&
-      new Date(p.fechaPago) <= finMesAnterior)
-    .reduce((s, p) => s + p.monto, 0)
+    .filter(p => new Date(p.fechaPago) >= inicioMesAnterior && new Date(p.fechaPago) <= finMesAnterior)
+    .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
 
   const totalHistorico = pagos
-    .filter(p => p.moneda === "USD")
-    .reduce((s, p) => s + p.monto, 0)
+    .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
 
   const variacionPct = totalMesAnterior > 0
     ? Math.round(((totalEsteMes - totalMesAnterior) / totalMesAnterior) * 100)
@@ -89,7 +93,7 @@ export default async function PagosPage() {
         const fp = new Date(p.fechaPago)
         return fp.getFullYear() === d.getFullYear() && fp.getMonth() === d.getMonth()
       })
-      .reduce((s, p) => s + p.monto, 0)
+      .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
     chartMonths.push({ label, key, total })
   }
 
