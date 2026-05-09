@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   CreditCard, TrendingUp, TrendingDown, Minus, Users, AlertTriangle,
-  Plus, X, FileText, Download, ChevronDown, Loader2,
+  Plus, X, FileText, Download, ChevronDown, Loader2, Pencil, Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -353,6 +353,202 @@ function ModalRegistrarPago({
   )
 }
 
+// ─── Modal Editar Pago ────────────────────────────────────────────────────────
+
+function ModalEditarPago({
+  pago,
+  onClose,
+  onSuccess,
+}: {
+  pago: PagoItem
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [form, setForm] = useState({
+    monto:         String(pago.monto),
+    moneda:        pago.moneda,
+    periodoInicio: pago.periodoInicio.split("T")[0],
+    periodoFin:    pago.periodoFin.split("T")[0],
+    fechaPago:     pago.fechaPago.split("T")[0],
+    notas:         pago.notas ?? "",
+  })
+  const [file, setFile]      = useState<File | null>(null)
+  const [submitting, setSub] = useState(false)
+  const fileRef              = useRef<HTMLInputElement>(null)
+
+  function setMes(offset: number) {
+    const m = getMesCompleto(offset)
+    setForm(f => ({ ...f, periodoInicio: m.inicio, periodoFin: m.fin }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.monto || Number(form.monto) <= 0) {
+      toast.error("El monto debe ser mayor a 0")
+      return
+    }
+    setSub(true)
+    try {
+      const fd = new FormData()
+      fd.append("monto",         form.monto)
+      fd.append("moneda",        form.moneda)
+      fd.append("periodoInicio", form.periodoInicio)
+      fd.append("periodoFin",    form.periodoFin)
+      fd.append("fechaPago",     form.fechaPago)
+      fd.append("notas",         form.notas)
+      if (file) fd.append("comprobante", file)
+
+      const res = await fetch(`/api/pagos/${pago.id}`, { method: "PATCH", body: fd })
+      if (!res.ok) throw new Error()
+      toast.success("Pago actualizado")
+      onSuccess()
+    } catch {
+      toast.error("Error al actualizar el pago")
+    } finally {
+      setSub(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Editar pago</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{pago.clienteNombre}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Monto + moneda */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Monto *</label>
+              <input
+                type="number" min="0" step="1"
+                value={form.monto}
+                onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
+                placeholder="0"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Moneda</label>
+              <div className="relative">
+                <select
+                  value={form.moneda}
+                  onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none pr-8 bg-white"
+                >
+                  <option value="CLP">CLP</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Periodo */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Período</label>
+            <div className="flex gap-1.5 mb-2">
+              {[["Este mes", 0], ["Mes anterior", -1]].map(([label, offset]) => (
+                <button
+                  key={label} type="button"
+                  onClick={() => setMes(Number(offset))}
+                  className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date" value={form.periodoInicio}
+                onChange={e => setForm(f => ({ ...f, periodoInicio: e.target.value }))}
+                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                type="date" value={form.periodoFin}
+                onChange={e => setForm(f => ({ ...f, periodoFin: e.target.value }))}
+                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Fecha de pago */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Fecha de pago</label>
+            <input
+              type="date" value={form.fechaPago}
+              onChange={e => setForm(f => ({ ...f, fechaPago: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          {/* Comprobante */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              Comprobante {pago.comprobante ? "(reemplazar)" : "(opcional)"}
+            </label>
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <input
+                ref={fileRef} type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                className="hidden"
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+              />
+              {file ? (
+                <p className="text-sm text-indigo-600 font-medium">{file.name}</p>
+              ) : pago.comprobante ? (
+                <p className="text-xs text-gray-400">Comprobante existente · click para reemplazar</p>
+              ) : (
+                <p className="text-xs text-gray-400">PDF, JPG, PNG o WebP · máx 10 MB</p>
+              )}
+            </div>
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Notas (opcional)</label>
+            <textarea
+              rows={2}
+              value={form.notas}
+              onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+              placeholder="Observaciones internas..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button" onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit" disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+            >
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Guardar cambios"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PagosClient({
@@ -366,6 +562,8 @@ export default function PagosClient({
   const [modalOpen,     setModalOpen]     = useState(false)
   const [clientePre,    setClientePre]    = useState<string | undefined>()
   const [exportando,    setExportando]    = useState(false)
+  const [editandoPago,  setEditandoPago]  = useState<PagoItem | null>(null)
+  const [eliminandoId,  setEliminandoId]  = useState<string | null>(null)
   const PER_PAGE = 20
 
   // Filtrado
@@ -427,6 +625,21 @@ export default function PagosClient({
       toast.error("Error al exportar")
     } finally {
       setExportando(false)
+    }
+  }
+
+  async function eliminarPago(id: string) {
+    if (!confirm("¿Eliminar este pago? Esta acción no se puede deshacer.")) return
+    setEliminandoId(id)
+    try {
+      const res = await fetch(`/api/pagos/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast.success("Pago eliminado")
+      router.refresh()
+    } catch {
+      toast.error("Error al eliminar el pago")
+    } finally {
+      setEliminandoId(null)
     }
   }
 
@@ -620,6 +833,7 @@ export default function PagosClient({
                     <th className="px-5 py-3 text-right">Monto</th>
                     <th className="px-5 py-3 text-center">Comp.</th>
                     <th className="px-5 py-3 text-left">Registrado por</th>
+                    {isAdmin && <th className="px-5 py-3 text-center">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -650,6 +864,30 @@ export default function PagosClient({
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-gray-500 text-xs">{p.registradoPor}</td>
+                      {isAdmin && (
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setEditandoPago(p)}
+                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => eliminarPago(p.id)}
+                              disabled={eliminandoId === p.id}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                              title="Eliminar"
+                            >
+                              {eliminandoId === p.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Trash2 size={13} />
+                              }
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -667,16 +905,38 @@ export default function PagosClient({
                   <p className="text-xs text-gray-500">{formatPeriodo(p.periodoInicio, p.periodoFin)}</p>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-400">{formatFecha(p.fechaPago)} · {p.registradoPor}</p>
-                    {p.comprobante && (
-                      <a
-                        href={`/api/pagos/${p.id}/comprobante`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-indigo-600 flex items-center gap-1"
-                      >
-                        <FileText size={11} /> Comprobante
-                      </a>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {p.comprobante && (
+                        <a
+                          href={`/api/pagos/${p.id}/comprobante`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-indigo-600 flex items-center gap-1"
+                        >
+                          <FileText size={11} /> Comp.
+                        </a>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => setEditandoPago(p)}
+                            className="p-1 rounded text-indigo-400 hover:text-indigo-600"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => eliminarPago(p.id)}
+                            disabled={eliminandoId === p.id}
+                            className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40"
+                          >
+                            {eliminandoId === p.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <Trash2 size={13} />
+                            }
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -710,13 +970,22 @@ export default function PagosClient({
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal registrar */}
       {modalOpen && (
         <ModalRegistrarPago
           clientes={clientes}
           clientePreseleccionado={clientePre}
           onClose={() => setModalOpen(false)}
           onSuccess={() => { setModalOpen(false); router.refresh() }}
+        />
+      )}
+
+      {/* Modal editar */}
+      {editandoPago && (
+        <ModalEditarPago
+          pago={editandoPago}
+          onClose={() => setEditandoPago(null)}
+          onSuccess={() => { setEditandoPago(null); router.refresh() }}
         />
       )}
     </div>
