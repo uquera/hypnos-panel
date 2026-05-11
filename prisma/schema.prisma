@@ -49,21 +49,25 @@ model Cliente {
 }
 
 // ─── PAGOS ────────────────────────────────────────────────────────────────────
+// concepto: LICENCIA | MARKETING | DESARROLLO
+// periodoInicio/periodoFin solo aplican a LICENCIA; son null para las demás verticales.
 
 model Pago {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   clienteId       String
-  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  cliente         Cliente   @relation(fields: [clienteId], references: [id])
+  concepto        String    @default("LICENCIA")  // LICENCIA | MARKETING | DESARROLLO
+  conceptoDetalle String?                          // descripción libre para MARKETING / DESARROLLO
   monto           Float
-  moneda          String   @default("USD")      // USD | CLP | EUR
-  periodoInicio   DateTime
-  periodoFin      DateTime
-  fechaPago       DateTime @default(now())
-  comprobante     String?                        // nombre del archivo en uploads/comprobantes/
+  moneda          String    @default("USD")        // USD | CLP | EUR
+  periodoInicio   DateTime?                        // solo LICENCIA
+  periodoFin      DateTime?                        // solo LICENCIA
+  fechaPago       DateTime  @default(now())
+  comprobante     String?                          // nombre del archivo en uploads/comprobantes/
   notas           String?
   registradoPorId String
-  registradoPor   User     @relation(fields: [registradoPorId], references: [id])
-  createdAt       DateTime @default(now())
+  registradoPor   User      @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime  @default(now())
 
   @@map("pagos")
 }

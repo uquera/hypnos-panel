@@ -8,6 +8,7 @@ import { randomUUID } from "crypto"
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+const CONCEPTOS_VALIDOS = ["LICENCIA", "MARKETING", "DESARROLLO"]
 
 // PATCH /api/pagos/[id] — editar pago (solo ADMIN)
 export async function PATCH(
@@ -16,36 +17,39 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN")
     return NextResponse.json({ error: "Solo administradores pueden editar pagos" }, { status: 403 })
-  }
 
   const { id } = await params
   const pago = await prisma.pago.findUnique({ where: { id } })
   if (!pago) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 })
 
-  const formData  = await req.formData()
-  const monto     = parseFloat(formData.get("monto") as string)
-  const moneda    = (formData.get("moneda") as string) || "CLP"
-  const periodoInicio = formData.get("periodoInicio") as string
-  const periodoFin    = formData.get("periodoFin") as string
-  const fechaPago     = formData.get("fechaPago") as string
-  const notas         = (formData.get("notas") as string) || null
-  const file          = formData.get("comprobante") as File | null
+  const formData        = await req.formData()
+  const monto           = parseFloat(formData.get("monto") as string)
+  const moneda          = (formData.get("moneda") as string) || "USD"
+  const concepto        = (formData.get("concepto") as string) || pago.concepto
+  const conceptoDetalle = (formData.get("conceptoDetalle") as string) || null
+  const periodoInicio   = formData.get("periodoInicio") as string | null
+  const periodoFin      = formData.get("periodoFin")    as string | null
+  const fechaPago       = formData.get("fechaPago")     as string
+  const notas           = (formData.get("notas") as string) || null
+  const file            = formData.get("comprobante") as File | null
 
-  if (isNaN(monto) || monto <= 0 || !periodoInicio || !periodoFin || !fechaPago) {
-    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
-  }
+  if (isNaN(monto) || monto <= 0)
+    return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
+  if (!CONCEPTOS_VALIDOS.includes(concepto))
+    return NextResponse.json({ error: "Concepto inválido" }, { status: 400 })
+  if (concepto === "LICENCIA" && (!periodoInicio || !periodoFin))
+    return NextResponse.json({ error: "El período es obligatorio para pagos de licencia" }, { status: 400 })
+  if (concepto !== "LICENCIA" && !conceptoDetalle?.trim())
+    return NextResponse.json({ error: "El detalle del servicio es obligatorio" }, { status: 400 })
 
   let comprobante = pago.comprobante
   if (file && file.size > 0) {
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "El archivo supera el tamaño máximo de 10 MB" }, { status: 400 })
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.includes(file.type))
       return NextResponse.json({ error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" }, { status: 400 })
-    }
-    // Eliminar archivo anterior
     if (pago.comprobante) {
       try { await fs.unlink(path.join(UPLOAD_DIR, pago.comprobante)) } catch { /* ignorar */ }
     }
@@ -58,10 +62,12 @@ export async function PATCH(
   const updated = await prisma.pago.update({
     where: { id },
     data: {
+      concepto,
+      conceptoDetalle: conceptoDetalle?.trim() || null,
       monto,
       moneda,
-      periodoInicio: new Date(periodoInicio),
-      periodoFin:    new Date(periodoFin),
+      periodoInicio: concepto === "LICENCIA" && periodoInicio ? new Date(periodoInicio) : null,
+      periodoFin:    concepto === "LICENCIA" && periodoFin    ? new Date(periodoFin)    : null,
       fechaPago:     new Date(fechaPago),
       notas:         notas || null,
       comprobante,
@@ -78,20 +84,15 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN")
     return NextResponse.json({ error: "Solo administradores pueden eliminar pagos" }, { status: 403 })
-  }
 
   const { id } = await params
   const pago = await prisma.pago.findUnique({ where: { id } })
   if (!pago) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 })
 
   if (pago.comprobante) {
-    try {
-      await fs.unlink(path.join(UPLOAD_DIR, pago.comprobante))
-    } catch {
-      // File might already be missing — continue
-    }
+    try { await fs.unlink(path.join(UPLOAD_DIR, pago.comprobante)) } catch { /* ignorar */ }
   }
 
   await prisma.pago.delete({ where: { id } })

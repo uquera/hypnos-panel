@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
     orderBy: { fechaPago: "desc" },
   })
 
-  function fmt(iso: Date) {
+  function fmt(iso: Date | null) {
+    if (!iso) return ""
     return iso.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
   }
 
@@ -38,12 +39,14 @@ export async function GET(req: NextRequest) {
     return `"${v.replace(/"/g, '""')}"`
   }
 
-  const header = "Fecha pago,Cliente,Dominio,Período inicio,Período fin,Monto,Moneda,Notas,Registrado por"
+  const header = "Fecha pago,Cliente,Dominio,Vertical,Descripción,Período inicio,Período fin,Monto,Moneda,Notas,Registrado por"
   const rows   = pagos.map(p =>
     [
       fmt(p.fechaPago),
       esc(p.cliente.nombre),
       esc(p.cliente.dominio),
+      p.concepto,
+      esc(p.conceptoDetalle),
       fmt(p.periodoInicio),
       fmt(p.periodoFin),
       p.monto,

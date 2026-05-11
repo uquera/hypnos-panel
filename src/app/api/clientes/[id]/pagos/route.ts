@@ -9,6 +9,7 @@ import { randomUUID } from "crypto"
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+const CONCEPTOS_VALIDOS = ["LICENCIA", "MARKETING", "DESARROLLO"]
 
 export async function GET(
   _req: Request,
@@ -39,7 +40,6 @@ export async function POST(
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
   if (!cliente) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 })
 
-  // Resolve user ID (handle old sessions without id)
   let registradoPorId = session.user.id
   if (!registradoPorId) {
     const user = await prisma.user.findUnique({ where: { email: session.user.email! } })
@@ -47,45 +47,52 @@ export async function POST(
     registradoPorId = user.id
   }
 
-  const formData = await req.formData()
-  const monto = parseFloat(formData.get("monto") as string)
-  const moneda = (formData.get("moneda") as string) || "CLP"
-  const periodoInicio = formData.get("periodoInicio") as string
-  const periodoFin = formData.get("periodoFin") as string
-  const fechaPago = formData.get("fechaPago") as string
-  const notas = (formData.get("notas") as string) || null
-  const file = formData.get("comprobante") as File | null
+  const formData       = await req.formData()
+  const monto          = parseFloat(formData.get("monto") as string)
+  const moneda         = (formData.get("moneda") as string) || "USD"
+  const concepto       = (formData.get("concepto") as string) || "LICENCIA"
+  const conceptoDetalle = (formData.get("conceptoDetalle") as string) || null
+  const periodoInicio  = formData.get("periodoInicio") as string | null
+  const periodoFin     = formData.get("periodoFin")    as string | null
+  const fechaPago      = formData.get("fechaPago")     as string
+  const notas          = (formData.get("notas") as string) || null
+  const file           = formData.get("comprobante") as File | null
 
-  if (isNaN(monto) || monto <= 0 || !periodoInicio || !periodoFin || !fechaPago) {
-    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+  if (isNaN(monto) || monto <= 0) {
+    return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
+  }
+  if (!CONCEPTOS_VALIDOS.includes(concepto)) {
+    return NextResponse.json({ error: "Concepto inválido" }, { status: 400 })
+  }
+  if (concepto === "LICENCIA" && (!periodoInicio || !periodoFin)) {
+    return NextResponse.json({ error: "El período es obligatorio para pagos de licencia" }, { status: 400 })
+  }
+  if (concepto !== "LICENCIA" && !conceptoDetalle?.trim()) {
+    return NextResponse.json({ error: "El detalle del servicio es obligatorio" }, { status: 400 })
   }
 
   let comprobante: string | null = null
   if (file && file.size > 0) {
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "El archivo supera el tamaño máximo de 10 MB" }, { status: 400 })
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" },
-        { status: 400 }
-      )
-    }
+    if (!ALLOWED_TYPES.includes(file.type))
+      return NextResponse.json({ error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" }, { status: 400 })
     const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg")
     comprobante = `${randomUUID()}${ext}`
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buffer)
+    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
   }
 
   const pago = await prisma.pago.create({
     data: {
       clienteId,
+      concepto,
+      conceptoDetalle: conceptoDetalle?.trim() || null,
       monto,
       moneda,
-      periodoInicio: new Date(periodoInicio),
-      periodoFin: new Date(periodoFin),
-      fechaPago: new Date(fechaPago),
+      periodoInicio: concepto === "LICENCIA" && periodoInicio ? new Date(periodoInicio) : null,
+      periodoFin:    concepto === "LICENCIA" && periodoFin    ? new Date(periodoFin)    : null,
+      fechaPago:     new Date(fechaPago),
       comprobante,
       notas,
       registradoPorId,
@@ -93,37 +100,43 @@ export async function POST(
     include: { registradoPor: { select: { nombre: true } } },
   })
 
-  // Log de actividad
-  const periodoLabel = new Date(periodoInicio).toLocaleDateString("es-CL", { month: "long", year: "numeric", timeZone: "UTC" })
+  // Etiqueta para el log de actividad
+  const etiquetaConcepto =
+    concepto === "MARKETING" ? "Marketing" :
+    concepto === "DESARROLLO" ? "Desarrollo" : "Mensualidad"
+
+  const detallePeriodo =
+    concepto === "LICENCIA" && periodoInicio
+      ? new Date(periodoInicio).toLocaleDateString("es-CL", { month: "long", year: "numeric", timeZone: "UTC" })
+      : conceptoDetalle?.trim() ?? ""
+
   await logActividad({
     usuarioId:     registradoPorId,
     usuarioNombre: session.user.name ?? "Usuario",
-    clienteId:     clienteId,
+    clienteId,
     clienteNombre: cliente.nombre,
     accion:        "PAGO_REGISTRADO",
-    detalle:       `${new Intl.NumberFormat("es-CL", { style: "currency", currency: moneda, maximumFractionDigits: moneda === "CLP" ? 0 : 2 }).format(monto)} · ${periodoLabel.charAt(0).toUpperCase() + periodoLabel.slice(1)}`,
+    detalle: `[${etiquetaConcepto}] ${new Intl.NumberFormat("es-CL", {
+      style: "currency", currency: moneda, maximumFractionDigits: moneda === "CLP" ? 0 : 2,
+    }).format(monto)} · ${detallePeriodo}`,
   })
 
-  // Sincronizar pago al servidor del cliente (best-effort, no falla el request)
+  // Sincronizar al cliente remoto solo para pagos de licencia
   let syncedRemote = false
-  try {
-    const pagosUrl = cliente.apiUrl.replace(/\/licencia$/, "/pagos")
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10_000)
-
-    const res = await fetch(pagosUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": cliente.masterKey,
-      },
-      body: JSON.stringify({ monto, moneda, periodoInicio, periodoFin, fechaPago, notas }),
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-    syncedRemote = res.ok
-  } catch {
-    // Cliente caído o sin endpoint — no bloquea el registro local
+  if (concepto === "LICENCIA") {
+    try {
+      const pagosUrl = cliente.apiUrl.replace(/\/licencia$/, "/pagos")
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10_000)
+      const res = await fetch(pagosUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Master-Key": cliente.masterKey },
+        body: JSON.stringify({ monto, moneda, periodoInicio, periodoFin, fechaPago, notas }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      syncedRemote = res.ok
+    } catch { /* cliente caído — no bloquea */ }
   }
 
   return NextResponse.json({ pago, syncedRemote }, { status: 201 })
