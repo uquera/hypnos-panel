@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   X,
   CreditCard,
+  TrendingDown,
+  BarChart2,
 } from "lucide-react"
 
 interface NavItem {
@@ -23,6 +25,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin",           label: "Clientes",  icon: LayoutDashboard, exact: true },
   { href: "/admin/pagos",     label: "Pagos",     icon: CreditCard },
+  { href: "/admin/gastos",    label: "Gastos",    icon: TrendingDown },
+  { href: "/admin/balance",   label: "Balance",   icon: BarChart2 },
   { href: "/admin/usuarios",  label: "Usuarios",  icon: UserCog, adminOnly: true },
 ]
 

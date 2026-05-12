@@ -21,6 +21,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   pagos        Pago[]
+  gastos       Gasto[]
 
   @@map("users")
 }
@@ -70,6 +71,25 @@ model Pago {
   createdAt       DateTime  @default(now())
 
   @@map("pagos")
+}
+
+// ─── GASTOS OPERATIVOS ────────────────────────────────────────────────────────
+// categoria: HERRAMIENTA_IA | SOFTWARE | INFRAESTRUCTURA | PUBLICIDAD | OTRO
+
+model Gasto {
+  id              String   @id @default(cuid())
+  concepto        String                           // descripción libre: "Claude Max", "Canva Pro"…
+  categoria       String   @default("OTRO")        // HERRAMIENTA_IA | SOFTWARE | INFRAESTRUCTURA | PUBLICIDAD | OTRO
+  monto           Float
+  moneda          String   @default("USD")         // USD | CLP | EUR
+  fecha           DateTime @default(now())
+  comprobante     String?                          // archivo en uploads/comprobantes/
+  notas           String?
+  registradoPorId String
+  registradoPor   User     @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@map("gastos")
 }
 
 // ─── LOG DE ACTIVIDAD ─────────────────────────────────────────────────────────
