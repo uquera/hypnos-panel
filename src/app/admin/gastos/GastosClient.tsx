@@ -476,7 +476,7 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
                       <td className="px-5 py-3.5 text-right font-semibold text-red-600">{formatMonto(g.monto, g.moneda)}</td>
                       <td className="px-5 py-3.5 text-center">
                         {g.comprobante ? (
-                          <a href={`/api/pagos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                          <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
                             <FileText size={13} />
                           </a>
