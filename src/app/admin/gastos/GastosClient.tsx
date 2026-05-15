@@ -46,10 +46,16 @@ interface GastoItem {
   comprobante: string | null
   notas: string | null
   registradoPor: string
+  custodioId: string | null
+  custodioNombre: string
 }
 
+interface UsuarioBasic { id: string; nombre: string }
+
 interface Props {
-  gastos:  GastoItem[]
+  gastos:        GastoItem[]
+  usuarios:      UsuarioBasic[]
+  currentUserId: string
   kpis: {
     totalEsteMes: number
     totalHistorico: number
@@ -76,6 +82,8 @@ function todayISO() { return new Date().toISOString().split("T")[0] }
 
 function FormGasto({
   initial,
+  usuarios,
+  currentUserId,
   onSubmit,
   onCancel,
   submitting,
@@ -84,8 +92,10 @@ function FormGasto({
 }: {
   initial: {
     concepto: string; categoria: Categoria; monto: string
-    moneda: string; fecha: string; notas: string
+    moneda: string; fecha: string; notas: string; custodioId: string
   }
+  usuarios: UsuarioBasic[]
+  currentUserId: string
   onSubmit: (data: FormData, file: File | null) => Promise<void>
   onCancel: () => void
   submitting: boolean
@@ -107,6 +117,7 @@ function FormGasto({
     fd.append("moneda",    form.moneda)
     fd.append("fecha",     form.fecha)
     fd.append("notas",     form.notas)
+    fd.append("custodioId", form.custodioId !== currentUserId ? form.custodioId : "")
     if (file) fd.append("comprobante", file)
     await onSubmit(fd, file)
   }
@@ -196,6 +207,34 @@ function FormGasto({
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
       </div>
 
+      {/* Pagado por */}
+      {usuarios.length > 1 && (
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">Pagado por *</label>
+          <div className="flex gap-2">
+            {usuarios.map(u => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => set("custodioId", u.id)}
+                className={[
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all",
+                  form.custodioId === u.id
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300",
+                ].join(" ")}
+              >
+                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+                  {u.nombre.charAt(0).toUpperCase()}
+                </span>
+                {u.nombre.split(" ")[0]}
+                {u.id === currentUserId && <span className="text-xs text-gray-400">(yo)</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3 pt-1">
         <button type="button" onClick={onCancel}
           className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
@@ -213,7 +252,14 @@ function FormGasto({
 
 // ─── Modal Registrar ──────────────────────────────────────────────────────────
 
-function ModalRegistrar({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function ModalRegistrar({
+  usuarios, currentUserId, onClose, onSuccess,
+}: {
+  usuarios: UsuarioBasic[]
+  currentUserId: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const [submitting, setSub] = useState(false)
 
   async function handleSubmit(fd: FormData) {
@@ -237,7 +283,9 @@ function ModalRegistrar({ onClose, onSuccess }: { onClose: () => void; onSuccess
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X size={18} /></button>
         </div>
         <FormGasto
-          initial={{ concepto: "", categoria: "HERRAMIENTA_IA", monto: "", moneda: "USD", fecha: todayISO(), notas: "" }}
+          initial={{ concepto: "", categoria: "HERRAMIENTA_IA", monto: "", moneda: "USD", fecha: todayISO(), notas: "", custodioId: currentUserId }}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           onSubmit={handleSubmit} onCancel={onClose}
           submitting={submitting} submitLabel="Registrar gasto"
         />
@@ -248,7 +296,15 @@ function ModalRegistrar({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
 // ─── Modal Editar ─────────────────────────────────────────────────────────────
 
-function ModalEditar({ gasto, onClose, onSuccess }: { gasto: GastoItem; onClose: () => void; onSuccess: () => void }) {
+function ModalEditar({
+  gasto, usuarios, currentUserId, onClose, onSuccess,
+}: {
+  gasto: GastoItem
+  usuarios: UsuarioBasic[]
+  currentUserId: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const [submitting, setSub] = useState(false)
 
   async function handleSubmit(fd: FormData) {
@@ -279,7 +335,10 @@ function ModalEditar({ gasto, onClose, onSuccess }: { gasto: GastoItem; onClose:
             concepto: gasto.concepto, categoria: gasto.categoria as Categoria,
             monto: String(gasto.monto), moneda: gasto.moneda,
             fecha: gasto.fecha.split("T")[0], notas: gasto.notas ?? "",
+            custodioId: gasto.custodioId ?? currentUserId,
           }}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           onSubmit={handleSubmit} onCancel={onClose}
           submitting={submitting} submitLabel="Guardar cambios"
           existingComprobante={gasto.comprobante}
@@ -291,7 +350,7 @@ function ModalEditar({ gasto, onClose, onSuccess }: { gasto: GastoItem; onClose:
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
+export default function GastosClient({ gastos, usuarios, currentUserId, kpis, isAdmin }: Props) {
   const router = useRouter()
   const [modalOpen,    setModalOpen]    = useState(false)
   const [editando,     setEditando]     = useState<GastoItem | null>(null)
@@ -460,7 +519,7 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
                     <th className="px-5 py-3 text-left">Categoría</th>
                     <th className="px-5 py-3 text-right">Monto</th>
                     <th className="px-5 py-3 text-center">Comp.</th>
-                    <th className="px-5 py-3 text-left">Por</th>
+                    <th className="px-5 py-3 text-left">Pagado por</th>
                     {isAdmin && <th className="px-5 py-3 text-center">Acc.</th>}
                   </tr>
                 </thead>
@@ -482,21 +541,19 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
                           </a>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-gray-500">{g.registradoPor}</td>
-                      {isAdmin && (
-                        <td className="px-5 py-3.5 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => setEditando(g)}
-                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
-                              <Pencil size={13} />
-                            </button>
-                            <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
-                              {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                            </button>
-                          </div>
-                        </td>
-                      )}
+                      <td className="px-5 py-3.5 text-xs font-medium text-gray-800">{g.custodioNombre}</td>
+                      <td className="px-5 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => setEditando(g)}
+                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
+                            {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -515,15 +572,13 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
                     <p className="font-bold text-red-600 text-sm shrink-0">{formatMonto(g.monto, g.moneda)}</p>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">{formatFecha(g.fecha)} · {g.registradoPor}</p>
-                    {isAdmin && (
-                      <div className="flex gap-1">
-                        <button onClick={() => setEditando(g)} className="p-1 rounded text-indigo-400 hover:text-indigo-600"><Pencil size={13} /></button>
-                        <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id} className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
-                          {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </button>
-                      </div>
-                    )}
+                    <p className="text-xs text-gray-400">{formatFecha(g.fecha)} · {g.custodioNombre}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => setEditando(g)} className="p-1 rounded text-indigo-400 hover:text-indigo-600"><Pencil size={13} /></button>
+                      <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id} className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
+                        {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -547,6 +602,8 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
       {/* Modales */}
       {modalOpen && (
         <ModalRegistrar
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           onClose={() => setModalOpen(false)}
           onSuccess={() => { setModalOpen(false); router.refresh() }}
         />
@@ -554,6 +611,8 @@ export default function GastosClient({ gastos, kpis, isAdmin }: Props) {
       {editando && (
         <ModalEditar
           gasto={editando}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           onClose={() => setEditando(null)}
           onSuccess={() => { setEditando(null); router.refresh() }}
         />

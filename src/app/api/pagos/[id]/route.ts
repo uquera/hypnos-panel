@@ -17,8 +17,7 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "Solo administradores pueden editar pagos" }, { status: 403 })
+  // Cualquier usuario autenticado puede editar ingresos
 
   const { id } = await params
   const pago = await prisma.pago.findUnique({ where: { id } })
@@ -91,8 +90,7 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "Solo administradores pueden eliminar pagos" }, { status: 403 })
+  // Cualquier usuario autenticado puede eliminar ingresos
 
   const { id } = await params
   const pago = await prisma.pago.findUnique({ where: { id } })

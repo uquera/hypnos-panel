@@ -45,14 +45,22 @@ export async function POST(req: Request) {
     registradoPorId = user.id
   }
 
-  const formData  = await req.formData()
-  const concepto  = (formData.get("concepto") as string)?.trim()
-  const categoria = (formData.get("categoria") as string) || "OTRO"
-  const monto     = parseFloat(formData.get("monto") as string)
-  const moneda    = (formData.get("moneda") as string) || "USD"
-  const fecha     = (formData.get("fecha") as string) || new Date().toISOString().split("T")[0]
-  const notas     = (formData.get("notas") as string) || null
-  const file      = formData.get("comprobante") as File | null
+  const formData     = await req.formData()
+  const concepto     = (formData.get("concepto") as string)?.trim()
+  const categoria    = (formData.get("categoria") as string) || "OTRO"
+  const monto        = parseFloat(formData.get("monto") as string)
+  const moneda       = (formData.get("moneda") as string) || "USD"
+  const fecha        = (formData.get("fecha") as string) || new Date().toISOString().split("T")[0]
+  const notas        = (formData.get("notas") as string) || null
+  const file         = formData.get("comprobante") as File | null
+  const custodioRaw  = (formData.get("custodioId") as string) || null
+
+  let custodioId: string | null = null
+  if (custodioRaw && custodioRaw !== registradoPorId) {
+    const custodio = await prisma.user.findUnique({ where: { id: custodioRaw } })
+    if (!custodio) return NextResponse.json({ error: "Custodio no encontrado" }, { status: 404 })
+    custodioId = custodioRaw
+  }
 
   if (!concepto) return NextResponse.json({ error: "El concepto es obligatorio" }, { status: 400 })
   if (isNaN(monto) || monto <= 0) return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
@@ -71,8 +79,11 @@ export async function POST(req: Request) {
   }
 
   const gasto = await prisma.gasto.create({
-    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante, registradoPorId },
-    include: { registradoPor: { select: { nombre: true } } },
+    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante, registradoPorId, custodioId },
+    include: {
+      registradoPor: { select: { nombre: true } },
+      custodio:      { select: { nombre: true } },
+    },
   })
 
   return NextResponse.json({ gasto }, { status: 201 })

@@ -17,21 +17,22 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "Solo administradores pueden editar gastos" }, { status: 403 })
+  // Cualquier usuario autenticado puede editar gastos
 
   const { id } = await params
   const gasto  = await prisma.gasto.findUnique({ where: { id } })
   if (!gasto) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 })
 
-  const formData  = await req.formData()
-  const concepto  = (formData.get("concepto") as string)?.trim()
-  const categoria = (formData.get("categoria") as string) || gasto.categoria
-  const monto     = parseFloat(formData.get("monto") as string)
-  const moneda    = (formData.get("moneda") as string) || gasto.moneda
-  const fecha     = formData.get("fecha") as string
-  const notas     = (formData.get("notas") as string) || null
-  const file      = formData.get("comprobante") as File | null
+  const formData     = await req.formData()
+  const concepto     = (formData.get("concepto") as string)?.trim()
+  const categoria    = (formData.get("categoria") as string) || gasto.categoria
+  const monto        = parseFloat(formData.get("monto") as string)
+  const moneda       = (formData.get("moneda") as string) || gasto.moneda
+  const fecha        = formData.get("fecha") as string
+  const notas        = (formData.get("notas") as string) || null
+  const file         = formData.get("comprobante") as File | null
+  const custodioRaw  = formData.get("custodioId") as string | null
+  const custodioId   = custodioRaw === null ? gasto.custodioId : (custodioRaw || null)
 
   if (!concepto) return NextResponse.json({ error: "El concepto es obligatorio" }, { status: 400 })
   if (isNaN(monto) || monto <= 0) return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
@@ -52,8 +53,11 @@ export async function PATCH(
 
   const updated = await prisma.gasto.update({
     where: { id },
-    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante },
-    include: { registradoPor: { select: { nombre: true } } },
+    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante, custodioId },
+    include: {
+      registradoPor: { select: { nombre: true } },
+      custodio:      { select: { nombre: true } },
+    },
   })
 
   return NextResponse.json({ gasto: updated })
@@ -66,8 +70,7 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "Solo administradores pueden eliminar gastos" }, { status: 403 })
+  // Cualquier usuario autenticado puede eliminar gastos
 
   const { id }  = await params
   const gasto   = await prisma.gasto.findUnique({ where: { id } })

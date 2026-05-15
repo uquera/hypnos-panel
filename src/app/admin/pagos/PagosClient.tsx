@@ -1040,7 +1040,7 @@ export default function PagosClient({
                     <th className="px-5 py-3 text-right">Monto</th>
                     <th className="px-5 py-3 text-center">Comp.</th>
                     <th className="px-5 py-3 text-left">Custodio</th>
-                    {isAdmin && <th className="px-5 py-3 text-center">Acc.</th>}
+                    <th className="px-5 py-3 text-center">Acc.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1063,20 +1063,18 @@ export default function PagosClient({
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-5 py-3.5 text-gray-800 text-xs font-medium">{p.custodioNombre}</td>
-                      {isAdmin && (
-                        <td className="px-5 py-3.5 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => setEditandoPago(p)}
-                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
-                              <Pencil size={13} />
-                            </button>
-                            <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
-                              {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                            </button>
-                          </div>
-                        </td>
-                      )}
+                      <td className="px-5 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => setEditandoPago(p)}
+                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
+                            {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1104,17 +1102,15 @@ export default function PagosClient({
                           <FileText size={11} /> Comp.
                         </a>
                       )}
-                      {isAdmin && (
-                        <>
-                          <button onClick={() => setEditandoPago(p)} className="p-1 rounded text-indigo-400 hover:text-indigo-600">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
-                            className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
-                            {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                          </button>
-                        </>
-                      )}
+                      <>
+                        <button onClick={() => setEditandoPago(p)} className="p-1 rounded text-indigo-400 hover:text-indigo-600">
+                          <Pencil size={13} />
+                        </button>
+                        <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
+                          className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
+                          {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      </>
                     </div>
                   </div>
                 </div>
