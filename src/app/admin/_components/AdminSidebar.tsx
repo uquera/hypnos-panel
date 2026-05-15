@@ -25,7 +25,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/admin",           label: "Clientes",  icon: LayoutDashboard, exact: true },
-  { href: "/admin/pagos",     label: "Pagos",     icon: CreditCard },
+  { href: "/admin/pagos",     label: "Ingresos",  icon: CreditCard },
   { href: "/admin/gastos",    label: "Gastos",    icon: TrendingDown },
   { href: "/admin/balance",      label: "Balance",      icon: BarChart2 },
   { href: "/admin/integrantes",  label: "Integrantes",  icon: Users, adminOnly: true },

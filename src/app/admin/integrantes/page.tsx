@@ -25,11 +25,15 @@ export default async function IntegrantesPage() {
   const inicioMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
   const finMesAnterior    = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59)
 
+  // Traer todos los pagos donde este usuario es custodio O registradoPor (cuando custodioId es null)
+  const todosPagos = await prisma.pago.findMany({
+    select: { monto: true, moneda: true, fechaPago: true, registradoPorId: true, custodioId: true },
+  })
+
   const usuarios = await prisma.user.findMany({
     where:   { activo: true },
     orderBy: { createdAt: "asc" },
     include: {
-      pagos:   { select: { monto: true, moneda: true, fechaPago: true } },
       gastos:  { select: { monto: true, moneda: true, fecha: true } },
       retiros: {
         select: { id: true, monto: true, moneda: true, fecha: true, concepto: true, createdAt: true },
@@ -42,8 +46,13 @@ export default async function IntegrantesPage() {
     const filtrarFecha = (f: Date) =>
       (!desde || f >= desde) && (!hasta || f <= hasta)
 
-    const cobrado  = user.pagos
-      .filter(p => filtrarFecha(new Date(p.fechaPago)))
+    // Un pago pertenece a este usuario si es su custodioId
+    // Si custodioId es null, el custodio efectivo es el registradoPorId
+    const cobrado = todosPagos
+      .filter(p => {
+        const efectivoCustodio = p.custodioId ?? p.registradoPorId
+        return efectivoCustodio === user.id && filtrarFecha(new Date(p.fechaPago))
+      })
       .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
 
     const gastado  = user.gastos

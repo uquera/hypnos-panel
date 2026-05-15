@@ -21,7 +21,10 @@ export async function GET(
   const { id } = await params
   const pagos = await prisma.pago.findMany({
     where: { clienteId: id },
-    include: { registradoPor: { select: { nombre: true } } },
+    include: {
+      registradoPor: { select: { nombre: true } },
+      custodio:      { select: { nombre: true } },
+    },
     orderBy: { fechaPago: "desc" },
   })
 
@@ -47,16 +50,25 @@ export async function POST(
     registradoPorId = user.id
   }
 
-  const formData       = await req.formData()
-  const monto          = parseFloat(formData.get("monto") as string)
-  const moneda         = (formData.get("moneda") as string) || "USD"
-  const concepto       = (formData.get("concepto") as string) || "LICENCIA"
+  const formData        = await req.formData()
+  const monto           = parseFloat(formData.get("monto") as string)
+  const moneda          = (formData.get("moneda") as string) || "USD"
+  const concepto        = (formData.get("concepto") as string) || "LICENCIA"
   const conceptoDetalle = (formData.get("conceptoDetalle") as string) || null
-  const periodoInicio  = formData.get("periodoInicio") as string | null
-  const periodoFin     = formData.get("periodoFin")    as string | null
-  const fechaPago      = formData.get("fechaPago")     as string
-  const notas          = (formData.get("notas") as string) || null
-  const file           = formData.get("comprobante") as File | null
+  const periodoInicio   = formData.get("periodoInicio") as string | null
+  const periodoFin      = formData.get("periodoFin")    as string | null
+  const fechaPago       = formData.get("fechaPago")     as string
+  const notas           = (formData.get("notas") as string) || null
+  const file            = formData.get("comprobante") as File | null
+  const custodioIdRaw   = (formData.get("custodioId") as string) || null
+
+  // Validar custodioId si se proporcionó
+  let custodioId: string | null = null
+  if (custodioIdRaw && custodioIdRaw !== registradoPorId) {
+    const custodio = await prisma.user.findUnique({ where: { id: custodioIdRaw } })
+    if (!custodio) return NextResponse.json({ error: "Custodio no encontrado" }, { status: 404 })
+    custodioId = custodioIdRaw
+  }
 
   if (isNaN(monto) || monto <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
@@ -96,8 +108,12 @@ export async function POST(
       comprobante,
       notas,
       registradoPorId,
+      custodioId,
     },
-    include: { registradoPor: { select: { nombre: true } } },
+    include: {
+      registradoPor: { select: { nombre: true } },
+      custodio:      { select: { nombre: true } },
+    },
   })
 
   // Etiqueta para el log de actividad

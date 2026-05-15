@@ -70,9 +70,12 @@ interface PagoItem {
   comprobante: string | null
   notas: string | null
   registradoPor: string
+  custodioId: string | null
+  custodioNombre: string
 }
 
 interface ClienteBasic { id: string; nombre: string }
+interface UsuarioBasic { id: string; nombre: string }
 
 interface ChartMonth {
   label: string; key: string
@@ -92,6 +95,8 @@ interface KPIs {
 interface Props {
   pagos:                   PagoItem[]
   clientes:                ClienteBasic[]
+  usuarios:                UsuarioBasic[]
+  currentUserId:           string
   clientesSinPagoReciente: { id: string; nombre: string; diasRestantes: number }[]
   chartMonths:             ChartMonth[]
   mesActualKey:            string
@@ -273,9 +278,11 @@ function CamposConcepto({
 // ─── Modal Registrar Pago ─────────────────────────────────────────────────────
 
 function ModalRegistrarPago({
-  clientes, clientePreseleccionado, onClose, onSuccess,
+  clientes, usuarios, currentUserId, clientePreseleccionado, onClose, onSuccess,
 }: {
   clientes: ClienteBasic[]
+  usuarios: UsuarioBasic[]
+  currentUserId: string
   clientePreseleccionado?: string
   onClose: () => void
   onSuccess: () => void
@@ -291,6 +298,7 @@ function ModalRegistrarPago({
     periodoFin:      mes.fin,
     fechaPago:       todayISO(),
     notas:           "",
+    custodioId:      currentUserId,
   })
   const [file, setFile]            = useState<File | null>(null)
   const [submitting, setSub]       = useState(false)
@@ -332,12 +340,13 @@ function ModalRegistrarPago({
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
+      fd.append("custodioId",      form.custodioId !== currentUserId ? form.custodioId : "")
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/clientes/${form.clienteId}/pagos`, { method: "POST", body: fd })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       const { syncedRemote } = await res.json()
-      toast.success(syncedRemote ? "Pago registrado y sincronizado" : "Pago registrado")
+      toast.success(syncedRemote ? "Ingreso registrado y sincronizado" : "Ingreso registrado")
       onSuccess()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al registrar el pago")
@@ -351,7 +360,7 @@ function ModalRegistrarPago({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-base font-bold text-gray-900">Registrar pago</h2>
+          <h2 className="text-base font-bold text-gray-900">Registrar ingreso</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X size={18} /></button>
         </div>
 
@@ -494,6 +503,36 @@ function ModalRegistrarPago({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
 
+          {/* Custodio — quién recibe el dinero */}
+          {usuarios.length > 1 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                Custodio del dinero *
+              </label>
+              <div className="flex gap-2">
+                {usuarios.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setField("custodioId", u.id)}
+                    className={[
+                      "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all",
+                      form.custodioId === u.id
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300",
+                    ].join(" ")}
+                  >
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+                      {u.nombre.charAt(0).toUpperCase()}
+                    </span>
+                    {u.nombre.split(" ")[0]}
+                    {u.id === currentUserId && <span className="text-xs text-gray-400">(yo)</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
@@ -502,7 +541,7 @@ function ModalRegistrarPago({
             <button type="submit" disabled={submitting}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
               style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
-              {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Registrar pago"}
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Registrar ingreso"}
             </button>
           </div>
         </form>
@@ -513,7 +552,15 @@ function ModalRegistrarPago({
 
 // ─── Modal Editar Pago ────────────────────────────────────────────────────────
 
-function ModalEditarPago({ pago, onClose, onSuccess }: { pago: PagoItem; onClose: () => void; onSuccess: () => void }) {
+function ModalEditarPago({
+  pago, usuarios, currentUserId, onClose, onSuccess,
+}: {
+  pago: PagoItem
+  usuarios: UsuarioBasic[]
+  currentUserId: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const mes = getMesCompleto(0)
   const [form, setForm] = useState({
     concepto:        pago.concepto as Concepto,
@@ -524,6 +571,7 @@ function ModalEditarPago({ pago, onClose, onSuccess }: { pago: PagoItem; onClose
     periodoFin:      pago.periodoFin    ? pago.periodoFin.split("T")[0]    : mes.fin,
     fechaPago:       pago.fechaPago.split("T")[0],
     notas:           pago.notas ?? "",
+    custodioId:      pago.custodioId ?? currentUserId,
   })
   const [file, setFile]      = useState<File | null>(null)
   const [submitting, setSub] = useState(false)
@@ -546,14 +594,15 @@ function ModalEditarPago({ pago, onClose, onSuccess }: { pago: PagoItem; onClose
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
+      fd.append("custodioId",      form.custodioId !== currentUserId ? form.custodioId : "")
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/pagos/${pago.id}`, { method: "PATCH", body: fd })
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
-      toast.success("Pago actualizado")
+      toast.success("Ingreso actualizado")
       onSuccess()
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar el pago")
+      toast.error(err instanceof Error ? err.message : "Error al actualizar el ingreso")
     } finally {
       setSub(false)
     }
@@ -654,6 +703,34 @@ function ModalEditarPago({ pago, onClose, onSuccess }: { pago: PagoItem; onClose
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
 
+          {/* Custodio */}
+          {usuarios.length > 1 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Custodio del dinero *</label>
+              <div className="flex gap-2">
+                {usuarios.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setField("custodioId", u.id)}
+                    className={[
+                      "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all",
+                      form.custodioId === u.id
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300",
+                    ].join(" ")}
+                  >
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+                      {u.nombre.charAt(0).toUpperCase()}
+                    </span>
+                    {u.nombre.split(" ")[0]}
+                    {u.id === currentUserId && <span className="text-xs text-gray-400">(yo)</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
@@ -674,7 +751,7 @@ function ModalEditarPago({ pago, onClose, onSuccess }: { pago: PagoItem; onClose
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PagosClient({
-  pagos, clientes, clientesSinPagoReciente, chartMonths, mesActualKey, kpis, isAdmin,
+  pagos, clientes, usuarios, currentUserId, clientesSinPagoReciente, chartMonths, mesActualKey, kpis, isAdmin,
 }: Props) {
   const router = useRouter()
   const [filtroCliente,  setFiltroCliente]  = useState("todos")
@@ -772,13 +849,13 @@ export default function PagosClient({
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Pagos</h1>
+          <h1 className="text-xl font-bold text-gray-900">Ingresos</h1>
           <p className="text-sm text-gray-500 mt-0.5">Ingresos por mensualidades, marketing y desarrollo</p>
         </div>
         <button onClick={() => abrirModal()}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm"
           style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
-          <Plus size={15} /> Registrar pago
+          <Plus size={15} /> Registrar ingreso
         </button>
       </div>
 
@@ -947,7 +1024,7 @@ export default function PagosClient({
         {pagosFiltrados.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">
             <CreditCard size={32} className="mx-auto mb-3 opacity-20" />
-            No hay pagos con los filtros seleccionados
+            No hay ingresos con los filtros seleccionados
           </div>
         ) : (
           <>
@@ -962,7 +1039,7 @@ export default function PagosClient({
                     <th className="px-5 py-3 text-left">Descripción</th>
                     <th className="px-5 py-3 text-right">Monto</th>
                     <th className="px-5 py-3 text-center">Comp.</th>
-                    <th className="px-5 py-3 text-left">Por</th>
+                    <th className="px-5 py-3 text-left">Custodio</th>
                     {isAdmin && <th className="px-5 py-3 text-center">Acc.</th>}
                   </tr>
                 </thead>
@@ -985,7 +1062,7 @@ export default function PagosClient({
                           </a>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-5 py-3.5 text-gray-500 text-xs">{p.registradoPor}</td>
+                      <td className="px-5 py-3.5 text-gray-800 text-xs font-medium">{p.custodioNombre}</td>
                       {isAdmin && (
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -1019,7 +1096,7 @@ export default function PagosClient({
                   </div>
                   <p className="text-xs text-gray-500 mt-1 truncate">{descripcionPago(p)}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">{formatFecha(p.fechaPago)} · {p.registradoPor}</p>
+                    <p className="text-xs text-gray-400">{formatFecha(p.fechaPago)} · {p.custodioNombre}</p>
                     <div className="flex items-center gap-1">
                       {p.comprobante && (
                         <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"
@@ -1070,6 +1147,8 @@ export default function PagosClient({
       {modalOpen && (
         <ModalRegistrarPago
           clientes={clientes}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           clientePreseleccionado={clientePre}
           onClose={() => { setModalOpen(false); setClientePre(undefined) }}
           onSuccess={() => { setModalOpen(false); setClientePre(undefined); router.refresh() }}
@@ -1078,6 +1157,8 @@ export default function PagosClient({
       {editandoPago && (
         <ModalEditarPago
           pago={editandoPago}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
           onClose={() => setEditandoPago(null)}
           onSuccess={() => { setEditandoPago(null); router.refresh() }}
         />

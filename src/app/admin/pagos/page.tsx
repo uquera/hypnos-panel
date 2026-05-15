@@ -5,7 +5,7 @@ import { calcularEstado } from "@/lib/licencia-utils"
 import PagosClient from "./PagosClient"
 
 export const dynamic = "force-dynamic"
-export const metadata = { title: "Pagos — Hypnos Panel" }
+export const metadata = { title: "Ingresos — Hypnos Panel" }
 
 function toUSD(monto: number, moneda: string): number {
   if (moneda === "USD") return monto
@@ -23,11 +23,12 @@ export default async function PagosPage() {
   const finMesAnterior    = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59)
   const hace12Meses       = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1)
 
-  const [pagos, clientes, pagosChart] = await Promise.all([
+  const [pagos, clientes, pagosChart, usuarios] = await Promise.all([
     prisma.pago.findMany({
       include: {
         cliente:       { select: { id: true, nombre: true, dominio: true } },
         registradoPor: { select: { nombre: true } },
+        custodio:      { select: { id: true, nombre: true } },
       },
       orderBy: { fechaPago: "desc" },
     }),
@@ -36,6 +37,7 @@ export default async function PagosPage() {
       where:  { fechaPago: { gte: hace12Meses } },
       select: { fechaPago: true, monto: true, moneda: true, concepto: true },
     }),
+    prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
   ])
 
   // KPIs globales
@@ -93,20 +95,22 @@ export default async function PagosPage() {
 
   // Serializar pagos
   const pagosSerial = pagos.map(p => ({
-    id:             p.id,
-    clienteId:      p.clienteId,
-    clienteNombre:  p.cliente.nombre,
-    clienteDominio: p.cliente.dominio,
-    concepto:       p.concepto,
+    id:              p.id,
+    clienteId:       p.clienteId,
+    clienteNombre:   p.cliente.nombre,
+    clienteDominio:  p.cliente.dominio,
+    concepto:        p.concepto,
     conceptoDetalle: p.conceptoDetalle,
-    monto:          p.monto,
-    moneda:         p.moneda,
-    periodoInicio:  p.periodoInicio?.toISOString() ?? null,
-    periodoFin:     p.periodoFin?.toISOString()    ?? null,
-    fechaPago:      p.fechaPago.toISOString(),
-    comprobante:    p.comprobante,
-    notas:          p.notas,
-    registradoPor:  p.registradoPor.nombre,
+    monto:           p.monto,
+    moneda:          p.moneda,
+    periodoInicio:   p.periodoInicio?.toISOString() ?? null,
+    periodoFin:      p.periodoFin?.toISOString()    ?? null,
+    fechaPago:       p.fechaPago.toISOString(),
+    comprobante:     p.comprobante,
+    notas:           p.notas,
+    registradoPor:   p.registradoPor.nombre,
+    custodioId:      p.custodioId ?? null,
+    custodioNombre:  p.custodio?.nombre ?? p.registradoPor.nombre,
   }))
 
   const mesActualKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`
@@ -115,6 +119,8 @@ export default async function PagosPage() {
     <PagosClient
       pagos={pagosSerial}
       clientes={clientes.map(c => ({ id: c.id, nombre: c.nombre }))}
+      usuarios={usuarios}
+      currentUserId={session.user.id ?? ""}
       clientesSinPagoReciente={clientesSinPagoRec.map(c => ({
         id: c.id, nombre: c.nombre, diasRestantes: c.estado.diasRestantes,
       }))}

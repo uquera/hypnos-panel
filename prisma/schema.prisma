@@ -20,9 +20,10 @@ model User {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  pagos        Pago[]
-  gastos       Gasto[]
-  retiros      Retiro[]
+  pagosRegistrados  Pago[]   @relation("PagosRegistrados")
+  pagosCustodiados  Pago[]   @relation("PagosCustodiados")
+  gastos            Gasto[]
+  retiros           Retiro[]
 
   @@map("users")
 }
@@ -68,7 +69,9 @@ model Pago {
   comprobante     String?                          // nombre del archivo en uploads/comprobantes/
   notas           String?
   registradoPorId String
-  registradoPor   User      @relation(fields: [registradoPorId], references: [id])
+  registradoPor   User      @relation("PagosRegistrados", fields: [registradoPorId], references: [id])
+  custodioId      String?                          // quién tiene físicamente el dinero (null = mismo que registradoPor)
+  custodio        User?     @relation("PagosCustodiados", fields: [custodioId], references: [id])
   createdAt       DateTime  @default(now())
 
   @@map("pagos")
