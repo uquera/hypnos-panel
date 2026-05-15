@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   CreditCard, TrendingUp, TrendingDown, Minus, Users, AlertTriangle,
   Plus, X, FileText, Download, ChevronDown, Loader2, Pencil, Trash2,
-  Sparkles, Code2, Receipt,
+  Sparkles, Code2, Receipt, Search,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -292,9 +292,26 @@ function ModalRegistrarPago({
     fechaPago:       todayISO(),
     notas:           "",
   })
-  const [file, setFile]      = useState<File | null>(null)
-  const [submitting, setSub] = useState(false)
-  const fileRef              = useRef<HTMLInputElement>(null)
+  const [file, setFile]            = useState<File | null>(null)
+  const [submitting, setSub]       = useState(false)
+  const [busqCliente, setBusq]     = useState("")
+  const [dropOpen, setDropOpen]    = useState(false)
+  const fileRef                    = useRef<HTMLInputElement>(null)
+  const dropRef                    = useRef<HTMLDivElement>(null)
+
+  const clienteSeleccionado = clientes.find(c => c.id === form.clienteId)
+  const clientesFiltrados   = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(busqCliente.toLowerCase())
+  )
+
+  useEffect(() => {
+    if (!dropOpen) return
+    function handler(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [dropOpen])
 
   function setField(key: string, val: string) { setForm(f => ({ ...f, [key]: val })) }
   function setMes(offset: number) { const m = getMesCompleto(offset); setForm(f => ({ ...f, periodoInicio: m.inicio, periodoFin: m.fin })) }
@@ -339,15 +356,58 @@ function ModalRegistrarPago({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Cliente */}
+          {/* Cliente — combobox buscable */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Cliente *</label>
-            <div className="relative">
-              <select value={form.clienteId} onChange={e => setField("clienteId", e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none pr-8 bg-white">
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="relative" ref={dropRef}>
+              <button
+                type="button"
+                onClick={() => { setDropOpen(v => !v); setBusq("") }}
+                className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-left"
+              >
+                <span className={clienteSeleccionado ? "text-gray-800" : "text-gray-400"}>
+                  {clienteSeleccionado?.nombre ?? "Seleccionar cliente…"}
+                </span>
+                <ChevronDown size={14} className="text-gray-400 shrink-0" />
+              </button>
+
+              {dropOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
+                    <Search size={13} className="text-gray-400 shrink-0" />
+                    <input
+                      autoFocus
+                      type="text"
+                      value={busqCliente}
+                      onChange={e => setBusq(e.target.value)}
+                      placeholder="Buscar cliente…"
+                      className="flex-1 text-sm outline-none placeholder:text-gray-400"
+                    />
+                    {busqCliente && (
+                      <button type="button" onClick={() => setBusq("")} className="text-gray-400 hover:text-gray-600">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <ul className="max-h-48 overflow-y-auto py-1">
+                    {clientesFiltrados.length === 0 ? (
+                      <li className="px-3 py-2 text-xs text-gray-400 text-center">Sin resultados</li>
+                    ) : clientesFiltrados.map(c => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => { setField("clienteId", c.id); setDropOpen(false); setBusq("") }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${
+                            form.clienteId === c.id ? "bg-indigo-50 text-indigo-700 font-medium" : "text-gray-700"
+                          }`}
+                        >
+                          {c.nombre}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 
