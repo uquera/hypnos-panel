@@ -22,6 +22,7 @@ model User {
   updatedAt    DateTime @updatedAt
   pagos        Pago[]
   gastos       Gasto[]
+  retiros      Retiro[]
 
   @@map("users")
 }
@@ -107,6 +108,22 @@ model ActividadLog {
   createdAt     DateTime @default(now())
 
   @@map("actividad_log")
+}
+
+// ─── RETIROS ──────────────────────────────────────────────────────────────────
+// Dinero que un integrante retira de la caja (sueldo, gastos personales, etc.)
+
+model Retiro {
+  id              String   @id @default(cuid())
+  monto           Float
+  moneda          String   @default("USD")        // USD | CLP | EUR
+  fecha           DateTime @default(now())
+  concepto        String?                          // "Sueldo quincenal", "Gastos personales"…
+  registradoPorId String
+  registradoPor   User     @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@map("retiros")
 }
 
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────
