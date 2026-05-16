@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
 
 const MONEDAS_VALIDAS = ["USD", "CLP", "EUR"]
@@ -35,6 +36,12 @@ export async function PATCH(
     include: { registradoPor: { select: { id: true, nombre: true } } },
   })
 
+  await logActividad({
+    usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    accion: "RETIRO_EDITADO",
+    detalle: `${updated.registradoPor.nombre} · ${updated.moneda} ${updated.monto}${updated.concepto ? ` · ${updated.concepto}` : ""}`,
+  })
+
   return NextResponse.json({ retiro: updated })
 }
 
@@ -53,5 +60,12 @@ export async function DELETE(
   if (!retiro) return NextResponse.json({ error: "Retiro no encontrado" }, { status: 404 })
 
   await prisma.retiro.delete({ where: { id } })
+
+  await logActividad({
+    usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    accion: "RETIRO_ELIMINADO",
+    detalle: `${retiro.moneda} ${retiro.monto}${retiro.concepto ? ` · ${retiro.concepto}` : ""}`,
+  })
+
   return NextResponse.json({ ok: true })
 }

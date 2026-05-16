@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -84,6 +85,12 @@ export async function POST(req: Request) {
       registradoPor: { select: { nombre: true } },
       custodio:      { select: { nombre: true } },
     },
+  })
+
+  await logActividad({
+    usuarioId: registradoPorId, usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    accion: "GASTO_REGISTRADO",
+    detalle: `${concepto} · ${moneda} ${monto} · ${gasto.custodio?.nombre ?? gasto.registradoPor.nombre}`,
   })
 
   return NextResponse.json({ gasto }, { status: 201 })

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -84,6 +85,17 @@ export async function PATCH(
     },
   })
 
+  const userId   = session.user.id ?? ""
+  const userName = session.user.name ?? session.user.email ?? "?"
+  const cliente  = await prisma.cliente.findUnique({ where: { id: updated.clienteId }, select: { nombre: true } })
+  const etiqueta = concepto === "MARKETING" ? "Marketing" : concepto === "DESARROLLO" ? "Desarrollo" : "Mensualidad"
+  await logActividad({
+    usuarioId: userId, usuarioNombre: userName,
+    clienteId: updated.clienteId, clienteNombre: cliente?.nombre,
+    accion: "INGRESO_EDITADO",
+    detalle: `[${etiqueta}] ${moneda} ${monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`,
+  })
+
   return NextResponse.json({ pago: updated })
 }
 
@@ -103,6 +115,15 @@ export async function DELETE(
     try { await fs.unlink(path.join(UPLOAD_DIR, pago.comprobante)) } catch { /* ignorar */ }
   }
 
+  const clienteNombre = (await prisma.cliente.findUnique({ where: { id: pago.clienteId }, select: { nombre: true } }))?.nombre
   await prisma.pago.delete({ where: { id } })
+
+  await logActividad({
+    usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    clienteId: pago.clienteId, clienteNombre,
+    accion: "INGRESO_ELIMINADO",
+    detalle: `${pago.moneda} ${pago.monto} · ${pago.concepto}`,
+  })
+
   return NextResponse.json({ ok: true })
 }

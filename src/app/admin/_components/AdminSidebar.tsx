@@ -13,6 +13,7 @@ import {
   TrendingDown,
   BarChart2,
   Users,
+  ClipboardList,
 } from "lucide-react"
 
 interface NavItem {
@@ -28,8 +29,9 @@ const navItems: NavItem[] = [
   { href: "/admin/pagos",     label: "Ingresos",  icon: CreditCard },
   { href: "/admin/gastos",    label: "Gastos",    icon: TrendingDown },
   { href: "/admin/balance",      label: "Balance",      icon: BarChart2 },
-  { href: "/admin/integrantes",  label: "Integrantes",  icon: Users, adminOnly: true },
-  { href: "/admin/usuarios",     label: "Usuarios",     icon: UserCog, adminOnly: true },
+  { href: "/admin/integrantes",  label: "Integrantes",  icon: Users,         adminOnly: true },
+  { href: "/admin/auditoria",    label: "Auditoría",    icon: ClipboardList, adminOnly: true },
+  { href: "/admin/usuarios",     label: "Usuarios",     icon: UserCog,       adminOnly: true },
 ]
 
 interface Props {

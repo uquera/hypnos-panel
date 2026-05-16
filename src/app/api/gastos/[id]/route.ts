@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -62,10 +63,16 @@ export async function PATCH(
     },
   })
 
+  await logActividad({
+    usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    accion: "GASTO_EDITADO",
+    detalle: `${updated.concepto} · ${updated.moneda} ${updated.monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`,
+  })
+
   return NextResponse.json({ gasto: updated })
 }
 
-// DELETE — solo ADMIN
+// DELETE
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -83,5 +90,12 @@ export async function DELETE(
   }
 
   await prisma.gasto.delete({ where: { id } })
+
+  await logActividad({
+    usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
+    accion: "GASTO_ELIMINADO",
+    detalle: `${gasto.concepto} · ${gasto.moneda} ${gasto.monto}`,
+  })
+
   return NextResponse.json({ ok: true })
 }
