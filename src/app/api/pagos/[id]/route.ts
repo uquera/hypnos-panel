@@ -33,9 +33,12 @@ export async function PATCH(
   const fechaPago       = formData.get("fechaPago")     as string
   const notas           = (formData.get("notas") as string) || null
   const file            = formData.get("comprobante") as File | null
-  const custodioIdRaw   = formData.get("custodioId") as string | null
-  // "" significa "usar el registradoPor como custodio" (limpiar); null = no cambiar
-  const custodioId      = custodioIdRaw === null ? pago.custodioId : (custodioIdRaw || null)
+  const custodioIdRaw = formData.get("custodioId") as string | null
+  // Si no se envió el campo, conservar el valor actual
+  // Si se envió el mismo ID que registradoPorId, guardar null (custodio implícito)
+  const custodioId = custodioIdRaw === null
+    ? pago.custodioId
+    : (custodioIdRaw && custodioIdRaw !== pago.registradoPorId ? custodioIdRaw : null)
 
   if (isNaN(monto) || monto <= 0)
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 })

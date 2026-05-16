@@ -117,7 +117,7 @@ function FormGasto({
     fd.append("moneda",    form.moneda)
     fd.append("fecha",     form.fecha)
     fd.append("notas",     form.notas)
-    fd.append("custodioId", form.custodioId !== currentUserId ? form.custodioId : "")
+    fd.append("custodioId", form.custodioId)
     if (file) fd.append("comprobante", file)
     await onSubmit(fd, file)
   }

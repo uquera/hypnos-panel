@@ -31,8 +31,10 @@ export async function PATCH(
   const fecha        = formData.get("fecha") as string
   const notas        = (formData.get("notas") as string) || null
   const file         = formData.get("comprobante") as File | null
-  const custodioRaw  = formData.get("custodioId") as string | null
-  const custodioId   = custodioRaw === null ? gasto.custodioId : (custodioRaw || null)
+  const custodioRaw = formData.get("custodioId") as string | null
+  const custodioId  = custodioRaw === null
+    ? gasto.custodioId
+    : (custodioRaw && custodioRaw !== gasto.registradoPorId ? custodioRaw : null)
 
   if (!concepto) return NextResponse.json({ error: "El concepto es obligatorio" }, { status: 400 })
   if (isNaN(monto) || monto <= 0) return NextResponse.json({ error: "Monto inválido" }, { status: 400 })

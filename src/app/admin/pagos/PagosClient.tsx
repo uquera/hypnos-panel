@@ -340,7 +340,7 @@ function ModalRegistrarPago({
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
-      fd.append("custodioId",      form.custodioId !== currentUserId ? form.custodioId : "")
+      fd.append("custodioId",      form.custodioId)
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/clientes/${form.clienteId}/pagos`, { method: "POST", body: fd })
@@ -594,7 +594,7 @@ function ModalEditarPago({
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
-      fd.append("custodioId",      form.custodioId !== currentUserId ? form.custodioId : "")
+      fd.append("custodioId",      form.custodioId)
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/pagos/${pago.id}`, { method: "PATCH", body: fd })
