@@ -419,10 +419,10 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="col-span-2 lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingDown size={14} className="text-red-500" />
+            <TrendingDown size={14} className="text-rose-400" />
             <p className="text-xs font-medium text-gray-500">Gastos este mes</p>
           </div>
-          <p className="text-2xl font-bold text-red-600">{formatUSD(kpis.totalEsteMes)}</p>
+          <p className="text-2xl font-bold text-rose-400">{formatUSD(kpis.totalEsteMes)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs font-medium text-gray-500 mb-2">Total histórico</p>
@@ -532,7 +532,7 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
                         {g.notas && <p className="text-xs text-gray-400 truncate max-w-xs">{g.notas}</p>}
                       </td>
                       <td className="px-5 py-3.5"><CategoriaBadge categoria={g.categoria} /></td>
-                      <td className="px-5 py-3.5 text-right font-semibold text-red-600">{formatMonto(g.monto, g.moneda)}</td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-rose-400">{formatMonto(g.monto, g.moneda)}</td>
                       <td className="px-5 py-3.5 text-center">
                         {g.comprobante ? (
                           <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
@@ -569,7 +569,7 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
                       <p className="font-semibold text-gray-800 text-sm truncate">{g.concepto}</p>
                       <div className="mt-1"><CategoriaBadge categoria={g.categoria} /></div>
                     </div>
-                    <p className="font-bold text-red-600 text-sm shrink-0">{formatMonto(g.monto, g.moneda)}</p>
+                    <p className="font-bold text-rose-400 text-sm shrink-0">{formatMonto(g.monto, g.moneda)}</p>
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-400">{formatFecha(g.fecha)} · {g.custodioNombre}</p>

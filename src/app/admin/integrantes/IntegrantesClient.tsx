@@ -235,9 +235,9 @@ export default function IntegrantesClient({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Cobrado equipo", value: equipoActual.cobrado,    icon: TrendingUp,   color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Gastado equipo", value: equipoActual.gastado,    icon: TrendingDown, color: "text-red-600",     bg: "bg-red-50" },
-          { label: "Retirado",       value: equipoActual.retirado,   icon: Wallet,       color: "text-orange-600",  bg: "bg-orange-50" },
-          { label: "Disponible",     value: equipoActual.disponible, icon: Target,       color: equipoActual.disponible >= 0 ? "text-indigo-600" : "text-red-600", bg: equipoActual.disponible >= 0 ? "bg-indigo-50" : "bg-red-50" },
+          { label: "Gastado equipo", value: equipoActual.gastado,    icon: TrendingDown, color: "text-rose-400",    bg: "bg-rose-50" },
+          { label: "Retirado",       value: equipoActual.retirado,   icon: Wallet,       color: "text-amber-400",   bg: "bg-amber-50" },
+          { label: "Disponible",     value: equipoActual.disponible, icon: Target,       color: equipoActual.disponible >= 0 ? "text-indigo-600" : "text-rose-400", bg: equipoActual.disponible >= 0 ? "bg-indigo-50" : "bg-rose-50" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>
@@ -258,8 +258,8 @@ export default function IntegrantesClient({
           const pctMeta   = Math.min(100, Math.max(0, (m.disponible / metaMensualUSD) * 100))
           const metaOk    = m.disponible >= metaMensualUSD
           const metaCerca = m.disponible >= metaMensualUSD * 0.5 && !metaOk
-          const metaColor = metaOk ? "text-emerald-600" : metaCerca ? "text-amber-600" : "text-red-500"
-          const metaBarBg = metaOk ? "bg-emerald-500" : metaCerca ? "bg-amber-500" : "bg-red-400"
+          const metaColor = metaOk ? "text-emerald-600" : metaCerca ? "text-amber-500" : "text-rose-400"
+          const metaBarBg = metaOk ? "bg-emerald-500" : metaCerca ? "bg-amber-500" : "bg-rose-400"
           const totalBar  = m.cobrado > 0 ? m.cobrado : 1
 
           return (
@@ -292,15 +292,15 @@ export default function IntegrantesClient({
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Gastado</p>
-                  <p className="text-base font-bold text-red-500">${fmt(m.gastado)}</p>
+                  <p className="text-base font-bold text-rose-400">${fmt(m.gastado)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Retirado</p>
-                  <p className="text-base font-bold text-orange-500">${fmt(m.retirado)}</p>
+                  <p className="text-base font-bold text-amber-400">${fmt(m.retirado)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Disponible</p>
-                  <p className={`text-base font-bold ${m.disponible >= 0 ? "text-indigo-600" : "text-red-600"}`}>
+                  <p className={`text-base font-bold ${m.disponible >= 0 ? "text-indigo-600" : "text-rose-400"}`}>
                     ${fmt(m.disponible)}
                   </p>
                 </div>
@@ -311,11 +311,11 @@ export default function IntegrantesClient({
                 <div className="px-5 pb-2">
                   <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden flex">
                     <div className="bg-emerald-400 h-full" style={{ width: `${(m.gastado / totalBar) * 100}%` }} />
-                    <div className="bg-orange-400 h-full" style={{ width: `${(m.retirado / totalBar) * 100}%` }} />
+                    <div className="bg-amber-400 h-full" style={{ width: `${(m.retirado / totalBar) * 100}%` }} />
                   </div>
                   <div className="flex gap-3 mt-1 text-xs text-gray-400">
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block" />Gastado</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-orange-400 inline-block" />Retirado</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />Retirado</span>
                   </div>
                 </div>
               )}
@@ -387,7 +387,7 @@ export default function IntegrantesClient({
                       <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">
                         {r.concepto || <span className="italic text-gray-300">Sin concepto</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-orange-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-right font-semibold text-amber-400 whitespace-nowrap">
                         {r.moneda} {fmt(r.monto)}
                       </td>
                       {isAdmin && (

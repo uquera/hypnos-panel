@@ -899,7 +899,7 @@ export default function PagosClient({
 
   const variacion      = kpis.variacionPct
   const VariacionIcon  = variacion === null ? Minus : variacion > 0 ? TrendingUp : TrendingDown
-  const variacionColor = variacion === null ? "text-gray-400" : variacion > 0 ? "text-emerald-600" : "text-red-500"
+  const variacionColor = variacion === null ? "text-gray-400" : variacion > 0 ? "text-emerald-600" : "text-rose-400"
 
   // Descripción a mostrar en la tabla para cada pago
   function descripcionPago(p: PagoItem): string {
@@ -1009,7 +1009,7 @@ export default function PagosClient({
               <div key={c.id} className="bg-white rounded-xl border border-amber-200 p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{c.nombre}</p>
-                  <p className={`text-xs font-medium ${c.diasRestantes <= 7 ? "text-red-500" : "text-amber-600"}`}>
+                  <p className={`text-xs font-medium ${c.diasRestantes <= 7 ? "text-rose-400" : "text-amber-500"}`}>
                     Vence en {c.diasRestantes} día{c.diasRestantes !== 1 ? "s" : ""}
                   </p>
                 </div>

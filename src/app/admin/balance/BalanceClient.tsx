@@ -33,12 +33,12 @@ function pctColor(pct: number | null) {
   if (pct === null) return "text-gray-400"
   if (pct >= 50) return "text-emerald-600"
   if (pct >= 20) return "text-yellow-600"
-  if (pct >= 0)  return "text-orange-500"
-  return "text-red-600"
+  if (pct >= 0)  return "text-amber-500"
+  return "text-rose-400"
 }
 function margenColor(m: number) {
   if (m > 0) return "text-emerald-600"
-  if (m < 0) return "text-red-600"
+  if (m < 0) return "text-rose-400"
   return "text-gray-500"
 }
 
@@ -52,7 +52,7 @@ function BalanceChart({ meses, mesActualKey }: { meses: MesData[]; mesActualKey:
     <div className="relative">
       <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-indigo-500" />Ingresos</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-red-400" />Gastos</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-rose-400" />Gastos</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full bg-emerald-500" />Margen</span>
       </div>
 
@@ -77,7 +77,7 @@ function BalanceChart({ meses, mesActualKey }: { meses: MesData[]; mesActualKey:
                 <div className="flex-1 rounded-t-sm transition-all"
                   style={{
                     height: `${Math.max(gastPct, m.gastos > 0 ? 2 : 0)}%`,
-                    background: isActual ? "#f87171" : "#fca5a5",
+                    background: isActual ? "#fb7185" : "#fda4af",
                     opacity: isActual ? 1 : 0.7,
                     minHeight: m.gastos > 0 ? "3px" : "0",
                   }} />
@@ -93,8 +93,8 @@ function BalanceChart({ meses, mesActualKey }: { meses: MesData[]; mesActualKey:
           style={{ left: `${(tooltip / meses.length) * 100}%`, transform: "translateX(-50%)" }}>
           <p className="font-semibold mb-1">{meses[tooltip].label}</p>
           <p className="text-indigo-300">Ingresos: {formatUSD(meses[tooltip].ingresos)}</p>
-          <p className="text-red-300">Gastos: {formatUSD(meses[tooltip].gastos)}</p>
-          <p className={`border-t border-gray-700 mt-1 pt-1 font-semibold ${meses[tooltip].margen >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+          <p className="text-rose-300">Gastos: {formatUSD(meses[tooltip].gastos)}</p>
+          <p className={`border-t border-gray-700 mt-1 pt-1 font-semibold ${meses[tooltip].margen >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
             Margen: {formatUSD(meses[tooltip].margen)}
             {meses[tooltip].pct !== null && ` (${meses[tooltip].pct}%)`}
           </p>
@@ -111,8 +111,8 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
 
   const IngIcon  = variacionIngresos === null ? Minus : variacionIngresos > 0 ? TrendingUp  : TrendingDown
   const GastIcon = variacionGastos   === null ? Minus : variacionGastos   > 0 ? TrendingDown : TrendingUp
-  const ingColor  = variacionIngresos === null ? "text-gray-400" : variacionIngresos  > 0 ? "text-emerald-600" : "text-red-500"
-  const gastColor = variacionGastos   === null ? "text-gray-400" : variacionGastos   > 0 ? "text-red-500"     : "text-emerald-600"
+  const ingColor  = variacionIngresos === null ? "text-gray-400" : variacionIngresos  > 0 ? "text-emerald-600" : "text-rose-400"
+  const gastColor = variacionGastos   === null ? "text-gray-400" : variacionGastos   > 0 ? "text-rose-400"    : "text-emerald-600"
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -138,7 +138,7 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
         {/* Gastos */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-500 font-medium mb-1">Gastos este mes</p>
-          <p className="text-2xl font-bold text-red-600">{formatUSD(mesActual.gastos)}</p>
+          <p className="text-2xl font-bold text-rose-400">{formatUSD(mesActual.gastos)}</p>
           <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${gastColor}`}>
             <GastIcon size={12} />
             {variacionGastos === null ? "Sin referencia" : `${variacionGastos > 0 ? "+" : ""}${variacionGastos}% vs mes ant.`}
@@ -204,7 +204,7 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
                     <td className="px-5 py-3.5 text-right text-gray-600">{m.marketing > 0 ? formatUSD(m.marketing) : <span className="text-gray-300">—</span>}</td>
                     <td className="px-5 py-3.5 text-right text-gray-600">{m.desarrollo > 0 ? formatUSD(m.desarrollo) : <span className="text-gray-300">—</span>}</td>
                     <td className="px-5 py-3.5 text-right font-semibold text-indigo-700 border-l border-gray-100">{m.ingresos > 0 ? formatUSD(m.ingresos) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-5 py-3.5 text-right font-medium text-red-600">{m.gastos > 0 ? formatUSD(m.gastos) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-5 py-3.5 text-right font-medium text-rose-400">{m.gastos > 0 ? formatUSD(m.gastos) : <span className="text-gray-300">—</span>}</td>
                     <td className={`px-5 py-3.5 text-right font-semibold border-l border-gray-100 ${margenColor(m.margen)}`}>
                       <span className="flex items-center justify-end gap-1">
                         {m.margen > 0 ? <ArrowUpRight size={13} /> : m.margen < 0 ? <ArrowDownRight size={13} /> : null}
@@ -237,8 +237,8 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
                     <td className="px-5 py-3 text-right opacity-80">{totMkt > 0 ? formatUSD(totMkt) : "—"}</td>
                     <td className="px-5 py-3 text-right opacity-80">{totDev > 0 ? formatUSD(totDev) : "—"}</td>
                     <td className="px-5 py-3 text-right border-l border-gray-700 text-indigo-300">{formatUSD(totIng)}</td>
-                    <td className="px-5 py-3 text-right text-red-400">{formatUSD(totGast)}</td>
-                    <td className={`px-5 py-3 text-right border-l border-gray-700 ${totMarg >= 0 ? "text-emerald-300" : "text-red-400"}`}>{formatUSD(totMarg)}</td>
+                    <td className="px-5 py-3 text-right text-rose-400">{formatUSD(totGast)}</td>
+                    <td className={`px-5 py-3 text-right border-l border-gray-700 ${totMarg >= 0 ? "text-emerald-300" : "text-rose-400"}`}>{formatUSD(totMarg)}</td>
                     <td className={`px-5 py-3 text-right ${pctColor(totPct)}`}>{totPct !== null ? `${totPct}%` : "—"}</td>
                   </tr>
                 </tfoot>

@@ -19,13 +19,13 @@ interface AccionMeta {
 const ACCIONES: Record<string, AccionMeta> = {
   PAGO_REGISTRADO:   { label: "Ingreso registrado", categoria: "financiero", color: "bg-emerald-100", textColor: "text-emerald-700", icon: <TrendingUp size={11} />,   verbo: "registró ingreso de" },
   INGRESO_EDITADO:   { label: "Ingreso editado",    categoria: "financiero", color: "bg-blue-100",    textColor: "text-blue-700",    icon: <TrendingUp size={11} />,   verbo: "editó ingreso de" },
-  INGRESO_ELIMINADO: { label: "Ingreso eliminado",  categoria: "financiero", color: "bg-red-100",     textColor: "text-red-700",     icon: <TrendingUp size={11} />,   verbo: "eliminó ingreso de" },
-  GASTO_REGISTRADO:  { label: "Gasto registrado",   categoria: "financiero", color: "bg-orange-100",  textColor: "text-orange-700",  icon: <TrendingDown size={11} />, verbo: "registró gasto" },
-  GASTO_EDITADO:     { label: "Gasto editado",      categoria: "financiero", color: "bg-blue-100",    textColor: "text-blue-700",    icon: <TrendingDown size={11} />, verbo: "editó gasto" },
-  GASTO_ELIMINADO:   { label: "Gasto eliminado",    categoria: "financiero", color: "bg-red-100",     textColor: "text-red-700",     icon: <TrendingDown size={11} />, verbo: "eliminó gasto" },
+  INGRESO_ELIMINADO: { label: "Ingreso eliminado",  categoria: "financiero", color: "bg-rose-100",    textColor: "text-rose-600",     icon: <TrendingUp size={11} />,   verbo: "eliminó ingreso de" },
+  GASTO_REGISTRADO:  { label: "Gasto registrado",   categoria: "financiero", color: "bg-amber-100",   textColor: "text-amber-700",  icon: <TrendingDown size={11} />, verbo: "registró gasto" },
+  GASTO_EDITADO:     { label: "Gasto editado",      categoria: "financiero", color: "bg-sky-100",     textColor: "text-sky-700",    icon: <TrendingDown size={11} />, verbo: "editó gasto" },
+  GASTO_ELIMINADO:   { label: "Gasto eliminado",    categoria: "financiero", color: "bg-rose-100",    textColor: "text-rose-600",     icon: <TrendingDown size={11} />, verbo: "eliminó gasto" },
   RETIRO_REGISTRADO: { label: "Retiro registrado",  categoria: "financiero", color: "bg-amber-100",   textColor: "text-amber-700",   icon: <Wallet size={11} />,       verbo: "registró retiro" },
   RETIRO_EDITADO:    { label: "Retiro editado",      categoria: "financiero", color: "bg-blue-100",    textColor: "text-blue-700",    icon: <Wallet size={11} />,       verbo: "editó retiro" },
-  RETIRO_ELIMINADO:  { label: "Retiro eliminado",    categoria: "financiero", color: "bg-red-100",     textColor: "text-red-700",     icon: <Wallet size={11} />,       verbo: "eliminó retiro" },
+  RETIRO_ELIMINADO:  { label: "Retiro eliminado",    categoria: "financiero", color: "bg-rose-100",    textColor: "text-rose-600",     icon: <Wallet size={11} />,       verbo: "eliminó retiro" },
   LICENCIA_SYNC:     { label: "Licencia sincronizada", categoria: "licencias", color: "bg-indigo-100", textColor: "text-indigo-700",  icon: <RefreshCw size={11} />,    verbo: "sincronizó licencia de" },
   RENOVACION:        { label: "Renovación",           categoria: "licencias", color: "bg-violet-100",  textColor: "text-violet-700",  icon: <RefreshCw size={11} />,    verbo: "renovó licencia de" },
   CLIENTE_CREADO:    { label: "Cliente creado",        categoria: "clientes",  color: "bg-teal-100",   textColor: "text-teal-700",    icon: <Users size={11} />,        verbo: "creó cliente" },
@@ -140,7 +140,7 @@ export default function AuditoriaClient({ logs }: { logs: LogItem[] }) {
         {[
           { label: "Registros financieros", value: countRegistros,    color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "Ediciones",             value: countEdiciones,    color: "text-blue-600",    bg: "bg-blue-50" },
-          { label: "Eliminaciones",         value: countEliminaciones, color: "text-red-600",    bg: "bg-red-50" },
+          { label: "Eliminaciones",         value: countEliminaciones, color: "text-rose-400",   bg: "bg-rose-50" },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`${bg} rounded-xl px-4 py-3 border border-white`}>
             <p className="text-xs text-gray-500">{label}</p>
