@@ -20,11 +20,12 @@ model User {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  pagosRegistrados  Pago[]   @relation("PagosRegistrados")
-  pagosCustodiados  Pago[]   @relation("PagosCustodiados")
-  gastosRegistrados Gasto[]  @relation("GastosRegistrados")
-  gastosCustodiados Gasto[]  @relation("GastosCustodiados")
+  pagosRegistrados  Pago[]          @relation("PagosRegistrados")
+  pagosCustodiados  Pago[]          @relation("PagosCustodiados")
+  gastosRegistrados Gasto[]         @relation("GastosRegistrados")
+  gastosCustodiados Gasto[]         @relation("GastosCustodiados")
   retiros           Retiro[]
+  custodiasIngreso  PagoCustodia[] @relation("CustodiasIngreso")
 
   @@map("users")
 }
@@ -70,12 +71,29 @@ model Pago {
   comprobante     String?                          // nombre del archivo en uploads/comprobantes/
   notas           String?
   registradoPorId String
-  registradoPor   User      @relation("PagosRegistrados", fields: [registradoPorId], references: [id])
-  custodioId      String?                          // quién tiene físicamente el dinero (null = mismo que registradoPor)
-  custodio        User?     @relation("PagosCustodiados", fields: [custodioId], references: [id])
-  createdAt       DateTime  @default(now())
+  registradoPor   User           @relation("PagosRegistrados", fields: [registradoPorId], references: [id])
+  custodioId      String?                          // custodio único legacy (null = mismo que registradoPor)
+  custodio        User?          @relation("PagosCustodiados", fields: [custodioId], references: [id])
+  custodias       PagoCustodia[]                   // split de custodia entre varios usuarios
+  createdAt       DateTime       @default(now())
 
   @@map("pagos")
+}
+
+// ─── SPLIT DE CUSTODIA ────────────────────────────────────────────────────────
+// Un pago puede dividirse entre varios custodios, cada uno con su monto.
+// Si existe al menos un registro aquí, tiene prioridad sobre custodioId.
+
+model PagoCustodia {
+  id      String @id @default(cuid())
+  pagoId  String
+  pago    Pago   @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  userId  String
+  usuario User   @relation("CustodiasIngreso", fields: [userId], references: [id])
+  monto   Float
+
+  @@unique([pagoId, userId])
+  @@map("pago_custodias")
 }
 
 // ─── GASTOS OPERATIVOS ────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ export default async function PagosPage() {
         cliente:       { select: { id: true, nombre: true, dominio: true } },
         registradoPor: { select: { nombre: true } },
         custodio:      { select: { id: true, nombre: true } },
+        custodias:     { include: { usuario: { select: { id: true, nombre: true } } }, orderBy: { monto: "desc" } },
       },
       orderBy: { fechaPago: "desc" },
     }),
@@ -111,6 +112,7 @@ export default async function PagosPage() {
     registradoPor:   p.registradoPor.nombre,
     custodioId:      p.custodioId ?? null,
     custodioNombre:  p.custodio?.nombre ?? p.registradoPor.nombre,
+    custodias:       p.custodias.map(c => ({ userId: c.userId, userName: c.usuario.nombre, monto: c.monto })),
   }))
 
   const mesActualKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`

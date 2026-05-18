@@ -25,14 +25,23 @@ export default async function IntegrantesPage() {
   const inicioMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
   const finMesAnterior    = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59)
 
-  const [todosPagos, todosGastos] = await Promise.all([
+  const [todosPagos, todosGastos, todosCustodias] = await Promise.all([
     prisma.pago.findMany({
-      select: { monto: true, moneda: true, fechaPago: true, registradoPorId: true, custodioId: true },
+      select: { id: true, monto: true, moneda: true, fechaPago: true, registradoPorId: true, custodioId: true },
     }),
     prisma.gasto.findMany({
       select: { monto: true, moneda: true, fecha: true, registradoPorId: true, custodioId: true },
     }),
+    // Split de custodia: saber cuánto tiene cada usuario de cada pago
+    prisma.pagoCustodia.findMany({
+      select: { pagoId: true, userId: true, monto: true },
+    }),
   ])
+
+  // Índice rápido: pagoId → {moneda, fechaPago}
+  const pagosIdx = new Map(todosPagos.map(p => [p.id, { moneda: p.moneda, fechaPago: p.fechaPago }]))
+  // Set de pagoIds que ya tienen custodias split
+  const pagosConSplit = new Set(todosCustodias.map(c => c.pagoId))
 
   const usuarios = await prisma.user.findMany({
     where:   { activo: true },
@@ -49,14 +58,28 @@ export default async function IntegrantesPage() {
     const filtrarFecha = (f: Date) =>
       (!desde || f >= desde) && (!hasta || f <= hasta)
 
-    // Un pago pertenece a este usuario si es su custodioId
-    // Si custodioId es null, el custodio efectivo es el registradoPorId
-    const cobrado = todosPagos
+    // Cobrado desde custodias split (prioridad)
+    const cobradoSplit = todosCustodias
+      .filter(c => {
+        if (c.userId !== user.id) return false
+        const pago = pagosIdx.get(c.pagoId)
+        return pago ? filtrarFecha(new Date(pago.fechaPago)) : false
+      })
+      .reduce((s, c) => {
+        const pago = pagosIdx.get(c.pagoId)!
+        return s + toUSD(c.monto, pago.moneda)
+      }, 0)
+
+    // Cobrado desde pagos legacy (sin custodias split)
+    const cobradoLegacy = todosPagos
       .filter(p => {
+        if (pagosConSplit.has(p.id)) return false // ya lo cubre el split
         const efectivoCustodio = p.custodioId ?? p.registradoPorId
         return efectivoCustodio === user.id && filtrarFecha(new Date(p.fechaPago))
       })
       .reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
+
+    const cobrado = cobradoSplit + cobradoLegacy
 
     const gastado = todosGastos
       .filter(g => {

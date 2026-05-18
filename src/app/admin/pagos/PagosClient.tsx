@@ -55,6 +55,8 @@ function ConceptoBadge({ concepto }: { concepto: string }) {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface CustodiaItem { userId: string; userName: string; monto: number }
+
 interface PagoItem {
   id: string
   clienteId: string
@@ -72,6 +74,7 @@ interface PagoItem {
   registradoPor: string
   custodioId: string | null
   custodioNombre: string
+  custodias: CustodiaItem[]
 }
 
 interface ClienteBasic { id: string; nombre: string }
@@ -275,6 +278,90 @@ function CamposConcepto({
   )
 }
 
+// ─── Selector de Custodia (Split) ────────────────────────────────────────────
+
+function SelectorCustodia({
+  usuarios, currentUserId, montoTotal, custodias, onChange,
+}: {
+  usuarios: UsuarioBasic[]
+  currentUserId: string
+  montoTotal: number
+  custodias: Record<string, string>
+  onChange: (c: Record<string, string>) => void
+}) {
+  const totalAsignado = Object.values(custodias).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+  const diferencia    = montoTotal - totalAsignado
+  const ok            = Math.abs(diferencia) < 0.01
+
+  function setMonto(userId: string, val: string) {
+    onChange({ ...custodias, [userId]: val })
+  }
+
+  function dividirIgual() {
+    if (!montoTotal || usuarios.length === 0) return
+    const porPerson = (montoTotal / usuarios.length).toFixed(2)
+    onChange(Object.fromEntries(usuarios.map(u => [u.id, porPerson])))
+  }
+
+  function todoParaUno(userId: string) {
+    const nuevo: Record<string, string> = {}
+    usuarios.forEach(u => { nuevo[u.id] = u.id === userId ? String(montoTotal) : "0" })
+    onChange(nuevo)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs font-medium text-gray-600">Custodia del ingreso</label>
+        <button type="button" onClick={dividirIgual}
+          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+          Dividir igual
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {usuarios.map(u => (
+          <div key={u.id} className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 w-28 shrink-0">
+              <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
+                {u.nombre.charAt(0).toUpperCase()}
+              </span>
+              <span className="text-sm font-medium text-gray-700 truncate">
+                {u.nombre.split(" ")[0]}
+                {u.id === currentUserId && <span className="text-xs text-gray-400 ml-1">(yo)</span>}
+              </span>
+            </div>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={custodias[u.id] ?? ""}
+              onChange={e => setMonto(u.id, e.target.value)}
+              placeholder="0"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 text-right"
+            />
+            <button type="button" onClick={() => todoParaUno(u.id)}
+              title="Todo para este"
+              className="text-xs text-gray-400 hover:text-indigo-600 px-1.5 py-1 rounded transition-colors shrink-0">
+              100%
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Indicador de total */}
+      {montoTotal > 0 && (
+        <div className={`flex items-center justify-between mt-2 px-2 py-1.5 rounded-lg text-xs font-medium ${
+          ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+        }`}>
+          <span>{ok ? "✓ Total cubierto" : diferencia > 0 ? `Faltan $${diferencia.toFixed(2)}` : `Excede $${Math.abs(diferencia).toFixed(2)}`}</span>
+          <span>${totalAsignado.toFixed(2)} / ${montoTotal.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Modal Registrar Pago ─────────────────────────────────────────────────────
 
 function ModalRegistrarPago({
@@ -298,8 +385,9 @@ function ModalRegistrarPago({
     periodoFin:      mes.fin,
     fechaPago:       todayISO(),
     notas:           "",
-    custodioId:      currentUserId,
   })
+  // custodias[userId] = monto string
+  const [custodias, setCustodias] = useState<Record<string, string>>(() => ({ [currentUserId]: "" }))
   const [file, setFile]            = useState<File | null>(null)
   const [submitting, setSub]       = useState(false)
   const [busqCliente, setBusq]     = useState("")
@@ -331,6 +419,10 @@ function ModalRegistrarPago({
     }
     setSub(true)
     try {
+      const splitCustodias = Object.entries(custodias)
+        .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
+        .filter(c => c.monto > 0)
+
       const fd = new FormData()
       fd.append("monto",           form.monto)
       fd.append("moneda",          form.moneda)
@@ -340,7 +432,7 @@ function ModalRegistrarPago({
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
-      fd.append("custodioId",      form.custodioId)
+      fd.append("custodias",       JSON.stringify(splitCustodias))
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/clientes/${form.clienteId}/pagos`, { method: "POST", body: fd })
@@ -503,35 +595,14 @@ function ModalRegistrarPago({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
 
-          {/* Custodio — quién recibe el dinero */}
-          {usuarios.length > 1 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                Custodio del dinero *
-              </label>
-              <div className="flex gap-2">
-                {usuarios.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => setField("custodioId", u.id)}
-                    className={[
-                      "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all",
-                      form.custodioId === u.id
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300",
-                    ].join(" ")}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
-                      {u.nombre.charAt(0).toUpperCase()}
-                    </span>
-                    {u.nombre.split(" ")[0]}
-                    {u.id === currentUserId && <span className="text-xs text-gray-400">(yo)</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Split de custodia */}
+          <SelectorCustodia
+            usuarios={usuarios}
+            currentUserId={currentUserId}
+            montoTotal={parseFloat(form.monto) || 0}
+            custodias={custodias}
+            onChange={setCustodias}
+          />
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
@@ -571,7 +642,15 @@ function ModalEditarPago({
     periodoFin:      pago.periodoFin    ? pago.periodoFin.split("T")[0]    : mes.fin,
     fechaPago:       pago.fechaPago.split("T")[0],
     notas:           pago.notas ?? "",
-    custodioId:      pago.custodioId ?? currentUserId,
+  })
+  // Inicializar custodias desde los datos existentes
+  const [custodias, setCustodias] = useState<Record<string, string>>(() => {
+    if (pago.custodias.length > 0) {
+      return Object.fromEntries(pago.custodias.map(c => [c.userId, String(c.monto)]))
+    }
+    // Fallback: legacy custodioId o registradoPor
+    const custodioFallback = pago.custodioId ?? currentUserId
+    return { [custodioFallback]: String(pago.monto) }
   })
   const [file, setFile]      = useState<File | null>(null)
   const [submitting, setSub] = useState(false)
@@ -585,6 +664,10 @@ function ModalEditarPago({
     if (!form.monto || Number(form.monto) <= 0) { toast.error("El monto debe ser mayor a 0"); return }
     setSub(true)
     try {
+      const splitCustodias = Object.entries(custodias)
+        .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
+        .filter(c => c.monto > 0)
+
       const fd = new FormData()
       fd.append("concepto",        form.concepto)
       fd.append("conceptoDetalle", form.conceptoDetalle)
@@ -594,7 +677,7 @@ function ModalEditarPago({
       fd.append("periodoFin",      form.periodoFin)
       fd.append("fechaPago",       form.fechaPago)
       fd.append("notas",           form.notas)
-      fd.append("custodioId",      form.custodioId)
+      fd.append("custodias",       JSON.stringify(splitCustodias))
       if (file) fd.append("comprobante", file)
 
       const res = await fetch(`/api/pagos/${pago.id}`, { method: "PATCH", body: fd })
@@ -703,33 +786,14 @@ function ModalEditarPago({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
 
-          {/* Custodio */}
-          {usuarios.length > 1 && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Custodio del dinero *</label>
-              <div className="flex gap-2">
-                {usuarios.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => setField("custodioId", u.id)}
-                    className={[
-                      "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all",
-                      form.custodioId === u.id
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300",
-                    ].join(" ")}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center shrink-0">
-                      {u.nombre.charAt(0).toUpperCase()}
-                    </span>
-                    {u.nombre.split(" ")[0]}
-                    {u.id === currentUserId && <span className="text-xs text-gray-400">(yo)</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Split de custodia */}
+          <SelectorCustodia
+            usuarios={usuarios}
+            currentUserId={currentUserId}
+            montoTotal={parseFloat(form.monto) || 0}
+            custodias={custodias}
+            onChange={setCustodias}
+          />
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
@@ -1062,7 +1126,20 @@ export default function PagosClient({
                           </a>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-5 py-3.5 text-gray-800 text-xs font-medium">{p.custodioNombre}</td>
+                      <td className="px-5 py-3.5 text-xs">
+                        {p.custodias.length > 0 ? (
+                          <div className="space-y-0.5">
+                            {p.custodias.map(c => (
+                              <div key={c.userId} className="flex items-center gap-1">
+                                <span className="font-medium text-gray-800">{c.userName.split(" ")[0]}</span>
+                                <span className="text-gray-400">${c.monto}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="font-medium text-gray-800">{p.custodioNombre}</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3.5 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button onClick={() => setEditandoPago(p)}
@@ -1094,7 +1171,11 @@ export default function PagosClient({
                   </div>
                   <p className="text-xs text-gray-500 mt-1 truncate">{descripcionPago(p)}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">{formatFecha(p.fechaPago)} · {p.custodioNombre}</p>
+                    <p className="text-xs text-gray-400">
+                      {formatFecha(p.fechaPago)} · {p.custodias.length > 0
+                        ? p.custodias.map(c => `${c.userName.split(" ")[0]} $${c.monto}`).join(" / ")
+                        : p.custodioNombre}
+                    </p>
                     <div className="flex items-center gap-1">
                       {p.comprobante && (
                         <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"

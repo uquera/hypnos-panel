@@ -34,12 +34,12 @@ export async function PATCH(
   const fechaPago       = formData.get("fechaPago")     as string
   const notas           = (formData.get("notas") as string) || null
   const file            = formData.get("comprobante") as File | null
-  const custodioIdRaw = formData.get("custodioId") as string | null
-  // Si no se envió el campo, conservar el valor actual
-  // Si se envió el mismo ID que registradoPorId, guardar null (custodio implícito)
-  const custodioId = custodioIdRaw === null
-    ? pago.custodioId
-    : (custodioIdRaw && custodioIdRaw !== pago.registradoPorId ? custodioIdRaw : null)
+  const custodiasRaw = formData.get("custodias") as string | null
+  let custodias: { userId: string; monto: number }[] = []
+  if (custodiasRaw) {
+    try { custodias = JSON.parse(custodiasRaw) } catch { /* ignorar */ }
+  }
+  custodias = custodias.filter(c => c.monto > 0)
 
   if (isNaN(monto) || monto <= 0)
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
@@ -77,23 +77,35 @@ export async function PATCH(
       fechaPago:     new Date(fechaPago),
       notas:         notas || null,
       comprobante,
-      custodioId,
     },
     include: {
       registradoPor: { select: { nombre: true } },
-      custodio:      { select: { nombre: true } },
+      custodias: { include: { usuario: { select: { nombre: true } } } },
     },
   })
+
+  // Upsert custodias: borrar las viejas y crear las nuevas
+  if (custodiasRaw !== null) {
+    await prisma.pagoCustodia.deleteMany({ where: { pagoId: id } })
+    if (custodias.length > 0) {
+      await prisma.pagoCustodia.createMany({
+        data: custodias.map(c => ({ pagoId: id, userId: c.userId, monto: c.monto })),
+      })
+    }
+  }
 
   const userId   = session.user.id ?? ""
   const userName = session.user.name ?? session.user.email ?? "?"
   const cliente  = await prisma.cliente.findUnique({ where: { id: updated.clienteId }, select: { nombre: true } })
   const etiqueta = concepto === "MARKETING" ? "Marketing" : concepto === "DESARROLLO" ? "Desarrollo" : "Mensualidad"
+  const custodiaResumen = updated.custodias.length > 0
+    ? updated.custodias.map(c => `${c.usuario.nombre} $${c.monto}`).join(" / ")
+    : updated.registradoPor.nombre
   await logActividad({
     usuarioId: userId, usuarioNombre: userName,
     clienteId: updated.clienteId, clienteNombre: cliente?.nombre,
     accion: "INGRESO_EDITADO",
-    detalle: `[${etiqueta}] ${moneda} ${monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`,
+    detalle: `[${etiqueta}] ${moneda} ${monto} · ${custodiaResumen}`,
   })
 
   return NextResponse.json({ pago: updated })
