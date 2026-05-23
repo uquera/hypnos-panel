@@ -53,7 +53,7 @@ export default function AdminSidebar({ role, userName, onClose }: Props) {
       <div className="p-5 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-               style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
+               style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)" }}>
             <ShieldCheck size={16} className="text-white" />
           </div>
           <div className="flex-1">
@@ -88,7 +88,7 @@ export default function AdminSidebar({ role, userName, onClose }: Props) {
                   ? "text-white shadow-sm"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
               ].join(" ")}
-              style={active ? { background: "linear-gradient(135deg, #6366f1, #4f46e5)" } : undefined}
+              style={active ? { background: "linear-gradient(135deg, #818cf8, #6366f1)" } : undefined}
             >
               <item.icon size={16} />
               {item.label}
@@ -107,11 +107,11 @@ export default function AdminSidebar({ role, userName, onClose }: Props) {
               ? "text-white shadow-sm"
               : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
           ].join(" ")}
-          style={pathname === "/admin/perfil" ? { background: "linear-gradient(135deg, #6366f1, #4f46e5)" } : undefined}
+          style={pathname === "/admin/perfil" ? { background: "linear-gradient(135deg, #818cf8, #6366f1)" } : undefined}
         >
           <div className={[
             "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-            pathname === "/admin/perfil" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-600",
+            pathname === "/admin/perfil" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-400",
           ].join(" ")}>
             {userName.charAt(0).toUpperCase()}
           </div>

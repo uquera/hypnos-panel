@@ -52,7 +52,7 @@ export default function AdminShell({ role, userName, children }: Props) {
           <div className="flex items-center gap-2">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+              style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)" }}
             >
               <ShieldCheck size={14} className="text-white" />
             </div>
