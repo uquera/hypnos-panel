@@ -14,6 +14,8 @@ import {
   BarChart2,
   Users,
   ClipboardList,
+  Monitor,
+  ExternalLink,
 } from "lucide-react"
 
 interface NavItem {
@@ -96,6 +98,25 @@ export default function AdminSidebar({ role, userName, onClose }: Props) {
           )
         })}
       </nav>
+
+      {/* Monitor — acceso directo (solo admin) */}
+      {isAdmin && (
+        <div className="px-3 pb-2">
+          <div className="border-t border-gray-100 pt-2 mb-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1 mb-1">Herramientas</p>
+          </div>
+          <a
+            href="/monitor"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-cyan-500 hover:text-white transition-all group"
+          >
+            <Monitor size={16} />
+            <span className="flex-1">Monitor</span>
+            <ExternalLink size={12} className="opacity-40 group-hover:opacity-70" />
+          </a>
+        </div>
+      )}
 
       {/* Footer: usuario + perfil + logout */}
       <div className="p-3 border-t border-gray-100 space-y-1">
