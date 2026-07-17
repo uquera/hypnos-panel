@@ -991,7 +991,7 @@ export default function PagosClient({
 
       {/* Gráfico apilado */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos por vertical — últimos 12 meses</h2>
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos por vertical — últimos {chartMonths.length} meses</h2>
         <StackedBarChart months={chartMonths} mesActualKey={mesActualKey} />
       </div>
 

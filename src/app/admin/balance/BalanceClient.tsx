@@ -168,7 +168,7 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
 
       {/* Gráfico */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos vs Gastos — últimos 12 meses</h2>
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos vs Gastos — últimos {meses.length} meses</h2>
         <BalanceChart meses={meses} mesActualKey={mesActualKey} />
       </div>
 

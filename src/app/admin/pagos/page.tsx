@@ -94,6 +94,10 @@ export default async function PagosPage() {
     chartMonths.push({ label, key, licencia, marketing, desarrollo, total: licencia + marketing + desarrollo })
   }
 
+  // Quitar meses vacíos al inicio: el gráfico parte desde el primer mes con registros
+  const primerMesConDatos = chartMonths.findIndex(m => m.total > 0)
+  const chartMonthsVisibles = primerMesConDatos > 0 ? chartMonths.slice(primerMesConDatos) : chartMonths
+
   // Serializar pagos
   const pagosSerial = pagos.map(p => ({
     id:              p.id,
@@ -126,7 +130,7 @@ export default async function PagosPage() {
       clientesSinPagoReciente={clientesSinPagoRec.map(c => ({
         id: c.id, nombre: c.nombre, diasRestantes: c.estado.diasRestantes,
       }))}
-      chartMonths={chartMonths}
+      chartMonths={chartMonthsVisibles}
       mesActualKey={mesActualKey}
       kpis={{ totalEsteMes, totalMesAnterior, variacionPct, totalHistorico, clientesActivos, clientesPorVencer: clientesPorVencer.length, verticalesEsteMes }}
       isAdmin={session.user.role === "ADMIN"}

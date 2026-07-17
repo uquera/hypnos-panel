@@ -87,9 +87,13 @@ export default async function BalancePage() {
   const acumGastos   = meses.filter(m => m.key.startsWith(String(anioActual))).reduce((s, m) => s + m.gastos, 0)
   const acumMargen   = acumIngresos - acumGastos
 
+  // Quitar meses vacíos al inicio: el gráfico parte desde el primer mes con registros
+  const primerMesConDatos = meses.findIndex(m => m.ingresos > 0 || m.gastos > 0)
+  const mesesVisibles = primerMesConDatos > 0 ? meses.slice(primerMesConDatos) : meses
+
   return (
     <BalanceClient
-      meses={meses}
+      meses={mesesVisibles}
       mesActualKey={`${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`}
       kpis={{
         mesActual,
