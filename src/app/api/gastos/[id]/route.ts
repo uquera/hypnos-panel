@@ -18,7 +18,8 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  // Cualquier usuario autenticado puede editar gastos
+  if (session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Solo administradores pueden editar gastos" }, { status: 403 })
 
   const { id } = await params
   const gasto  = await prisma.gasto.findUnique({ where: { id } })
@@ -39,6 +40,7 @@ export async function PATCH(
 
   if (!concepto) return NextResponse.json({ error: "El concepto es obligatorio" }, { status: 400 })
   if (isNaN(monto) || monto <= 0) return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
+  if (!fecha || isNaN(new Date(fecha).getTime())) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 })
   if (!CATEGORIAS_VALIDAS.includes(categoria)) return NextResponse.json({ error: "Categoría inválida" }, { status: 400 })
 
   let comprobante = gasto.comprobante
@@ -79,7 +81,8 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  // Cualquier usuario autenticado puede eliminar gastos
+  if (session.user.role !== "ADMIN")
+    return NextResponse.json({ error: "Solo administradores pueden eliminar gastos" }, { status: 403 })
 
   const { id }  = await params
   const gasto   = await prisma.gasto.findUnique({ where: { id } })

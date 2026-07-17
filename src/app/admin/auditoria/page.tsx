@@ -9,6 +9,7 @@ export const metadata = { title: "Auditoría — Hypnos Panel" }
 export default async function AuditoriaPage() {
   const session = await auth()
   if (!session) redirect("/login")
+  if (session.user.role !== "ADMIN") redirect("/admin")
 
   // Traer los últimos 500 registros — el filtrado se hace en cliente
   const logs = await prisma.actividadLog.findMany({

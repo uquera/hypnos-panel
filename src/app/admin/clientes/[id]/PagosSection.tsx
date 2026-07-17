@@ -10,10 +10,12 @@ import { toast } from "sonner"
 
 interface PagoItem {
   id: string
+  concepto: string
+  conceptoDetalle: string | null
   monto: number
   moneda: string
-  periodoInicio: string
-  periodoFin: string
+  periodoInicio: string | null
+  periodoFin: string | null
   fechaPago: string
   comprobante: string | null
   notas: string | null
@@ -45,6 +47,12 @@ function formatFecha(iso: string): string {
   return new Date(iso).toLocaleDateString("es-CL", {
     day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
   })
+}
+
+// Etiqueta de la columna Periodo: los pagos de Marketing/Desarrollo no tienen periodo
+function periodoLabel(p: PagoItem): string {
+  if (!p.periodoInicio || !p.periodoFin) return p.conceptoDetalle ?? "—"
+  return formatPeriodo(p.periodoInicio, p.periodoFin)
 }
 
 function formatPeriodo(inicio: string, fin: string): string {
@@ -193,8 +201,8 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
     setEditForm({
       monto:          String(pago.monto),
       moneda:         pago.moneda,
-      periodoInicio:  pago.periodoInicio.split("T")[0],
-      periodoFin:     pago.periodoFin.split("T")[0],
+      periodoInicio:  pago.periodoInicio ? pago.periodoInicio.split("T")[0] : "",
+      periodoFin:     pago.periodoFin    ? pago.periodoFin.split("T")[0]    : "",
       fechaPago:      pago.fechaPago.split("T")[0],
       notas:          pago.notas ?? "",
     })
@@ -214,8 +222,12 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
       const fd = new FormData()
       fd.append("monto", editForm.monto)
       fd.append("moneda", editForm.moneda)
-      fd.append("periodoInicio", editForm.periodoInicio)
-      fd.append("periodoFin", editForm.periodoFin)
+      fd.append("concepto", editingPago.concepto)
+      if (editingPago.conceptoDetalle) fd.append("conceptoDetalle", editingPago.conceptoDetalle)
+      if (editingPago.concepto === "LICENCIA") {
+        fd.append("periodoInicio", editForm.periodoInicio)
+        fd.append("periodoFin", editForm.periodoFin)
+      }
       fd.append("fechaPago", editForm.fechaPago)
       if (editForm.notas) fd.append("notas", editForm.notas)
       if (editFile) fd.append("comprobante", editFile)
@@ -454,7 +466,7 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
               <tbody className="divide-y divide-gray-50">
                 {pagos.map((p) => (
                   <tr key={p.id} className="group hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3 pr-4 font-medium text-gray-800">{formatPeriodo(p.periodoInicio, p.periodoFin)}</td>
+                    <td className="py-3 pr-4 font-medium text-gray-800">{periodoLabel(p)}</td>
                     <td className="py-3 pr-4 text-gray-500">{formatFecha(p.fechaPago)}</td>
                     <td className="py-3 pr-4 text-right font-semibold text-gray-800">{formatMonto(p.monto, p.moneda)}</td>
                     <td className="py-3 pr-4">
@@ -510,7 +522,7 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
               <div key={p.id} className="rounded-xl border border-gray-100 p-3.5 bg-gray-50/50">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{formatPeriodo(p.periodoInicio, p.periodoFin)}</p>
+                    <p className="text-sm font-semibold text-gray-800">{periodoLabel(p)}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{formatFecha(p.fechaPago)}</p>
                   </div>
                   <p className="text-sm font-bold text-gray-900 shrink-0">{formatMonto(p.monto, p.moneda)}</p>
@@ -601,7 +613,8 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
                 </div>
               </div>
 
-              {/* Periodo */}
+              {/* Periodo — solo aplica a pagos de licencia */}
+              {editingPago.concepto === "LICENCIA" && (
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Periodo cobrado <span className="text-red-400">*</span>
@@ -627,6 +640,7 @@ export default function PagosSection({ clienteId, isAdmin }: Props) {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Fecha de pago */}
               <div className="space-y-1.5">

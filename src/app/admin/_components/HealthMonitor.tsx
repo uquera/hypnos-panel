@@ -16,9 +16,11 @@ export default function HealthMonitor({ clientes }: { clientes: ClienteBasic[] }
   const [loading, setLoading]   = useState(false)
   const [checked, setChecked]   = useState(false)
   const [lastRun, setLastRun]   = useState<string | null>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
 
   async function verificar() {
     setLoading(true)
+    setCheckError(null)
     try {
       const res  = await fetch("/api/health-check")
       const data = await res.json()
@@ -28,9 +30,11 @@ export default function HealthMonitor({ clientes }: { clientes: ClienteBasic[] }
         setResults(map)
         setChecked(true)
         setLastRun(new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }))
+      } else {
+        setCheckError(data.error ?? "El chequeo de estado falló")
       }
     } catch {
-      // silencioso
+      setCheckError("No se pudo ejecutar el chequeo de estado")
     } finally {
       setLoading(false)
     }
@@ -85,6 +89,12 @@ export default function HealthMonitor({ clientes }: { clientes: ClienteBasic[] }
           </button>
         </div>
       </div>
+
+      {checkError && (
+        <p className="text-xs text-red-500 mb-3 flex items-center gap-1.5">
+          <WifiOff size={12} /> {checkError}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
         {clientes.map(c => {

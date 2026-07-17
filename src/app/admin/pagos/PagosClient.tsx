@@ -72,6 +72,7 @@ interface PagoItem {
   comprobante: string | null
   notas: string | null
   registradoPor: string
+  registradoPorId: string
   custodioId: string | null
   custodioNombre: string
   custodias: CustodiaItem[]
@@ -203,7 +204,7 @@ function StackedBarChart({ months, mesActualKey }: { months: ChartMonth[]; mesAc
       {tooltip !== null && (
         <div
           className="absolute -top-2 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-2 rounded-xl shadow-lg whitespace-nowrap"
-          style={{ left: `${(tooltip / months.length) * 100}%`, transform: "translateX(-50%)" }}
+          style={{ left: `${((tooltip + 0.5) / months.length) * 100}%`, transform: "translateX(-50%)" }}
         >
           <p className="font-semibold mb-1">{months[tooltip].label}</p>
           {months[tooltip].total === 0 ? (
@@ -417,12 +418,17 @@ function ModalRegistrarPago({
     if (!form.clienteId || !form.monto || Number(form.monto) <= 0) {
       toast.error("Completa todos los campos obligatorios"); return
     }
+    const splitCustodias = Object.entries(custodias)
+      .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
+      .filter(c => c.monto > 0)
+    if (splitCustodias.length > 0) {
+      const suma = splitCustodias.reduce((s, c) => s + c.monto, 0)
+      if (Math.abs(suma - Number(form.monto)) > 0.01) {
+        toast.error("El reparto de custodia no cuadra con el monto"); return
+      }
+    }
     setSub(true)
     try {
-      const splitCustodias = Object.entries(custodias)
-        .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
-        .filter(c => c.monto > 0)
-
       const fd = new FormData()
       fd.append("monto",           form.monto)
       fd.append("moneda",          form.moneda)
@@ -648,8 +654,8 @@ function ModalEditarPago({
     if (pago.custodias.length > 0) {
       return Object.fromEntries(pago.custodias.map(c => [c.userId, String(c.monto)]))
     }
-    // Fallback: legacy custodioId o registradoPor
-    const custodioFallback = pago.custodioId ?? currentUserId
+    // Fallback: legacy custodioId o quien registró el pago (nunca el editor)
+    const custodioFallback = pago.custodioId ?? pago.registradoPorId
     return { [custodioFallback]: String(pago.monto) }
   })
   const [file, setFile]      = useState<File | null>(null)
@@ -662,12 +668,17 @@ function ModalEditarPago({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.monto || Number(form.monto) <= 0) { toast.error("El monto debe ser mayor a 0"); return }
+    const splitCustodias = Object.entries(custodias)
+      .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
+      .filter(c => c.monto > 0)
+    if (splitCustodias.length > 0) {
+      const suma = splitCustodias.reduce((s, c) => s + c.monto, 0)
+      if (Math.abs(suma - Number(form.monto)) > 0.01) {
+        toast.error("El reparto de custodia no cuadra con el monto"); return
+      }
+    }
     setSub(true)
     try {
-      const splitCustodias = Object.entries(custodias)
-        .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
-        .filter(c => c.monto > 0)
-
       const fd = new FormData()
       fd.append("concepto",        form.concepto)
       fd.append("conceptoDetalle", form.conceptoDetalle)
@@ -836,7 +847,7 @@ export default function PagosClient({
     if (filtroConcepto !== "todos"  && p.concepto  !== filtroConcepto) return false
     if (filtroMes !== "todos") {
       const fp  = new Date(p.fechaPago)
-      const key = `${fp.getFullYear()}-${String(fp.getMonth() + 1).padStart(2, "0")}`
+      const key = `${fp.getUTCFullYear()}-${String(fp.getUTCMonth() + 1).padStart(2, "0")}`
       if (key !== filtroMes) return false
     }
     return true
@@ -847,7 +858,7 @@ export default function PagosClient({
 
   const mesesUnicos = [...new Set(pagos.map(p => {
     const d = new Date(p.fechaPago)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
   }))].sort((a, b) => b.localeCompare(a))
 
   function formatMesKey(key: string) {
@@ -863,7 +874,9 @@ export default function PagosClient({
     setExportando(true)
     try {
       const params = new URLSearchParams()
-      if (filtroCliente !== "todos") params.set("clienteId", filtroCliente)
+      if (filtroCliente  !== "todos") params.set("clienteId", filtroCliente)
+      if (filtroConcepto !== "todos") params.set("concepto", filtroConcepto)
+      if (filtroMoneda   !== "todas") params.set("moneda", filtroMoneda)
       if (filtroMes !== "todos") {
         const [year, month] = filtroMes.split("-")
         const inicio = new Date(Number(year), Number(month) - 1, 1)
@@ -970,18 +983,21 @@ export default function PagosClient({
       {/* Desglose por vertical — este mes */}
       <div className="grid grid-cols-3 gap-3">
         {([
-          { key: "licencia",   label: "Mensualidad", icon: <Receipt size={14} />, color: "indigo", val: kpis.verticalesEsteMes.licencia },
-          { key: "marketing",  label: "Marketing",   icon: <Sparkles size={14} />, color: "purple", val: kpis.verticalesEsteMes.marketing },
-          { key: "desarrollo", label: "Desarrollo",  icon: <Code2 size={14} />, color: "teal",   val: kpis.verticalesEsteMes.desarrollo },
+          { key: "licencia",   label: "Mensualidad", icon: <Receipt size={14} />,  val: kpis.verticalesEsteMes.licencia,
+            border: "border-indigo-100", iconBox: "bg-indigo-50 text-indigo-600", text: "text-indigo-700" },
+          { key: "marketing",  label: "Marketing",   icon: <Sparkles size={14} />, val: kpis.verticalesEsteMes.marketing,
+            border: "border-purple-100", iconBox: "bg-purple-50 text-purple-600", text: "text-purple-700" },
+          { key: "desarrollo", label: "Desarrollo",  icon: <Code2 size={14} />,    val: kpis.verticalesEsteMes.desarrollo,
+            border: "border-teal-100", iconBox: "bg-teal-50 text-teal-600", text: "text-teal-700" },
         ] as const).map(v => (
-          <div key={v.key} className={`bg-white rounded-2xl border shadow-sm p-4 border-${v.color}-100`}>
+          <div key={v.key} className={`bg-white rounded-2xl border shadow-sm p-4 ${v.border}`}>
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-7 h-7 rounded-lg bg-${v.color}-50 flex items-center justify-center text-${v.color}-600`}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${v.iconBox}`}>
                 {v.icon}
               </div>
               <p className="text-xs font-medium text-gray-500">{v.label}</p>
             </div>
-            <p className={`text-lg font-bold ${v.val > 0 ? `text-${v.color}-700` : "text-gray-400"}`}>
+            <p className={`text-lg font-bold ${v.val > 0 ? v.text : "text-gray-400"}`}>
               {formatUSD(v.val)}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">este mes</p>
@@ -1104,7 +1120,7 @@ export default function PagosClient({
                     <th className="px-5 py-3 text-right">Monto</th>
                     <th className="px-5 py-3 text-center">Comp.</th>
                     <th className="px-5 py-3 text-left">Custodio</th>
-                    <th className="px-5 py-3 text-center">Acc.</th>
+                    {isAdmin && <th className="px-5 py-3 text-center">Acc.</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1140,18 +1156,20 @@ export default function PagosClient({
                           <span className="font-medium text-gray-800">{p.custodioNombre}</span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => setEditandoPago(p)}
-                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
-                            {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => setEditandoPago(p)}
+                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
+                              {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1183,15 +1201,17 @@ export default function PagosClient({
                           <FileText size={11} /> Comp.
                         </a>
                       )}
-                      <>
-                        <button onClick={() => setEditandoPago(p)} className="p-1 rounded text-indigo-400 hover:text-indigo-600">
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
-                          className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
-                          {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </button>
-                      </>
+                      {isAdmin && (
+                        <>
+                          <button onClick={() => setEditandoPago(p)} className="p-1 rounded text-indigo-400 hover:text-indigo-600">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => eliminarPago(p.id)} disabled={eliminandoId === p.id}
+                            className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
+                            {eliminandoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

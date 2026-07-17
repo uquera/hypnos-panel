@@ -2,15 +2,10 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import GastosClient from "./GastosClient"
+import { toUSD } from "@/lib/monedas"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Gastos — Hypnos Panel" }
-
-function toUSD(monto: number, moneda: string) {
-  if (moneda === "USD") return monto
-  if (moneda === "CLP") return monto / 1000
-  return monto
-}
 
 export default async function GastosPage() {
   const session = await auth()
@@ -55,6 +50,7 @@ export default async function GastosPage() {
     comprobante:     g.comprobante,
     notas:           g.notas,
     registradoPor:   g.registradoPor.nombre,
+    registradoPorId: g.registradoPorId,
     custodioId:      g.custodioId ?? null,
     custodioNombre:  g.custodio?.nombre ?? g.registradoPor.nombre,
   }))

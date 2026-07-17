@@ -90,7 +90,7 @@ function BalanceChart({ meses, mesActualKey }: { meses: MesData[]; mesActualKey:
 
       {tooltip !== null && (
         <div className="absolute -top-2 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-2 rounded-xl shadow-lg whitespace-nowrap"
-          style={{ left: `${(tooltip / meses.length) * 100}%`, transform: "translateX(-50%)" }}>
+          style={{ left: `${((tooltip + 0.5) / meses.length) * 100}%`, transform: "translateX(-50%)" }}>
           <p className="font-semibold mb-1">{meses[tooltip].label}</p>
           <p className="text-indigo-300">Ingresos: {formatUSD(meses[tooltip].ingresos)}</p>
           <p className="text-rose-300">Gastos: {formatUSD(meses[tooltip].gastos)}</p>
@@ -110,7 +110,7 @@ export default function BalanceClient({ meses, mesActualKey, kpis }: Props) {
   const { mesActual, variacionIngresos, variacionGastos, acumIngresos, acumGastos, acumMargen } = kpis
 
   const IngIcon  = variacionIngresos === null ? Minus : variacionIngresos > 0 ? TrendingUp  : TrendingDown
-  const GastIcon = variacionGastos   === null ? Minus : variacionGastos   > 0 ? TrendingDown : TrendingUp
+  const GastIcon = variacionGastos   === null ? Minus : variacionGastos   > 0 ? TrendingUp : TrendingDown
   const ingColor  = variacionIngresos === null ? "text-gray-400" : variacionIngresos  > 0 ? "text-emerald-600" : "text-rose-400"
   const gastColor = variacionGastos   === null ? "text-gray-400" : variacionGastos   > 0 ? "text-rose-400"    : "text-emerald-600"
 

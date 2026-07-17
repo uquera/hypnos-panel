@@ -71,6 +71,17 @@ export async function POST(
   if (isNaN(monto) || monto <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
   }
+  if (!fechaPago || isNaN(new Date(fechaPago).getTime())) {
+    return NextResponse.json({ error: "Fecha de pago inválida" }, { status: 400 })
+  }
+  if (custodias.length > 0) {
+    const suma = custodias.reduce((s, c) => s + c.monto, 0)
+    if (Math.abs(suma - monto) > 0.01)
+      return NextResponse.json({ error: "El reparto de custodia no cuadra con el monto del pago" }, { status: 400 })
+    const existentes = await prisma.user.count({ where: { id: { in: custodias.map(c => c.userId) } } })
+    if (existentes !== custodias.length)
+      return NextResponse.json({ error: "Custodia con usuario inexistente" }, { status: 400 })
+  }
   if (!CONCEPTOS_VALIDOS.includes(concepto)) {
     return NextResponse.json({ error: "Concepto inválido" }, { status: 400 })
   }
@@ -93,32 +104,39 @@ export async function POST(
     await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
   }
 
-  const pago = await prisma.pago.create({
-    data: {
-      clienteId,
-      concepto,
-      conceptoDetalle: conceptoDetalle?.trim() || null,
-      monto,
-      moneda,
-      periodoInicio: concepto === "LICENCIA" && periodoInicio ? new Date(periodoInicio) : null,
-      periodoFin:    concepto === "LICENCIA" && periodoFin    ? new Date(periodoFin)    : null,
-      fechaPago:     new Date(fechaPago),
-      comprobante,
-      notas,
-      registradoPorId,
-    },
-    include: {
-      registradoPor: { select: { nombre: true } },
-      custodias: { include: { usuario: { select: { nombre: true } } } },
-    },
-  })
-
-  // Crear registros de custodia split
-  if (custodias.length > 0) {
-    await prisma.pagoCustodia.createMany({
-      data: custodias.map(c => ({ pagoId: pago.id, userId: c.userId, monto: c.monto })),
+  const pago = await prisma.$transaction(async tx => {
+    const creado = await tx.pago.create({
+      data: {
+        clienteId,
+        concepto,
+        conceptoDetalle: conceptoDetalle?.trim() || null,
+        monto,
+        moneda,
+        periodoInicio: concepto === "LICENCIA" && periodoInicio ? new Date(periodoInicio) : null,
+        periodoFin:    concepto === "LICENCIA" && periodoFin    ? new Date(periodoFin)    : null,
+        fechaPago:     new Date(fechaPago),
+        comprobante,
+        notas,
+        registradoPorId,
+      },
+      include: {
+        registradoPor: { select: { nombre: true } },
+      },
     })
-  }
+
+    // Crear registros de custodia split
+    if (custodias.length > 0) {
+      await tx.pagoCustodia.createMany({
+        data: custodias.map(c => ({ pagoId: creado.id, userId: c.userId, monto: c.monto })),
+      })
+    }
+
+    const custodiasFinal = await tx.pagoCustodia.findMany({
+      where: { pagoId: creado.id },
+      include: { usuario: { select: { nombre: true } } },
+    })
+    return { ...creado, custodias: custodiasFinal }
+  })
 
   // Etiqueta para el log de actividad
   const etiquetaConcepto =

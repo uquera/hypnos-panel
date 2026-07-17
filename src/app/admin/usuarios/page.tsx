@@ -4,26 +4,45 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserPlus, ShieldCheck, Briefcase } from "lucide-react"
 import ToggleUserButton from "./ToggleUserButton"
+import SubmitButton from "../_components/SubmitButton"
 
 export const metadata = { title: "Usuarios — Hypnos Panel" }
 export const dynamic = "force-dynamic"
 
 async function crearUsuario(formData: FormData) {
   "use server"
-  const nombre       = formData.get("nombre") as string
-  const email        = formData.get("email") as string
-  const password     = formData.get("password") as string
-  const role         = formData.get("role") as string
-
-  const passwordHash = await bcrypt.hash(password, 12)
-  await prisma.user.create({ data: { nombre, email, passwordHash, role } })
-  redirect("/admin/usuarios")
-}
-
-export default async function UsuariosPage() {
   const session = await auth()
   if (!session || session.user.role !== "ADMIN") redirect("/admin")
 
+  const nombre   = (formData.get("nombre") as string)?.trim()
+  const email    = (formData.get("email") as string)?.trim().toLowerCase()
+  const password = formData.get("password") as string
+  const role     = formData.get("role") === "ADMIN" ? "ADMIN" : "COBRADOR"
+
+  if (!nombre || !email || !password) redirect("/admin/usuarios?error=datos")
+  if (password.length < 6) redirect("/admin/usuarios?error=password")
+
+  const passwordHash = await bcrypt.hash(password, 12)
+  try {
+    await prisma.user.create({ data: { nombre, email, passwordHash, role } })
+  } catch {
+    redirect("/admin/usuarios?error=email")
+  }
+  redirect("/admin/usuarios")
+}
+
+const ERRORES: Record<string, string> = {
+  datos:    "Completa todos los campos.",
+  password: "La contraseña debe tener al menos 6 caracteres.",
+  email:    "Ya existe un usuario con ese correo.",
+}
+
+export default async function UsuariosPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const session = await auth()
+  if (!session || session.user.role !== "ADMIN") redirect("/admin")
+
+  const { error } = await searchParams
+  const errorMsg = error ? ERRORES[error] ?? "No se pudo crear el usuario." : null
   const usuarios = await prisma.user.findMany({ orderBy: { createdAt: "asc" } })
 
   return (
@@ -122,6 +141,12 @@ export default async function UsuariosPage() {
           <h2 className="text-base font-bold text-gray-900">Agregar usuario</h2>
         </div>
 
+        {errorMsg && (
+          <div className="rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3">
+            {errorMsg}
+          </div>
+        )}
+
         <form action={crearUsuario} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -150,12 +175,12 @@ export default async function UsuariosPage() {
               </select>
             </div>
           </div>
-          <button type="submit"
+          <SubmitButton
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 h-11 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}>
             <UserPlus size={15} />
             Crear usuario
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

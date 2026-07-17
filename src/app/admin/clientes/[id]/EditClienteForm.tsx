@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Save } from "lucide-react"
 
@@ -16,6 +17,7 @@ interface Props {
 export default function EditClienteForm({
   clienteId, nombre, dominio, apiUrl, masterKey, emailContacto,
 }: Props) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ nombre, dominio, apiUrl, masterKey, emailContacto: emailContacto ?? "" })
   const [showKey, setShowKey] = useState(false)
@@ -31,6 +33,7 @@ export default function EditClienteForm({
       })
       if (res.ok) {
         toast.success("Datos del cliente actualizados")
+        router.refresh()
       } else {
         toast.error("Error al guardar")
       }

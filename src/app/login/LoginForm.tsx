@@ -24,6 +24,8 @@ export default function LoginForm() {
       } else {
         window.location.href = "/admin"
       }
+    } catch {
+      toast.error("No se pudo conectar con el servidor. Intenta de nuevo.")
     } finally {
       setLoading(false)
     }

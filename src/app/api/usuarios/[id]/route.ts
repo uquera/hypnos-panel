@@ -9,6 +9,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params
   const { activo } = await req.json()
+  if (typeof activo !== "boolean")
+    return NextResponse.json({ error: "Valor de 'activo' inválido" }, { status: 400 })
+
+  // No permitir auto-desactivarse
+  if (!activo) {
+    const self = await prisma.user.findUnique({ where: { id } })
+    if (self && (self.id === session.user.id || self.email === session.user.email))
+      return NextResponse.json({ error: "No puedes desactivar tu propia cuenta" }, { status: 400 })
+  }
 
   const user = await prisma.user.update({
     where: { id },

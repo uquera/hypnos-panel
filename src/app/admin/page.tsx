@@ -2,6 +2,7 @@ import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { calcularEstado } from "@/lib/licencia-utils"
+import { toUSD } from "@/lib/monedas"
 import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
 import RenovarButton from "./_components/RenovarButton"
 import HealthMonitor from "./_components/HealthMonitor"
@@ -46,13 +47,6 @@ export default async function AdminPage() {
   const now             = new Date()
   const primerDiaMes    = new Date(now.getFullYear(), now.getMonth(), 1)
   const primerDiaSigMes = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-
-  // Convierte cualquier pago a USD (1 USD = 1000 CLP)
-  function toUSD(monto: number, moneda: string): number {
-    if (moneda === "USD") return monto
-    if (moneda === "CLP") return monto / 1000
-    return monto
-  }
 
   const [clientes, pagosMes, pagosTotal, actividadReciente] = await Promise.all([
     prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: "asc" } }),

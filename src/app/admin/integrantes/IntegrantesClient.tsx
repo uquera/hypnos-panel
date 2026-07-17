@@ -9,6 +9,7 @@ import {
   Wallet,
   Target,
   Plus,
+  Loader2,
   Pencil,
   Trash2,
   ChevronLeft,
@@ -88,6 +89,7 @@ export default function IntegrantesClient({
   const [editandoUserId,  setEditandoUserId]  = useState<string>("")
   const [guardando,       setGuardando]       = useState(false)
   const [error,           setError]           = useState("")
+  const [eliminandoId,    setEliminandoId]    = useState<string | null>(null)
 
   // Paginación retiros
   const PAGE_SIZE = 10
@@ -170,8 +172,20 @@ export default function IntegrantesClient({
 
   async function handleEliminar(id: string) {
     if (!confirm("¿Eliminar este retiro?")) return
-    const res = await fetch(`/api/retiros/${id}`, { method: "DELETE" })
-    if (res.ok) startTransition(() => router.refresh())
+    setEliminandoId(id)
+    try {
+      const res = await fetch(`/api/retiros/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        alert(data?.error ?? "Error al eliminar el retiro")
+        return
+      }
+      startTransition(() => router.refresh())
+    } catch {
+      alert("Error de conexión al eliminar el retiro")
+    } finally {
+      setEliminandoId(null)
+    }
   }
 
   function abrirEdicion(r: RetiroRow & { userId: string }) {
@@ -401,9 +415,10 @@ export default function IntegrantesClient({
                             </button>
                             <button
                               onClick={() => handleEliminar(r.id)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              disabled={eliminandoId === r.id}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
                             >
-                              <Trash2 size={14} />
+                              {eliminandoId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                             </button>
                           </div>
                         </td>

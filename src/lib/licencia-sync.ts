@@ -22,6 +22,11 @@ export async function syncLicencia(
   clienteId: string,
   data: SyncData
 ): Promise<SyncResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { ok: false, syncedRemote: false, error: "No autorizado" }
+  }
+
   // 1. Actualizar en base de datos local
   const updateData: Record<string, unknown> = {}
   if (data.plan             !== undefined) updateData.plan             = data.plan
@@ -65,8 +70,7 @@ export async function syncLicencia(
   }
 
   // Log de actividad
-  const session = await auth()
-  if (session?.user?.id) {
+  if (session.user.id) {
     const detalles: string[] = []
     if (data.plan)             detalles.push(`Plan: ${data.plan}`)
     if (data.fechaVencimiento) detalles.push(`Vence: ${data.fechaVencimiento}`)

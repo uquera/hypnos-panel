@@ -13,10 +13,18 @@ export async function GET(req: Request) {
   const hasta = searchParams.get("hasta")
   const isAdmin = session.user.role === "ADMIN"
 
+  // Resolver el ID del usuario (sesiones legacy pueden no traerlo en el JWT)
+  let selfId = session.user.id
+  if (!isAdmin && !selfId) {
+    const user = await prisma.user.findUnique({ where: { email: session.user.email! } })
+    if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
+    selfId = user.id
+  }
+
   const retiros = await prisma.retiro.findMany({
     where: {
       // COBRADOR solo ve sus propios retiros
-      ...(!isAdmin ? { registradoPorId: session.user.id! } : {}),
+      ...(!isAdmin ? { registradoPorId: selfId } : {}),
       ...(desde || hasta ? {
         fecha: {
           ...(desde ? { gte: new Date(desde) } : {}),

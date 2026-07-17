@@ -3,15 +3,10 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { calcularEstado } from "@/lib/licencia-utils"
 import PagosClient from "./PagosClient"
+import { toUSD } from "@/lib/monedas"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Ingresos — Hypnos Panel" }
-
-function toUSD(monto: number, moneda: string): number {
-  if (moneda === "USD") return monto
-  if (moneda === "CLP") return monto / 1000
-  return monto
-}
 
 export default async function PagosPage() {
   const session = await auth()
@@ -114,6 +109,7 @@ export default async function PagosPage() {
     comprobante:     p.comprobante,
     notas:           p.notas,
     registradoPor:   p.registradoPor.nombre,
+    registradoPorId: p.registradoPorId,
     custodioId:      p.custodioId ?? null,
     custodioNombre:  p.custodio?.nombre ?? p.registradoPor.nombre,
     custodias:       p.custodias.map(c => ({ userId: c.userId, userName: c.usuario.nombre, monto: c.monto })),

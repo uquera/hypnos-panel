@@ -4,11 +4,18 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import PasswordField from "./PasswordField"
+import SubmitButton from "../../_components/SubmitButton"
 
 export const metadata = { title: "Nuevo cliente — Hypnos Panel" }
 
 async function crearCliente(formData: FormData) {
   "use server"
+  const { auth } = await import("@/lib/auth")
+  const { logActividad } = await import("@/lib/actividad")
+
+  const session = await auth()
+  if (!session || session.user.role !== "ADMIN") redirect("/admin")
+
   const nombre           = formData.get("nombre") as string
   const dominio          = formData.get("dominio") as string
   const apiUrl           = formData.get("apiUrl") as string
@@ -18,26 +25,20 @@ async function crearCliente(formData: FormData) {
   const notasAdmin       = formData.get("notasAdmin") as string
   const emailContacto    = formData.get("emailContacto") as string
 
-  const { auth } = await import("@/lib/auth")
-  const { logActividad } = await import("@/lib/actividad")
+  const cliente = await prisma.cliente.create({
+    data: {
+      nombre,
+      dominio,
+      apiUrl,
+      masterKey,
+      plan,
+      fechaVencimiento: new Date(fechaVencimiento),
+      notasAdmin:       notasAdmin || null,
+      emailContacto:    emailContacto || null,
+    },
+  })
 
-  const [cliente, session] = await Promise.all([
-    prisma.cliente.create({
-      data: {
-        nombre,
-        dominio,
-        apiUrl,
-        masterKey,
-        plan,
-        fechaVencimiento: new Date(fechaVencimiento),
-        notasAdmin:       notasAdmin || null,
-        emailContacto:    emailContacto || null,
-      },
-    }),
-    auth(),
-  ])
-
-  if (session?.user?.id) {
+  if (session.user.id) {
     await logActividad({
       usuarioId:     session.user.id,
       usuarioNombre: session.user.name ?? "Usuario",
@@ -145,13 +146,12 @@ export default async function NuevoClientePage() {
           >
             Cancelar
           </Link>
-          <button
-            type="submit"
-            className="flex-1 h-11 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+          <SubmitButton
+            className="flex-1 h-11 flex items-center justify-center rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
             style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
           >
             Crear cliente
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </div>

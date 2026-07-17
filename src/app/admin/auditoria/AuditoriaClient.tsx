@@ -142,7 +142,7 @@ export default function AuditoriaClient({ logs }: { logs: LogItem[] }) {
           { label: "Ediciones",             value: countEdiciones,    color: "text-blue-600",    bg: "bg-blue-50" },
           { label: "Eliminaciones",         value: countEliminaciones, color: "text-rose-400",   bg: "bg-rose-50" },
         ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`${bg} rounded-xl px-4 py-3 border border-white`}>
+          <div key={label} className={`${bg} rounded-xl px-4 py-3 border border-transparent`}>
             <p className="text-xs text-gray-500">{label}</p>
             <p className={`text-2xl font-bold mt-0.5 ${color}`}>{value}</p>
           </div>

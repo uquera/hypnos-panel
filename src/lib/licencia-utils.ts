@@ -13,8 +13,11 @@ export function calcularEstado(cliente: {
     (new Date(cliente.fechaVencimiento).getTime() - Date.now()) / 86_400_000
   )
 
-  if (cliente.suspendida || diasRestantes <= 0) {
-    return { label: "Suspendida",                    color: "bg-red-100",    textColor: "text-red-700",   diasRestantes }
+  if (cliente.suspendida) {
+    return { label: "Suspendida", color: "bg-red-100",  textColor: "text-red-700",  diasRestantes }
+  }
+  if (diasRestantes <= 0) {
+    return { label: "Vencida",    color: "bg-rose-100", textColor: "text-rose-700", diasRestantes }
   }
   if (diasRestantes <= 7) {
     return { label: `${diasRestantes}d — Por vencer`, color: "bg-amber-100", textColor: "text-amber-700", diasRestantes }

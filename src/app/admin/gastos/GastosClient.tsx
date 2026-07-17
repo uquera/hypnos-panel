@@ -46,6 +46,7 @@ interface GastoItem {
   comprobante: string | null
   notas: string | null
   registradoPor: string
+  registradoPorId: string
   custodioId: string | null
   custodioNombre: string
 }
@@ -335,7 +336,7 @@ function ModalEditar({
             concepto: gasto.concepto, categoria: gasto.categoria as Categoria,
             monto: String(gasto.monto), moneda: gasto.moneda,
             fecha: gasto.fecha.split("T")[0], notas: gasto.notas ?? "",
-            custodioId: gasto.custodioId ?? currentUserId,
+            custodioId: gasto.custodioId ?? gasto.registradoPorId,
           }}
           usuarios={usuarios}
           currentUserId={currentUserId}
@@ -542,18 +543,20 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-5 py-3.5 text-xs font-medium text-gray-800">{g.custodioNombre}</td>
-                      <td className="px-5 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => setEditando(g)}
-                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
-                            {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => setEditando(g)}
+                              className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40">
+                              {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -573,12 +576,14 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-400">{formatFecha(g.fecha)} · {g.custodioNombre}</p>
-                    <div className="flex gap-1">
-                      <button onClick={() => setEditando(g)} className="p-1 rounded text-indigo-400 hover:text-indigo-600"><Pencil size={13} /></button>
-                      <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id} className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
-                        {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditando(g)} className="p-1 rounded text-indigo-400 hover:text-indigo-600"><Pencil size={13} /></button>
+                        <button onClick={() => eliminar(g.id)} disabled={eliminandoId === g.id} className="p-1 rounded text-gray-300 hover:text-red-500 disabled:opacity-40">
+                          {eliminandoId === g.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

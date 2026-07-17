@@ -2,18 +2,12 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import IntegrantesClient from "./IntegrantesClient"
+import { toUSD } from "@/lib/monedas"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Integrantes — Hypnos Panel" }
 
 export const META_MENSUAL_USD = 200
-
-function toUSD(monto: number, moneda: string) {
-  if (moneda === "USD") return monto
-  if (moneda === "CLP") return monto / 1000
-  if (moneda === "EUR") return monto * 1.1
-  return monto
-}
 
 export default async function IntegrantesPage() {
   const session = await auth()

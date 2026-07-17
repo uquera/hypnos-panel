@@ -10,9 +10,13 @@ export async function GET(req: NextRequest) {
   const clienteId = searchParams.get("clienteId")
   const desde     = searchParams.get("desde")
   const hasta     = searchParams.get("hasta")
+  const concepto  = searchParams.get("concepto")
+  const moneda    = searchParams.get("moneda")
 
   const where: Record<string, unknown> = {}
   if (clienteId) where.clienteId = clienteId
+  if (concepto)  where.concepto  = concepto
+  if (moneda)    where.moneda    = moneda
   if (desde || hasta) {
     where.fechaPago = {
       ...(desde ? { gte: new Date(desde) } : {}),
@@ -36,7 +40,9 @@ export async function GET(req: NextRequest) {
 
   function esc(v: string | null | undefined) {
     if (!v) return ""
-    return `"${v.replace(/"/g, '""')}"`
+    // Prefijar con ' los valores que Excel interpretaría como fórmula
+    const safe = /^[=+\-@]/.test(v) ? `'${v}` : v
+    return `"${safe.replace(/"/g, '""')}"`
   }
 
   const header = "Fecha pago,Cliente,Dominio,Vertical,Descripción,Período inicio,Período fin,Monto,Moneda,Notas,Registrado por"

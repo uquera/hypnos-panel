@@ -2,15 +2,10 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import BalanceClient from "./BalanceClient"
+import { toUSD } from "@/lib/monedas"
 
 export const dynamic = "force-dynamic"
 export const metadata = { title: "Balance — Hypnos Panel" }
-
-function toUSD(monto: number, moneda: string) {
-  if (moneda === "USD") return monto
-  if (moneda === "CLP") return monto / 1000
-  return monto
-}
 
 export default async function BalancePage() {
   const session = await auth()
