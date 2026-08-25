@@ -150,4 +150,31 @@ model Retiro {
   @@map("retiros")
 }
 
+// ─── LEADS DE LA LANDING ──────────────────────────────────────────────────────
+// Solicitudes que entran por el formulario de hypnosapps.com/landing.
+// El endpoint público POST /api/leads es el único que escribe aquí.
+// estado: NUEVO | CONTACTADO | EN_CONVERSACION | GANADO | PERDIDO
+
+model Lead {
+  id        String   @id @default(cuid())
+  negocio   String                            // "Bisodent"
+  tipo      String   @default("")             // rubro que eligió: "Consulta / Terapia"…
+  nombre    String                            // nombre de la persona que escribe
+  whatsapp  String   @default("")
+  email     String   @default("")
+  origen    String   @default("landing")      // qué botón/sección originó el envío
+  conLogo   Boolean  @default(false)          // si subió logo al probar el demo
+  estado    String   @default("NUEVO")
+  notas     String?                           // seguimiento interno
+  ip        String   @default("")             // para el límite anti-spam por IP
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estado])
+  @@index([createdAt])
+  @@index([ip, createdAt])
+  @@map("leads")
+}
+
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ShieldCheck, TrendingUp, TrendingDown, Wallet, Users, RefreshCw, Search } from "lucide-react"
+import { ShieldCheck, TrendingUp, TrendingDown, Wallet, Users, RefreshCw, Search, Inbox } from "lucide-react"
 
 // ─── Configuración de acciones ────────────────────────────────────────────────
 
@@ -30,6 +30,8 @@ const ACCIONES: Record<string, AccionMeta> = {
   RENOVACION:        { label: "Renovación",           categoria: "licencias", color: "bg-violet-100",  textColor: "text-violet-700",  icon: <RefreshCw size={11} />,    verbo: "renovó licencia de" },
   CLIENTE_CREADO:    { label: "Cliente creado",        categoria: "clientes",  color: "bg-teal-100",   textColor: "text-teal-700",    icon: <Users size={11} />,        verbo: "creó cliente" },
   CLIENTE_ARCHIVADO: { label: "Cliente archivado",     categoria: "clientes",  color: "bg-gray-200",   textColor: "text-gray-600",    icon: <Users size={11} />,        verbo: "archivó cliente" },
+  LEAD_ESTADO:       { label: "Lead actualizado",      categoria: "clientes",  color: "bg-indigo-100", textColor: "text-indigo-700",  icon: <Inbox size={11} />,        verbo: "movió lead" },
+  LEAD_ELIMINADO:    { label: "Lead eliminado",        categoria: "clientes",  color: "bg-rose-100",   textColor: "text-rose-600",    icon: <Inbox size={11} />,        verbo: "eliminó lead" },
 }
 
 const FALLBACK_META: AccionMeta = {
