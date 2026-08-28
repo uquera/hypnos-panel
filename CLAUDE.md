@@ -15,7 +15,23 @@ Panel de administración para gestionar licencias, pagos y estado de todas las a
 |-----|---------|-----|
 | Centro Bambú | admibambu.cl | centro-bambu-demo |
 | QuickStop | quickstop.cl | quick-stop |
+| Centro Hiperbárico | hiperbarico.srv1485601.hstgr.cloud | centro-hiperbarico |
+| Bisodent | bisodent.srv1485601.hstgr.cloud | bisodent |
 | Agenda Allamey | — | agenda-allamey |
+
+## Tropiezos de infraestructura (VPS)
+
+- **IPv6 rompe los fetch de gobernanza.** Los subdominios `*.srv1485601.hstgr.cloud`
+  tienen registro AAAA (IPv6) hacia un edge de Hostinger cuyo certificado NO
+  corresponde al host → `ERR_TLS_CERT_ALTNAME_INVALID`. Por IPv4 nginx sirve el
+  cert Let's Encrypt correcto (HTTP 200). Node ≥17 prefiere IPv6, así que
+  health-check/sync/pagos fallaban para TODOS los clientes. **Fix:** `src/instrumentation.ts`
+  fuerza `dns.setDefaultResultOrder("ipv4first")` al arrancar el panel. Si algún
+  cliente aparece caído aunque su app esté viva, verifica esto primero.
+- **GET de gobernanza debe aceptar `X-Master-Key`.** El health-check hace
+  `GET apiUrl` con la master key y espera 200. Si el `GET` del cliente solo
+  acepta sesión ADMIN (como venía Bisodent), aparece caído. El `GET` debe
+  autorizar por master key (operador) **o** sesión ADMIN (página del cliente).
 
 ---
 
