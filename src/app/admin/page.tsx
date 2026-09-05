@@ -162,10 +162,20 @@ export default async function AdminPage() {
                 day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
               })
               return (
-                <div key={c.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div
+                  key={c.id}
+                  className="relative bg-white rounded-xl border border-gray-100 shadow-sm p-4 transition-colors hover:border-indigo-200"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{c.nombre}</p>
+                      {/* Enlace estirado: la tarjeta entera abre la ficha sin anidar
+                          anchors, y los botones de abajo siguen siendo suyos. */}
+                      <Link
+                        href={`/admin/clientes/${c.id}`}
+                        className="font-semibold text-gray-900 truncate block after:absolute after:inset-0 after:content-['']"
+                      >
+                        {c.nombre}
+                      </Link>
                       <p className="text-xs text-gray-400 truncate mt-0.5">{c.dominio}</p>
                     </div>
                     <span className={`shrink-0 inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${estado.color} ${estado.textColor}`}>
@@ -178,7 +188,7 @@ export default async function AdminPage() {
                     </span>
                     <span className="text-xs text-gray-500">{fecha}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                  <div className="relative z-10 flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
                     <RenovarButton clienteId={c.id} clienteNombre={c.nombre} />
                     <Link
                       href={`/admin/clientes/${c.id}`}
@@ -219,9 +229,19 @@ export default async function AdminPage() {
                     day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
                   })
                   return (
-                    <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr key={c.id} className="relative cursor-pointer hover:bg-gray-50/50 transition-colors">
                       <td className="px-5 py-4">
-                        <p className="font-semibold text-gray-900">{c.nombre}</p>
+                        {/* Enlace estirado: cubre la fila entera con ::after, así
+                            toda la fila abre la ficha del cliente y su historial.
+                            Sigue siendo un <a> de verdad: teclado, ctrl+clic y
+                            botón central funcionan. Anidar anchors no es válido,
+                            por eso los botones de Acciones van sobre él (z-10). */}
+                        <Link
+                          href={`/admin/clientes/${c.id}`}
+                          className="font-semibold text-gray-900 hover:text-indigo-700 after:absolute after:inset-0 after:content-['']"
+                        >
+                          {c.nombre}
+                        </Link>
                         <p className="text-xs text-gray-400 mt-0.5">{c.dominio}</p>
                       </td>
                       <td className="px-4 py-4">
@@ -236,7 +256,7 @@ export default async function AdminPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="relative z-10 flex items-center justify-end gap-2">
                           <a
                             href={`https://${c.dominio}`}
                             target="_blank"
