@@ -3,10 +3,12 @@
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  TrendingDown, Plus, X, FileText, ChevronDown,
+  TrendingDown, Plus, X, FileText, ChevronDown, ChevronUp, ArrowUpDown,
   Loader2, Pencil, Trash2, Bot, Monitor, Server, Megaphone, Package,
 } from "lucide-react"
 import { toast } from "sonner"
+
+type SortKey = "fecha" | "concepto" | "categoria" | "monto" | "custodioNombre"
 
 // ─── Categorías ───────────────────────────────────────────────────────────────
 
@@ -359,7 +361,20 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   const [filtroCat,    setFiltroCat]    = useState("todas")
   const [filtroMes,    setFiltroMes]    = useState("todos")
   const [pagina,       setPagina]       = useState(1)
+  const [sortKey,      setSortKey]      = useState<SortKey>("fecha")
+  const [sortDir,      setSortDir]      = useState<"asc" | "desc">("desc")
   const PER_PAGE = 20
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortKey(key)
+      // fecha y monto arrancan de mayor a menor; el texto, alfabético
+      setSortDir(key === "fecha" || key === "monto" ? "desc" : "asc")
+    }
+    setPagina(1)
+  }
 
   const gastosFiltrados = gastos.filter(g => {
     if (filtroCat !== "todas" && g.categoria !== filtroCat) return false
@@ -371,8 +386,21 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
     return true
   })
 
-  const totalPaginas = Math.ceil(gastosFiltrados.length / PER_PAGE)
-  const gastosPagina = gastosFiltrados.slice((pagina - 1) * PER_PAGE, pagina * PER_PAGE)
+  const montoUSD = (m: number, mon: string) => (mon === "CLP" ? m / 1000 : m)
+  const gastosOrdenados = [...gastosFiltrados].sort((a, b) => {
+    let cmp = 0
+    switch (sortKey) {
+      case "fecha":          cmp = a.fecha.localeCompare(b.fecha); break
+      case "concepto":       cmp = a.concepto.localeCompare(b.concepto, "es"); break
+      case "categoria":      cmp = a.categoria.localeCompare(b.categoria, "es"); break
+      case "monto":          cmp = montoUSD(a.monto, a.moneda) - montoUSD(b.monto, b.moneda); break
+      case "custodioNombre": cmp = a.custodioNombre.localeCompare(b.custodioNombre, "es"); break
+    }
+    return sortDir === "asc" ? cmp : -cmp
+  })
+
+  const totalPaginas = Math.ceil(gastosOrdenados.length / PER_PAGE)
+  const gastosPagina = gastosOrdenados.slice((pagina - 1) * PER_PAGE, pagina * PER_PAGE)
 
   const mesesUnicos = [...new Set(gastos.map(g => {
     const d = new Date(g.fecha)
@@ -399,6 +427,23 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   }
 
   const toUSD = (m: number, mon: string) => mon === "CLP" ? m / 1000 : m
+
+  const thBtn = (k: SortKey, label: string, align: "left" | "right" | "center" = "left") => {
+    const active   = sortKey === k
+    const alignCls = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
+    const justify  = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"
+    return (
+      <th className={`px-5 py-3 ${alignCls}`}>
+        <button type="button" onClick={() => toggleSort(k)} title="Ordenar"
+          className={`inline-flex items-center gap-1 w-full ${justify} uppercase tracking-wide font-semibold transition-colors ${active ? "text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}>
+          <span>{label}</span>
+          {active
+            ? (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+            : <ArrowUpDown size={11} className="opacity-30" />}
+        </button>
+      </th>
+    )
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
@@ -515,12 +560,12 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <th className="px-5 py-3 text-left">Fecha</th>
-                    <th className="px-5 py-3 text-left">Concepto</th>
-                    <th className="px-5 py-3 text-left">Categoría</th>
-                    <th className="px-5 py-3 text-right">Monto</th>
+                    {thBtn("fecha", "Fecha")}
+                    {thBtn("concepto", "Concepto")}
+                    {thBtn("categoria", "Categoría")}
+                    {thBtn("monto", "Monto", "right")}
                     <th className="px-5 py-3 text-center">Comp.</th>
-                    <th className="px-5 py-3 text-left">Pagado por</th>
+                    {thBtn("custodioNombre", "Pagado por")}
                     {isAdmin && <th className="px-5 py-3 text-center">Acc.</th>}
                   </tr>
                 </thead>
