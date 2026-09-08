@@ -12,7 +12,8 @@ export const META_MENSUAL_USD = 200
 export default async function IntegrantesPage() {
   const session = await auth()
   if (!session) redirect("/login")
-  if (session.user.role !== "ADMIN") redirect("/admin")
+  // Cobradores (socios) también pueden ver esta página: el cliente ya limita
+  // sus retiros a los propios y oculta las acciones/columnas de admin.
 
   const hoy   = new Date()
   const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
