@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth, isOwnerEmail } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || session.user.role !== "ADMIN")
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (!session || !isOwnerEmail(session.user.email))
+    return NextResponse.json({ error: "Solo el owner puede gestionar usuarios" }, { status: 403 })
 
   const { id } = await params
   const { activo } = await req.json()

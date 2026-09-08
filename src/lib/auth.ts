@@ -3,6 +3,13 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
+// Owner del panel: único que puede gestionar usuarios/roles. Los demás admin
+// (p. ej. socios) tienen acceso total EXCEPTO la gestión de usuarios.
+export const OWNER_EMAIL = "ulises@hypnosapps.com"
+export function isOwnerEmail(email?: string | null): boolean {
+  return !!email && email.toLowerCase() === OWNER_EMAIL
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({

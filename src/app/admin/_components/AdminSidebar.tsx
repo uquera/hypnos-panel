@@ -12,7 +12,7 @@ import { ThemeToggle } from "@/app/_components/ThemeToggle"
 interface NavItem {
   href: string; label: string
   icon: React.ComponentType<{ size?: number }>
-  exact?: boolean; adminOnly?: boolean
+  exact?: boolean; adminOnly?: boolean; ownerOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -23,16 +23,16 @@ const navItems: NavItem[] = [
   { href: "/admin/balance",      label: "Balance",     icon: BarChart2 },
   { href: "/admin/integrantes",  label: "Integrantes", icon: Users },
   { href: "/admin/auditoria",    label: "Auditoría",   icon: ClipboardList, adminOnly: true },
-  { href: "/admin/usuarios",     label: "Usuarios",    icon: UserCog,       adminOnly: true },
+  { href: "/admin/usuarios",     label: "Usuarios",    icon: UserCog,       ownerOnly: true },
   { href: "/admin/monitor",      label: "Monitor",     icon: Monitor,       adminOnly: true },
 ]
 
-interface Props { role: string; userName: string; onClose?: () => void }
+interface Props { role: string; userName: string; isOwner?: boolean; onClose?: () => void }
 
-export default function AdminSidebar({ role, userName, onClose }: Props) {
+export default function AdminSidebar({ role, userName, isOwner = false, onClose }: Props) {
   const pathname = usePathname()
   const isAdmin  = role === "ADMIN"
-  const visible  = navItems.filter(i => !i.adminOnly || isAdmin)
+  const visible  = navItems.filter(i => (!i.adminOnly || isAdmin) && (!i.ownerOnly || isOwner))
 
   return (
     <aside className="w-56 bg-white dark:bg-slate-900 border-r border-gray-100 dark:border-slate-700/50 flex flex-col h-screen shrink-0 shadow-sm">

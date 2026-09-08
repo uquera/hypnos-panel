@@ -4,9 +4,9 @@ import { useState } from "react"
 import { Menu, ShieldCheck } from "lucide-react"
 import AdminSidebar from "./AdminSidebar"
 
-interface Props { role: string; userName: string; children: React.ReactNode }
+interface Props { role: string; userName: string; isOwner?: boolean; children: React.ReactNode }
 
-export default function AdminShell({ role, userName, children }: Props) {
+export default function AdminShell({ role, userName, isOwner = false, children }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -14,7 +14,7 @@ export default function AdminShell({ role, userName, children }: Props) {
 
       {/* Sidebar lg+ */}
       <div className="hidden lg:flex shrink-0">
-        <AdminSidebar role={role} userName={userName} />
+        <AdminSidebar role={role} userName={userName} isOwner={isOwner} />
       </div>
 
       {/* Overlay móvil */}
@@ -27,7 +27,7 @@ export default function AdminShell({ role, userName, children }: Props) {
         "fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ease-in-out",
         open ? "translate-x-0" : "-translate-x-full",
       ].join(" ")}>
-        <AdminSidebar role={role} userName={userName} onClose={() => setOpen(false)} />
+        <AdminSidebar role={role} userName={userName} isOwner={isOwner} onClose={() => setOpen(false)} />
       </div>
 
       {/* Contenido */}

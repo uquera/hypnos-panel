@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth"
+import { auth, isOwnerEmail } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 async function crearUsuario(formData: FormData) {
   "use server"
   const session = await auth()
-  if (!session || session.user.role !== "ADMIN") redirect("/admin")
+  if (!session || !isOwnerEmail(session.user.email)) redirect("/admin")
 
   const nombre   = (formData.get("nombre") as string)?.trim()
   const email    = (formData.get("email") as string)?.trim().toLowerCase()
@@ -39,7 +39,7 @@ const ERRORES: Record<string, string> = {
 
 export default async function UsuariosPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await auth()
-  if (!session || session.user.role !== "ADMIN") redirect("/admin")
+  if (!session || !isOwnerEmail(session.user.email)) redirect("/admin")
 
   const { error } = await searchParams
   const errorMsg = error ? ERRORES[error] ?? "No se pudo crear el usuario." : null
