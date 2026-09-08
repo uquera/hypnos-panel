@@ -120,7 +120,7 @@ export async function POST(
     clienteId:     id,
     clienteNombre: cliente.nombre,
     accion:        "PAGO_REGISTRADO",
-    detalle:       `${moneda} $${monto.toLocaleString()} + renovación hasta ${nuevaFechaStr}`,
+    detalle:       `${moneda} $${monto.toLocaleString()} + renovación hasta ${nuevaFechaStr} · Custodio: ${session.user.name ?? "Usuario"} · Registró: ${session.user.name ?? "Usuario"}`,
   })
 
   return NextResponse.json({ ok: true, pago, nuevaFecha: nuevaFechaStr, syncedRemote })

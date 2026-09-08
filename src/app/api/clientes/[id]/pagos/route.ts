@@ -148,6 +148,11 @@ export async function POST(
       ? new Date(periodoInicio).toLocaleDateString("es-CL", { month: "long", year: "numeric", timeZone: "UTC" })
       : conceptoDetalle?.trim() ?? ""
 
+  // Custodio(s) del dinero: los del split de custodia, o quien lo registró si no hay split
+  const custodioLabel = pago.custodias.length > 0
+    ? pago.custodias.map(c => c.usuario.nombre).join(" + ")
+    : pago.registradoPor.nombre
+
   await logActividad({
     usuarioId:     registradoPorId,
     usuarioNombre: session.user.name ?? "Usuario",
@@ -156,7 +161,7 @@ export async function POST(
     accion:        "PAGO_REGISTRADO",
     detalle: `[${etiquetaConcepto}] ${new Intl.NumberFormat("es-CL", {
       style: "currency", currency: moneda, maximumFractionDigits: moneda === "CLP" ? 0 : 2,
-    }).format(monto)} · ${detallePeriodo}`,
+    }).format(monto)} · ${detallePeriodo} · Custodio: ${custodioLabel} · Registró: ${session.user.name ?? "Usuario"}`,
   })
 
   // Sincronizar al cliente remoto solo para pagos de licencia
