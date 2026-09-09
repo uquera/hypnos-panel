@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   { href: "/admin/integrantes",  label: "Integrantes", icon: Users },
   { href: "/admin/auditoria",    label: "Auditoría",   icon: ClipboardList, adminOnly: true },
   { href: "/admin/usuarios",     label: "Usuarios",    icon: UserCog,       ownerOnly: true },
-  { href: "/admin/monitor",      label: "Monitor",     icon: Monitor,       adminOnly: true },
+  { href: "/admin/monitor",      label: "Monitor",     icon: Monitor,       ownerOnly: true },
 ]
 
 interface Props { role: string; userName: string; isOwner?: boolean; onClose?: () => void }
