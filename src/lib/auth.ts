@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 
 // Owner del panel: único que puede gestionar usuarios/roles. Los demás admin
 // (p. ej. socios) tienen acceso total EXCEPTO la gestión de usuarios.
-export const OWNER_EMAIL = "ulises@hypnosapps.com"
+export const OWNER_EMAIL = "u.quera@hypnosapps.com"
 export function isOwnerEmail(email?: string | null): boolean {
   return !!email && email.toLowerCase() === OWNER_EMAIL
 }

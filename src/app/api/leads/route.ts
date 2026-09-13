@@ -18,7 +18,7 @@ function campo(fd: FormData, k: string, max: number): string {
 }
 
 // ─── POST — captura pública desde la landing ──────────────────────────────────
-// Sin autenticación a propósito: lo llama el formulario de hypnosapps.com/landing.
+// Sin autenticación a propósito: lo llama el formulario de la landing en hypnosapps.com.
 
 export async function POST(req: Request) {
   let fd: FormData
