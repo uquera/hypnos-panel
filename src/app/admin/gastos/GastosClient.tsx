@@ -627,8 +627,6 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
     catMap.set(g.categoria, (catMap.get(g.categoria) ?? 0) + v)
   })
   const PERSONA_COLORS = ["#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#06b6d4", "#a855f7", "#84cc16"]
-  const personaSeg: Seg[] = [...personaMap.entries()].sort((a, b) => b[1] - a[1])
-    .map(([label, value], i) => ({ label, value, color: PERSONA_COLORS[i % PERSONA_COLORS.length] }))
   const CAT_HEX: Record<string, string> = {
     HERRAMIENTA_IA: "#8b5cf6", SOFTWARE: "#3b82f6", INFRAESTRUCTURA: "#64748b", PUBLICIDAD: "#f97316", OTRO: "#9ca3af",
   }
@@ -656,6 +654,14 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
   const ingresoVsGasto = [...personasSet]
     .map(nombre => ({ nombre, ingreso: ingPersonaMap.get(nombre) ?? 0, gasto: personaMap.get(nombre) ?? 0 }))
     .sort((a, b) => (b.ingreso + b.gasto) - (a.ingreso + a.gasto))
+
+  // Color estable por persona: mismo color en "gastos" e "ingresos"
+  const personaNombres = [...personasSet]
+  const personaColor = (n: string) => PERSONA_COLORS[Math.max(0, personaNombres.indexOf(n)) % PERSONA_COLORS.length]
+  const personaSeg: Seg[] = [...personaMap.entries()].sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value, color: personaColor(label) }))
+  const ingPersonaSeg: Seg[] = [...ingPersonaMap.entries()].sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value, color: personaColor(label) }))
 
   const thBtn = (k: SortKey, label: string, align: "left" | "right" | "center" = "left") => {
     const active   = sortKey === k
@@ -769,13 +775,19 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
           <IngresoGastoChart data={ingresoVsGasto} />
         </div>
 
-        {/* Tortas */}
+        {/* Tortas — 2×2: gastos (izq) vs ingresos (der) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-800 mb-4">Quién gastó más</h2>
             {personaSeg.length
               ? <Donut segments={personaSeg} />
               : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos por persona</h2>
+            {ingPersonaSeg.length
+              ? <Donut segments={ingPersonaSeg} />
+              : <p className="text-sm text-gray-400 py-8 text-center">Sin ingresos en este período</p>}
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por categoría</h2>
