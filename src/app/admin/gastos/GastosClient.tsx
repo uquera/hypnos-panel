@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  TrendingDown, Plus, X, FileText, ChevronDown, ChevronUp, ArrowUpDown,
+  TrendingDown, TrendingUp, Plus, X, FileText, ChevronDown, ChevronUp, ArrowUpDown,
   Loader2, Pencil, Trash2, Bot, Monitor, Server, Megaphone, Package,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -663,6 +663,10 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
   const ingPersonaSeg: Seg[] = [...ingPersonaMap.entries()].sort((a, b) => b[1] - a[1])
     .map(([label, value]) => ({ label, value, color: personaColor(label) }))
 
+  // Neto del mes = ingresos del mes − gastos del mes (USD)
+  const ingresosEsteMes = ingresos.reduce((s, p) => s + (keyDe(p.fecha) === mesActualKey ? toUSD(p.monto, p.moneda) : 0), 0)
+  const netoMes = ingresosEsteMes - kpis.totalEsteMes
+
   const thBtn = (k: SortKey, label: string, align: "left" | "right" | "center" = "left") => {
     const active   = sortKey === k
     const alignCls = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
@@ -697,8 +701,16 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="col-span-2 lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className={`col-span-2 lg:col-span-1 rounded-2xl border shadow-sm p-4 ${netoMes >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-rose-50 border-rose-100"}`}>
+          <div className="flex items-center gap-2 mb-2">
+            {netoMes >= 0 ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-rose-500" />}
+            <p className="text-xs font-medium text-gray-500">Neto del mes</p>
+          </div>
+          <p className={`text-2xl font-bold ${netoMes >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{formatUSD(netoMes)}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{formatUSD(ingresosEsteMes)} ingresos − {formatUSD(kpis.totalEsteMes)} gastos</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingDown size={14} className="text-rose-400" />
             <p className="text-xs font-medium text-gray-500">Gastos este mes</p>
