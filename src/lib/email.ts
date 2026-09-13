@@ -8,6 +8,43 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+export async function enviarRecuperacionPassword({ nombre, email, link, minutos }: {
+  nombre: string; email: string; link: string; minutos: number
+}): Promise<void> {
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:28px 32px;">
+      <span style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Hypnos Panel</span>
+      <h1 style="color:#ffffff;font-size:21px;font-weight:700;margin:8px 0 0;">Restablecer tu contraseña</h1>
+    </div>
+    <div style="padding:28px 32px;">
+      <p style="color:#374151;font-size:15px;margin:0 0 14px;">Hola, <strong>${nombre}</strong>:</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta del panel. Haz clic en el botón para elegir una nueva:</p>
+      <p style="text-align:center;margin:0 0 24px;">
+        <a href="${link}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:13px 26px;border-radius:12px;">Elegir nueva contraseña</a>
+      </p>
+      <p style="color:#6b7280;font-size:13px;margin:0 0 8px;">El enlace vence en <strong>${minutos} minutos</strong> y sirve una sola vez.</p>
+      <p style="color:#6b7280;font-size:13px;margin:0 0 20px;">Si no lo pediste tú, ignora este correo: tu contraseña no cambia.</p>
+      <p style="color:#9ca3af;font-size:12px;margin:0;word-break:break-all;">¿El botón no funciona? Copia este enlace: ${link}</p>
+      <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0;">
+      <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">Mensaje automático de Hypnos Panel · No respondas a este correo</p>
+    </div>
+  </div>
+</body>
+</html>`
+
+  await transporter.sendMail({
+    from:    `"Hypnos Panel" <${process.env.SMTP_USER}>`,
+    to:      email,
+    subject: "Restablece tu contraseña — Hypnos Panel",
+    html,
+  })
+}
+
 interface AlertaVencimientoParams {
   clienteNombre: string
   clienteEmail: string

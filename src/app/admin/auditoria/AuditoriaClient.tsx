@@ -32,6 +32,7 @@ const ACCIONES: Record<string, AccionMeta> = {
   CLIENTE_ARCHIVADO: { label: "Cliente archivado",     categoria: "clientes",  color: "bg-gray-200",   textColor: "text-gray-600",    icon: <Users size={11} />,        verbo: "archivó cliente" },
   LEAD_ESTADO:       { label: "Lead actualizado",      categoria: "clientes",  color: "bg-indigo-100", textColor: "text-indigo-700",  icon: <Inbox size={11} />,        verbo: "movió lead" },
   LEAD_ELIMINADO:    { label: "Lead eliminado",        categoria: "clientes",  color: "bg-rose-100",   textColor: "text-rose-600",    icon: <Inbox size={11} />,        verbo: "eliminó lead" },
+  PASSWORD_RESTABLECIDO: { label: "Contraseña restablecida", categoria: "otro", color: "bg-purple-100", textColor: "text-purple-700", icon: <ShieldCheck size={11} />, verbo: "restableció su contraseña" },
 }
 
 const FALLBACK_META: AccionMeta = {
