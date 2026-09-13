@@ -107,7 +107,7 @@ export async function enviarAlertaVencimiento({
       </div>
 
       <p style="color:#374151;font-size:14px;margin:0 0 8px;">Para renovar, contacta a nuestro equipo:</p>
-      <a href="mailto:hypnosapps@gmail.com" style="display:inline-block;color:#6366f1;font-weight:600;font-size:14px;text-decoration:none;">hypnosapps@gmail.com</a>
+      <a href="mailto:contacto@hypnosapps.com" style="display:inline-block;color:#6366f1;font-weight:600;font-size:14px;text-decoration:none;">contacto@hypnosapps.com</a>
 
       <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0;">
       <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">Este es un mensaje automático de Hypnos Panel · No respondas a este correo</p>

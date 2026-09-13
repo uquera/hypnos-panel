@@ -71,14 +71,14 @@ Función `getLicenciaStatus()` que retorna `{ diasRestantes, suspendida, mostrar
 
 ### 4. Banner rojo en `app/admin/layout.tsx`
 Cuando `diasRestantes <= 3` o está suspendida, mostrar banner rojo con mensaje:
-> "Tu suscripción vence en X días. Realiza tu pago y envía el comprobante a hypnosapps@gmail.com"
+> "Tu suscripción vence en X días. Realiza tu pago y envía el comprobante a contacto@hypnosapps.com"
 
 **Importante:** Si el AdminShell interno usa `h-screen`, cambiarlo a `h-full` para respetar el espacio del banner.
 
 ### 5. Variables de entorno requeridas en el cliente
 ```
 GOBERNANZA_MASTER_KEY=<clave-secreta-unica>
-NEXT_PUBLIC_GOBERNANZA_CONTACTO=hypnosapps@gmail.com
+NEXT_PUBLIC_GOBERNANZA_CONTACTO=contacto@hypnosapps.com
 ```
 
 ### 6. En hypnos-panel: registrar el cliente con
