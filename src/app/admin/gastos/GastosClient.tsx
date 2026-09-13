@@ -75,35 +75,122 @@ function Donut({ segments }: { segments: Seg[] }) {
   )
 }
 
+// Curva suave (Catmull-Rom → Bézier) para la línea de tendencia
+function smoothPath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return ""
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`
+  const p = points
+  let d = `M ${p[0].x} ${p[0].y}`
+  const t = 0.18
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] ?? p[i]
+    const p1 = p[i]
+    const p2 = p[i + 1]
+    const p3 = p[i + 2] ?? p2
+    const c1x = p1.x + (p2.x - p0.x) * t
+    const c1y = p1.y + (p2.y - p0.y) * t
+    const c2x = p2.x - (p3.x - p1.x) * t
+    const c2y = p2.y - (p3.y - p1.y) * t
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`
+  }
+  return d
+}
+
 function GastosMesChart({ meses, mesActualKey }: { meses: { key: string; label: string; total: number }[]; mesActualKey: string }) {
   const [tip, setTip] = useState<number | null>(null)
   const maxVal = Math.max(...meses.map(m => m.total), 1)
+  const n = meses.length
+  const pts = meses.map((m, i) => ({ x: i + 0.5, y: 100 - (m.total / maxVal) * 100 }))
+  const linePath = smoothPath(pts)
+
   return (
     <div className="relative">
-      <div className="flex items-end gap-2 h-40">
-        {meses.map((m, i) => {
-          const isActual = m.key === mesActualKey
-          const pct = (m.total / maxVal) * 100
-          return (
-            <div key={m.key} className="flex-1 flex flex-col items-center gap-1 cursor-pointer"
-              onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)}>
-              <div className="w-full flex items-end justify-center" style={{ height: "150px" }}>
-                <div className="w-full max-w-[40px] rounded-t-md transition-all"
+      <div className="relative" style={{ height: "170px" }}>
+        {/* Barras (sin gap: cada celda flex-1 centra su barra → alinea con la línea) */}
+        <div className="flex items-end h-full">
+          {meses.map((m, i) => {
+            const isActual = m.key === mesActualKey
+            const pct = (m.total / maxVal) * 100
+            return (
+              <div key={m.key} className="flex-1 flex items-end justify-center h-full cursor-pointer"
+                onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)}>
+                <div className="w-full max-w-[20px] rounded-t-md transition-all"
                   style={{
-                    height: `${Math.max(pct, m.total > 0 ? 3 : 0)}%`,
-                    background: isActual ? "#f43f5e" : "#fda4af",
-                    minHeight: m.total > 0 ? "3px" : "0",
+                    height: `${Math.max(pct, m.total > 0 ? 2 : 0)}%`,
+                    background: isActual ? "#f43f5e" : "#fecdd3",
+                    minHeight: m.total > 0 ? "2px" : "0",
                   }} />
               </div>
-              <span className="text-[10px] text-gray-400 leading-none capitalize">{m.label}</span>
+            )
+          })}
+        </div>
+        {/* Línea de tendencia (curva) */}
+        <svg viewBox={`0 0 ${n} 100`} preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+          <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2"
+            vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {/* Puntos sobre la línea */}
+        <div className="absolute inset-0 pointer-events-none">
+          {pts.map((p, i) => (
+            <span key={i} className="absolute w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-white -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${(p.x / n) * 100}%`, top: `${p.y}%` }} />
+          ))}
+        </div>
+      </div>
+      {/* Etiquetas de mes */}
+      <div className="flex mt-1.5">
+        {meses.map(m => (
+          <span key={m.key} className="flex-1 text-center text-[9px] text-gray-400 leading-none capitalize truncate px-0.5">{m.label}</span>
+        ))}
+      </div>
+      {/* Leyenda */}
+      <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: "#fecdd3" }} />Gasto mensual</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-[3px] rounded-full" style={{ background: "#6366f1" }} />Tendencia</span>
+      </div>
+      {tip !== null && (
+        <div className="absolute -top-1 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
+          style={{ left: `${((tip + 0.5) / n) * 100}%`, transform: "translateX(-50%)" }}>
+          <span className="font-semibold capitalize">{meses[tip].label}:</span> {formatUSD(meses[tip].total)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function IngresoGastoChart({ data }: { data: { nombre: string; ingreso: number; gasto: number }[] }) {
+  const [tip, setTip] = useState<number | null>(null)
+  if (!data.length) return <p className="text-sm text-gray-400 py-8 text-center">Sin datos en este período</p>
+  const max = Math.max(...data.flatMap(d => [d.ingreso, d.gasto]), 1)
+  return (
+    <div className="relative">
+      <div className="flex items-end gap-4 h-44">
+        {data.map((d, i) => {
+          const ip = (d.ingreso / max) * 100, gp = (d.gasto / max) * 100
+          return (
+            <div key={d.nombre} className="flex-1 flex flex-col items-center gap-1 cursor-pointer"
+              onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)}>
+              <div className="w-full flex items-end justify-center gap-1" style={{ height: "150px" }}>
+                <div className="flex-1 max-w-[26px] rounded-t-md transition-all" style={{ height: `${Math.max(ip, d.ingreso > 0 ? 2 : 0)}%`, background: "#10b981", minHeight: d.ingreso > 0 ? "2px" : "0" }} />
+                <div className="flex-1 max-w-[26px] rounded-t-md transition-all" style={{ height: `${Math.max(gp, d.gasto > 0 ? 2 : 0)}%`, background: "#f43f5e", minHeight: d.gasto > 0 ? "2px" : "0" }} />
+              </div>
+              <span className="text-[11px] text-gray-500 leading-tight text-center truncate w-full">{d.nombre.split(" ")[0]}</span>
             </div>
           )
         })}
       </div>
+      <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500" />Ingresos</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-rose-500" />Gastos</span>
+      </div>
       {tip !== null && (
-        <div className="absolute -top-1 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
-          style={{ left: `${((tip + 0.5) / meses.length) * 100}%`, transform: "translateX(-50%)" }}>
-          <span className="font-semibold capitalize">{meses[tip].label}:</span> {formatUSD(meses[tip].total)}
+        <div className="absolute -top-1 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap"
+          style={{ left: `${((tip + 0.5) / data.length) * 100}%`, transform: "translateX(-50%)" }}>
+          <p className="font-semibold mb-0.5">{data[tip].nombre}</p>
+          <p className="text-emerald-300">Ingresos: {formatUSD(data[tip].ingreso)}</p>
+          <p className="text-rose-300">Gastos: {formatUSD(data[tip].gasto)}</p>
+          <p className="border-t border-gray-700 mt-1 pt-1 font-semibold">Neto: {formatUSD(data[tip].ingreso - data[tip].gasto)}</p>
         </div>
       )}
     </div>
@@ -129,8 +216,18 @@ interface GastoItem {
 
 interface UsuarioBasic { id: string; nombre: string }
 
+interface IngresoItem {
+  monto:               number
+  moneda:              string
+  fecha:               string
+  clienteNombre:       string
+  registradoPorNombre: string
+  custodias:           { nombre: string; monto: number }[]
+}
+
 interface Props {
   gastos:        GastoItem[]
+  ingresos:      IngresoItem[]
   usuarios:      UsuarioBasic[]
   currentUserId: string
   kpis: {
@@ -427,7 +524,7 @@ function ModalEditar({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function GastosClient({ gastos, usuarios, currentUserId, kpis, isAdmin }: Props) {
+export default function GastosClient({ gastos, ingresos, usuarios, currentUserId, kpis, isAdmin }: Props) {
   const router = useRouter()
   const [modalOpen,    setModalOpen]    = useState(false)
   const [editando,     setEditando]     = useState<GastoItem | null>(null)
@@ -510,13 +607,13 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   }
   const ahora = new Date()
   const mesActualKey = `${ahora.getUTCFullYear()}-${String(ahora.getUTCMonth() + 1).padStart(2, "0")}`
-  const ultimos6 = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - (5 - i), 1))
+  const ultimos12 = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - (11 - i), 1))
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
     return { key, label: d.toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" }), total: 0 }
   })
   gastos.forEach(g => {
-    const b = ultimos6.find(x => x.key === keyDe(g.fecha))
+    const b = ultimos12.find(x => x.key === keyDe(g.fecha))
     if (b) b.total += toUSD(g.monto, g.moneda)
   })
 
@@ -537,6 +634,28 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   }
   const catSeg: Seg[] = [...catMap.entries()].sort((a, b) => b[1] - a[1])
     .map(([cat, value]) => ({ label: CAT_META[cat as Categoria]?.label ?? cat, value, color: CAT_HEX[cat] ?? "#9ca3af" }))
+
+  // ── Ingresos: por cliente (dona) y por persona (custodio) para comparar con gastos ──
+  const inScope = (iso: string) => chartScope === "todo" || keyDe(iso) === mesActualKey
+  const clienteMap = new Map<string, number>()
+  const ingPersonaMap = new Map<string, number>()
+  ingresos.forEach(p => {
+    if (!inScope(p.fecha)) return
+    clienteMap.set(p.clienteNombre, (clienteMap.get(p.clienteNombre) ?? 0) + toUSD(p.monto, p.moneda))
+    if (p.custodias.length > 0) {
+      p.custodias.forEach(c => ingPersonaMap.set(c.nombre, (ingPersonaMap.get(c.nombre) ?? 0) + toUSD(c.monto, p.moneda)))
+    } else {
+      ingPersonaMap.set(p.registradoPorNombre, (ingPersonaMap.get(p.registradoPorNombre) ?? 0) + toUSD(p.monto, p.moneda))
+    }
+  })
+  const CLIENTE_COLORS = ["#10b981", "#6366f1", "#f59e0b", "#06b6d4", "#a855f7", "#f43f5e", "#84cc16", "#ec4899"]
+  const clienteSeg: Seg[] = [...clienteMap.entries()].sort((a, b) => b[1] - a[1])
+    .map(([label, value], i) => ({ label, value, color: CLIENTE_COLORS[i % CLIENTE_COLORS.length] }))
+
+  const personasSet = new Set<string>([...ingPersonaMap.keys(), ...personaMap.keys()])
+  const ingresoVsGasto = [...personasSet]
+    .map(nombre => ({ nombre, ingreso: ingPersonaMap.get(nombre) ?? 0, gasto: personaMap.get(nombre) ?? 0 }))
+    .sort((a, b) => (b.ingreso + b.gasto) - (a.ingreso + a.gasto))
 
   const thBtn = (k: SortKey, label: string, align: "left" | "right" | "center" = "left") => {
     const active   = sortKey === k
@@ -626,37 +745,49 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
 
       {/* Análisis visual */}
       <div className="space-y-4">
-        {/* Barras por mes */}
+        {/* Barras por mes + tendencia */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por mes — últimos 6 meses</h2>
-          <GastosMesChart meses={ultimos6} mesActualKey={mesActualKey} />
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por mes — últimos 12 meses</h2>
+          <GastosMesChart meses={ultimos12} mesActualKey={mesActualKey} />
         </div>
 
-        {/* Tortas: persona y categoría, con selector de período */}
-        <div>
-          <div className="flex items-center justify-end mb-3">
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
-              {([["mes", "Este mes"], ["todo", "Todo el tiempo"]] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setChartScope(val)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${chartScope === val ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+        {/* Selector de período (afecta las tarjetas de abajo) */}
+        <div className="flex items-center justify-end">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
+            {([["mes", "Este mes"], ["todo", "Todo el tiempo"]] as const).map(([val, label]) => (
+              <button key={val} type="button" onClick={() => setChartScope(val)}
+                className={`px-3 py-1.5 rounded-md transition-colors ${chartScope === val ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h2 className="text-sm font-semibold text-gray-800 mb-4">Quién gastó más</h2>
-              {personaSeg.length
-                ? <Donut segments={personaSeg} />
-                : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por categoría</h2>
-              {catSeg.length
-                ? <Donut segments={catSeg} />
-                : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
-            </div>
+        </div>
+
+        {/* Ingresos vs Gastos por persona */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos vs Gastos por persona</h2>
+          <IngresoGastoChart data={ingresoVsGasto} />
+        </div>
+
+        {/* Tortas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">Quién gastó más</h2>
+            {personaSeg.length
+              ? <Donut segments={personaSeg} />
+              : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por categoría</h2>
+            {catSeg.length
+              ? <Donut segments={catSeg} />
+              : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">Ingresos por cliente</h2>
+            {clienteSeg.length
+              ? <Donut segments={clienteSeg} />
+              : <p className="text-sm text-gray-400 py-8 text-center">Sin ingresos en este período</p>}
           </div>
         </div>
       </div>

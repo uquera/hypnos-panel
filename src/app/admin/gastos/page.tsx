@@ -14,7 +14,7 @@ export default async function GastosPage() {
   const hoy       = new Date()
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
 
-  const [gastos, usuarios] = await Promise.all([
+  const [gastos, usuarios, pagos] = await Promise.all([
     prisma.gasto.findMany({
       include: {
         registradoPor: { select: { nombre: true } },
@@ -23,6 +23,14 @@ export default async function GastosPage() {
       orderBy: { fecha: "desc" },
     }),
     prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
+    prisma.pago.findMany({
+      include: {
+        cliente:       { select: { nombre: true } },
+        registradoPor: { select: { nombre: true } },
+        custodias:     { include: { usuario: { select: { nombre: true } } } },
+      },
+      orderBy: { fechaPago: "desc" },
+    }),
   ])
 
   const totalEsteMes  = gastos
@@ -55,9 +63,19 @@ export default async function GastosPage() {
     custodioNombre:  g.custodio?.nombre ?? g.registradoPor.nombre,
   }))
 
+  const ingresosSerial = pagos.map(p => ({
+    monto:                 p.monto,
+    moneda:                p.moneda,
+    fecha:                 p.fechaPago.toISOString(),
+    clienteNombre:         p.cliente?.nombre ?? "—",
+    registradoPorNombre:   p.registradoPor.nombre,
+    custodias:             p.custodias.map(c => ({ nombre: c.usuario.nombre, monto: c.monto })),
+  }))
+
   return (
     <GastosClient
       gastos={gastosSerial}
+      ingresos={ingresosSerial}
       usuarios={usuarios}
       currentUserId={session.user.id ?? ""}
       kpis={{ totalEsteMes, totalHistorico, porCategoria }}
