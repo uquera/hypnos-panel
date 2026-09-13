@@ -36,6 +36,80 @@ function CategoriaBadge({ categoria }: { categoria: string }) {
   )
 }
 
+// ─── Gráficos (SVG/CSS, sin librerías) ─────────────────────────────────────────
+
+type Seg = { label: string; value: number; color: string }
+
+function Donut({ segments }: { segments: Seg[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0)
+  const R = 42, C = 2 * Math.PI * R
+  let acc = 0
+  return (
+    <div className="flex items-center gap-5">
+      <svg viewBox="0 0 100 100" className="w-28 h-28 shrink-0 -rotate-90">
+        <circle cx="50" cy="50" r={R} fill="none" stroke="#f1f5f9" strokeWidth="14" />
+        {total > 0 && segments.map((s, i) => {
+          const len = (s.value / total) * C
+          const el = (
+            <circle key={i} cx="50" cy="50" r={R} fill="none" stroke={s.color} strokeWidth="14"
+              strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-acc} />
+          )
+          acc += len
+          return el
+        })}
+      </svg>
+      <ul className="flex-1 space-y-1.5 min-w-0">
+        {segments.map((s, i) => {
+          const pct = total > 0 ? Math.round((s.value / total) * 100) : 0
+          return (
+            <li key={i} className="flex items-center gap-2 text-xs">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
+              <span className="text-gray-600 truncate flex-1">{s.label}</span>
+              <span className="font-semibold text-gray-800">{formatUSD(s.value)}</span>
+              <span className="text-gray-400 w-9 text-right">{pct}%</span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function GastosMesChart({ meses, mesActualKey }: { meses: { key: string; label: string; total: number }[]; mesActualKey: string }) {
+  const [tip, setTip] = useState<number | null>(null)
+  const maxVal = Math.max(...meses.map(m => m.total), 1)
+  return (
+    <div className="relative">
+      <div className="flex items-end gap-2 h-40">
+        {meses.map((m, i) => {
+          const isActual = m.key === mesActualKey
+          const pct = (m.total / maxVal) * 100
+          return (
+            <div key={m.key} className="flex-1 flex flex-col items-center gap-1 cursor-pointer"
+              onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)}>
+              <div className="w-full flex items-end justify-center" style={{ height: "150px" }}>
+                <div className="w-full max-w-[40px] rounded-t-md transition-all"
+                  style={{
+                    height: `${Math.max(pct, m.total > 0 ? 3 : 0)}%`,
+                    background: isActual ? "#f43f5e" : "#fda4af",
+                    minHeight: m.total > 0 ? "3px" : "0",
+                  }} />
+              </div>
+              <span className="text-[10px] text-gray-400 leading-none capitalize">{m.label}</span>
+            </div>
+          )
+        })}
+      </div>
+      {tip !== null && (
+        <div className="absolute -top-1 pointer-events-none z-10 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
+          style={{ left: `${((tip + 0.5) / meses.length) * 100}%`, transform: "translateX(-50%)" }}>
+          <span className="font-semibold capitalize">{meses[tip].label}:</span> {formatUSD(meses[tip].total)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GastoItem {
@@ -360,6 +434,7 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [filtroCat,    setFiltroCat]    = useState("todas")
   const [filtroMes,    setFiltroMes]    = useState("todos")
+  const [chartScope,   setChartScope]   = useState<"mes" | "todo">("mes")
   const [pagina,       setPagina]       = useState(1)
   const [sortKey,      setSortKey]      = useState<SortKey>("fecha")
   const [sortDir,      setSortDir]      = useState<"asc" | "desc">("desc")
@@ -427,6 +502,41 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
   }
 
   const toUSD = (m: number, mon: string) => mon === "CLP" ? m / 1000 : m
+
+  // ── Datos para gráficos (todo en USD para comparar) ──
+  const keyDe = (iso: string) => {
+    const d = new Date(iso)
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+  }
+  const ahora = new Date()
+  const mesActualKey = `${ahora.getUTCFullYear()}-${String(ahora.getUTCMonth() + 1).padStart(2, "0")}`
+  const ultimos6 = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - (5 - i), 1))
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+    return { key, label: d.toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" }), total: 0 }
+  })
+  gastos.forEach(g => {
+    const b = ultimos6.find(x => x.key === keyDe(g.fecha))
+    if (b) b.total += toUSD(g.monto, g.moneda)
+  })
+
+  const enScope = (g: GastoItem) => chartScope === "todo" || keyDe(g.fecha) === mesActualKey
+  const personaMap = new Map<string, number>()
+  const catMap = new Map<string, number>()
+  gastos.forEach(g => {
+    if (!enScope(g)) return
+    const v = toUSD(g.monto, g.moneda)
+    personaMap.set(g.custodioNombre, (personaMap.get(g.custodioNombre) ?? 0) + v)
+    catMap.set(g.categoria, (catMap.get(g.categoria) ?? 0) + v)
+  })
+  const PERSONA_COLORS = ["#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#06b6d4", "#a855f7", "#84cc16"]
+  const personaSeg: Seg[] = [...personaMap.entries()].sort((a, b) => b[1] - a[1])
+    .map(([label, value], i) => ({ label, value, color: PERSONA_COLORS[i % PERSONA_COLORS.length] }))
+  const CAT_HEX: Record<string, string> = {
+    HERRAMIENTA_IA: "#8b5cf6", SOFTWARE: "#3b82f6", INFRAESTRUCTURA: "#64748b", PUBLICIDAD: "#f97316", OTRO: "#9ca3af",
+  }
+  const catSeg: Seg[] = [...catMap.entries()].sort((a, b) => b[1] - a[1])
+    .map(([cat, value]) => ({ label: CAT_META[cat as Categoria]?.label ?? cat, value, color: CAT_HEX[cat] ?? "#9ca3af" }))
 
   const thBtn = (k: SortKey, label: string, align: "left" | "right" | "center" = "left") => {
     const active   = sortKey === k
@@ -513,6 +623,43 @@ export default function GastosClient({ gastos, usuarios, currentUserId, kpis, is
           </div>
         </div>
       )}
+
+      {/* Análisis visual */}
+      <div className="space-y-4">
+        {/* Barras por mes */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por mes — últimos 6 meses</h2>
+          <GastosMesChart meses={ultimos6} mesActualKey={mesActualKey} />
+        </div>
+
+        {/* Tortas: persona y categoría, con selector de período */}
+        <div>
+          <div className="flex items-center justify-end mb-3">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
+              {([["mes", "Este mes"], ["todo", "Todo el tiempo"]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setChartScope(val)}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${chartScope === val ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-gray-800 mb-4">Quién gastó más</h2>
+              {personaSeg.length
+                ? <Donut segments={personaSeg} />
+                : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-gray-800 mb-4">Gastos por categoría</h2>
+              {catSeg.length
+                ? <Donut segments={catSeg} />
+                : <p className="text-sm text-gray-400 py-8 text-center">Sin gastos en este período</p>}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Tabla */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
