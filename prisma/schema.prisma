@@ -168,6 +168,7 @@ model Lead {
   notas     String?                           // seguimiento interno
   ip        String   @default("")             // para el límite anti-spam por IP
   userAgent String   @default("")
+  agendaId  String   @default("")             // id de la agenda gratis creada al registrarse (vínculo con AgendaBackup)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -175,6 +176,33 @@ model Lead {
   @@index([createdAt])
   @@index([ip, createdAt])
   @@map("leads")
+}
+
+// ─── RESPALDO EN LA NUBE DE LA AGENDA GRATIS ──────────────────────────────────
+// La agenda de hypnosapps.com/demo vive en el navegador del dueño y envía aquí
+// una copia (sin imágenes) para que no la pierda y para darle soporte.
+// Público solo para ESCRIBIR (POST /api/agenda/sync, protegido por la clave de
+// cada agenda); leer es exclusivo del panel (ADMIN).
+
+model AgendaBackup {
+  id              String   @id @default(cuid())
+  agendaId        String   @unique              // id aleatorio generado en el navegador
+  keyHash         String                        // sha256 de la clave secreta de esa agenda
+  slug            String   @default("")         // clave estable de la agenda (slug del negocio original)
+  negocio         String   @default("")
+  email           String   @default("")         // del perfil de la agenda (para vincular con el lead)
+  telefono        String   @default("")
+  data            String                        // JSON completo de la agenda
+  clientes        Int      @default(0)
+  servicios       Int      @default(0)
+  citas           Int      @default(0)
+  movimientos     Int      @default(0)
+  ultimaActividad DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([slug])
+  @@map("agenda_backups")
 }
 
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────

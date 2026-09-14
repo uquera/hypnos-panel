@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Inbox, Search, Download, Trash2, MessageCircle, Mail, Image as ImageIcon } from "lucide-react"
+import Link from "next/link"
+import { Inbox, Search, Download, Trash2, MessageCircle, Mail, Image as ImageIcon, CalendarDays } from "lucide-react"
 import { ESTADOS, ESTADO_META, type Estado } from "@/lib/leads"
 
 interface Lead {
@@ -16,6 +17,8 @@ interface Lead {
   estado:    string
   notas:     string | null
   createdAt: string
+  // Uso de su agenda gratis según el respaldo en la nube (null = aún sin respaldo)
+  uso:       { citas: number; clientes: number; servicios: number; movimientos: number; ultimaActividad: string } | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -268,7 +271,12 @@ export default function LeadsClient({ leads: iniciales, isAdmin }: { leads: Lead
                         {/* Negocio */}
                         <td className="px-4 py-3">
                           <p className="text-gray-900 font-medium flex items-center gap-1.5">
-                            {l.negocio}
+                            {l.uso && isAdmin ? (
+                              <Link href={`/admin/leads/${l.id}/agenda`} title="Ver su agenda"
+                                className="hover:text-indigo-600 hover:underline underline-offset-2">
+                                {l.negocio}
+                              </Link>
+                            ) : l.negocio}
                             {l.conLogo && (
                               <span title="Subió su logo en el demo">
                                 <ImageIcon size={12} className="text-indigo-400" />
@@ -281,6 +289,22 @@ export default function LeadsClient({ leads: iniciales, isAdmin }: { leads: Lead
                               <span className="ml-1.5 text-gray-300">· {l.origen}</span>
                             )}
                           </p>
+                          {l.uso ? (
+                            isAdmin ? (
+                              <Link href={`/admin/leads/${l.id}/agenda`}
+                                className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                <CalendarDays size={12} />
+                                {l.uso.citas} citas · {l.uso.clientes} clientes · {timeAgo(l.uso.ultimaActividad)}
+                              </Link>
+                            ) : (
+                              <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-gray-500">
+                                <CalendarDays size={12} />
+                                {l.uso.citas} citas · {l.uso.clientes} clientes · {timeAgo(l.uso.ultimaActividad)}
+                              </p>
+                            )
+                          ) : (
+                            <p className="mt-1.5 text-xs text-gray-300">Sin respaldo de agenda aún</p>
+                          )}
                         </td>
 
                         {/* Contacto */}

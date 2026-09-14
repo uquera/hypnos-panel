@@ -38,6 +38,9 @@ export async function POST(req: Request) {
   const email    = campo(fd, "email", 180).toLowerCase()
   const origen   = campo(fd, "origen", 80) || "landing"
   const conLogo  = campo(fd, "con_logo", 3) === "si"
+  // Id de la agenda gratis que se crea al registrarse (vínculo con su respaldo en la nube)
+  const agendaIdRaw = campo(fd, "agenda_id", 64)
+  const agendaId    = /^[A-Za-z0-9_-]{16,64}$/.test(agendaIdRaw) ? agendaIdRaw : ""
 
   const faltan: string[] = []
   if (negocio.length < 2) faltan.push("nombre del negocio")
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
 
     await prisma.lead.create({
       data: {
-        negocio, tipo, nombre, whatsapp, email, origen, conLogo, ip,
+        negocio, tipo, nombre, whatsapp, email, origen, conLogo, ip, agendaId,
         userAgent: (req.headers.get("user-agent") ?? "").slice(0, 255),
       },
     })
