@@ -534,6 +534,7 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [filtroCat,    setFiltroCat]    = useState("todas")
   const [filtroMes,    setFiltroMes]    = useState("todos")
+  const [filtroUsuario, setFiltroUsuario] = useState("todos")
   const [chartScope,   setChartScope]   = useState<"mes" | "todo">("mes")
   const [catAbierta,   setCatAbierta]   = useState<string | null>(null)
   const [pagina,       setPagina]       = useState(1)
@@ -554,6 +555,7 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
 
   const gastosFiltrados = gastos.filter(g => {
     if (filtroCat !== "todas" && g.categoria !== filtroCat) return false
+    if (filtroUsuario !== "todos" && g.registradoPorId !== filtroUsuario) return false
     if (filtroMes !== "todos") {
       const d   = new Date(g.fecha)
       const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
@@ -908,6 +910,15 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
                 {(Object.entries(CAT_META) as [Categoria, typeof CAT_META[Categoria]][]).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+            {/* Filtro usuario (quién introdujo el gasto) */}
+            <div className="relative">
+              <select value={filtroUsuario} onChange={e => { setFiltroUsuario(e.target.value); setPagina(1) }}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs appearance-none pr-7 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="todos">Todos los usuarios</option>
+                {usuarios.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
