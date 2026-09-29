@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   CreditCard, TrendingUp, TrendingDown, Minus, Users, AlertTriangle,
-  Plus, X, FileText, Download, ChevronDown, Loader2, Pencil, Trash2,
+  Plus, X, FileText, Download, ChevronDown, ChevronUp, Loader2, Pencil, Trash2,
   Sparkles, Code2, Receipt, Search,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -125,6 +125,15 @@ function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CL", {
     day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
   })
+}
+
+function esImagenComprobante(nombre: string | null) {
+  return !!nombre && /\.(jpe?g|png|webp|gif)$/i.test(nombre)
+}
+
+function mesKeyDe(iso: string) {
+  const d = new Date(iso)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
 }
 
 function formatPeriodo(inicio: string | null, fin: string | null) {
@@ -833,6 +842,7 @@ export default function PagosClient({
   const [filtroMes,      setFiltroMes]      = useState("todos")
   const [filtroMoneda,   setFiltroMoneda]   = useState("todas")
   const [filtroConcepto, setFiltroConcepto] = useState("todos")
+  const [verticalAbierta, setVerticalAbierta] = useState<string | null>(null)
   const [pagina,         setPagina]         = useState(1)
   const [modalOpen,      setModalOpen]      = useState(false)
   const [clientePre,     setClientePre]     = useState<string | undefined>()
@@ -980,29 +990,110 @@ export default function PagosClient({
         </div>
       </div>
 
-      {/* Desglose por vertical — este mes */}
-      <div className="grid grid-cols-3 gap-3">
-        {([
-          { key: "licencia",   label: "Mensualidad", icon: <Receipt size={14} />,  val: kpis.verticalesEsteMes.licencia,
-            border: "border-indigo-100", iconBox: "bg-indigo-50 text-indigo-600", text: "text-indigo-700" },
-          { key: "marketing",  label: "Marketing",   icon: <Sparkles size={14} />, val: kpis.verticalesEsteMes.marketing,
-            border: "border-purple-100", iconBox: "bg-purple-50 text-purple-600", text: "text-purple-700" },
-          { key: "desarrollo", label: "Desarrollo",  icon: <Code2 size={14} />,    val: kpis.verticalesEsteMes.desarrollo,
-            border: "border-teal-100", iconBox: "bg-teal-50 text-teal-600", text: "text-teal-700" },
-        ] as const).map(v => (
-          <div key={v.key} className={`bg-white rounded-2xl border shadow-sm p-4 ${v.border}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${v.iconBox}`}>
-                {v.icon}
+      {/* Desglose por vertical — este mes (tocar una vertical abre sus ingresos) */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          {([
+            { key: "licencia",   concepto: "LICENCIA",   label: "Mensualidad", icon: <Receipt size={14} />,  val: kpis.verticalesEsteMes.licencia,
+              border: "border-indigo-100", iconBox: "bg-indigo-50 text-indigo-600", text: "text-indigo-700" },
+            { key: "marketing",  concepto: "MARKETING",  label: "Marketing",   icon: <Sparkles size={14} />, val: kpis.verticalesEsteMes.marketing,
+              border: "border-purple-100", iconBox: "bg-purple-50 text-purple-600", text: "text-purple-700" },
+            { key: "desarrollo", concepto: "DESARROLLO", label: "Desarrollo",  icon: <Code2 size={14} />,    val: kpis.verticalesEsteMes.desarrollo,
+              border: "border-teal-100", iconBox: "bg-teal-50 text-teal-600", text: "text-teal-700" },
+          ] as const).map(v => {
+            const activa = verticalAbierta === v.concepto
+            const conIngresos = v.val > 0
+            return (
+              <button
+                key={v.key}
+                type="button"
+                disabled={!conIngresos}
+                onClick={() => setVerticalAbierta(activa ? null : v.concepto)}
+                className={`text-left bg-white rounded-2xl border shadow-sm p-4 transition-all ${v.border} ${conIngresos ? "cursor-pointer hover:shadow-md" : "cursor-default opacity-70"} ${activa ? "ring-2 ring-gray-800/30" : ""}`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${v.iconBox}`}>
+                    {v.icon}
+                  </div>
+                  <p className="text-xs font-medium text-gray-500">{v.label}</p>
+                  {conIngresos && (activa ? <ChevronUp size={13} className="ml-auto text-gray-400" /> : <ChevronDown size={13} className="ml-auto text-gray-400" />)}
+                </div>
+                <p className={`text-lg font-bold ${conIngresos ? v.text : "text-gray-400"}`}>
+                  {formatUSD(v.val)}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">este mes</p>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Panel expandido: ingresos de la vertical tocada (este mes) con comprobante visible */}
+        {verticalAbierta && (() => {
+          const items = pagos
+            .filter(p => p.concepto === verticalAbierta && mesKeyDe(p.fechaPago) === mesActualKey)
+            .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
+          const total = items.reduce((s, p) => s + p.monto, 0)
+          return (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <ConceptoBadge concepto={verticalAbierta} />
+                <span className="text-xs text-gray-500">
+                  {items.length} ingreso{items.length !== 1 ? "s" : ""} este mes · {formatUSD(total)}
+                </span>
+                <button onClick={() => setVerticalAbierta(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-700">Cerrar</button>
               </div>
-              <p className="text-xs font-medium text-gray-500">{v.label}</p>
+              <div className="space-y-2.5">
+                {items.map(p => (
+                  <div key={p.id} className="rounded-xl border border-gray-100 bg-gray-50/40 p-3 flex gap-3">
+                    {/* Comprobante visible */}
+                    <div className="shrink-0">
+                      {p.comprobante ? (
+                        esImagenComprobante(p.comprobante) ? (
+                          <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer" title="Ver comprobante en grande">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/pagos/${p.id}/comprobante`}
+                              alt={`Comprobante de ${p.clienteNombre}`}
+                              className="w-16 h-16 rounded-lg object-cover border border-gray-200 hover:ring-2 hover:ring-indigo-300 transition"
+                            />
+                          </a>
+                        ) : (
+                          <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                            className="w-16 h-16 rounded-lg border border-gray-200 bg-white flex flex-col items-center justify-center gap-1 text-indigo-600 hover:bg-indigo-50 transition">
+                            <FileText size={20} />
+                            <span className="text-[10px] font-medium">PDF</span>
+                          </a>
+                        )
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-[10px] text-gray-300 text-center px-1">Sin comprobante</div>
+                      )}
+                    </div>
+                    {/* Detalle del ingreso */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{p.clienteNombre}</p>
+                        <p className="text-sm font-bold text-gray-800 shrink-0">{formatMonto(p.monto, p.moneda)}</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        {p.concepto === "LICENCIA" ? (formatPeriodo(p.periodoInicio, p.periodoFin) ?? "Mensualidad") : (p.conceptoDetalle || "—")}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {formatFecha(p.fechaPago)} · {p.custodias.length > 0 ? p.custodias.map(c => c.userName.split(" ")[0]).join(", ") : p.custodioNombre}
+                      </p>
+                      {p.comprobante && (
+                        <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-1.5">
+                          <FileText size={12} /> Ver comprobante
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {items.length === 0 && <p className="text-xs text-gray-400">Sin ingresos de esta vertical este mes.</p>}
+              </div>
             </div>
-            <p className={`text-lg font-bold ${v.val > 0 ? v.text : "text-gray-400"}`}>
-              {formatUSD(v.val)}
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">este mes</p>
-          </div>
-        ))}
+          )
+        })()}
       </div>
 
       {/* Gráfico apilado */}
