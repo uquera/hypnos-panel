@@ -123,3 +123,62 @@ export async function enviarAlertaVencimiento({
     html,
   })
 }
+
+interface ResumenFinanzasParams {
+  to: string[]
+  desde: string
+  hasta: string
+  filas: { persona: string; ingresos: number; gastos: number }[]
+  totalIngresos: number
+  totalGastos: number
+}
+
+// Resumen semanal de conciliación: cuánto cargó cada persona (ingresos y gastos)
+// en la semana, para detectar rápido errores de clasificación.
+export async function enviarResumenFinanzas({ to, desde, hasta, filas, totalIngresos, totalGastos }: ResumenFinanzasParams): Promise<void> {
+  const usd = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const rows = filas.map(f => `
+    <tr>
+      <td style="padding:10px 12px;border-top:1px solid #f1f5f9;color:#374151;font-size:14px;">${f.persona}</td>
+      <td style="padding:10px 12px;border-top:1px solid #f1f5f9;color:#059669;font-size:14px;text-align:right;font-weight:600;">${usd(f.ingresos)}</td>
+      <td style="padding:10px 12px;border-top:1px solid #f1f5f9;color:#e11d48;font-size:14px;text-align:right;font-weight:600;">${usd(f.gastos)}</td>
+    </tr>`).join("")
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:26px 32px;">
+      <span style="color:rgba(255,255,255,0.85);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Hypnos Panel · Conciliación</span>
+      <h1 style="color:#ffffff;font-size:20px;font-weight:700;margin:8px 0 0;">Resumen financiero de la semana</h1>
+      <p style="color:rgba(255,255,255,0.8);font-size:13px;margin:6px 0 0;">${desde} — ${hasta}</p>
+    </div>
+    <div style="padding:24px 32px;">
+      <p style="color:#374151;font-size:14px;margin:0 0 16px;">Movimientos cargados por cada integrante esta semana. Revisa que cada uno corresponda a su tipo (ingreso vs gasto).</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="padding:0 12px 8px;text-align:left;color:#9ca3af;font-size:12px;text-transform:uppercase;">Integrante</th>
+          <th style="padding:0 12px 8px;text-align:right;color:#9ca3af;font-size:12px;text-transform:uppercase;">Ingresos</th>
+          <th style="padding:0 12px 8px;text-align:right;color:#9ca3af;font-size:12px;text-transform:uppercase;">Gastos</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td style="padding:12px;color:#9ca3af;font-size:14px;" colspan="3">Sin movimientos esta semana.</td></tr>'}</tbody>
+        <tfoot><tr>
+          <td style="padding:12px;border-top:2px solid #e5e7eb;color:#111827;font-size:14px;font-weight:700;">Total</td>
+          <td style="padding:12px;border-top:2px solid #e5e7eb;color:#059669;font-size:14px;font-weight:700;text-align:right;">${usd(totalIngresos)}</td>
+          <td style="padding:12px;border-top:2px solid #e5e7eb;color:#e11d48;font-size:14px;font-weight:700;text-align:right;">${usd(totalGastos)}</td>
+        </tr></tfoot>
+      </table>
+      <hr style="border:none;border-top:1px solid #f1f5f9;margin:22px 0;">
+      <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">Mensaje automático de Hypnos Panel · montos en USD equivalente</p>
+    </div>
+  </div>
+</body></html>`
+
+  await transporter.sendMail({
+    from:    `"Hypnos Panel" <${process.env.SMTP_USER}>`,
+    to:      to.join(", "),
+    subject: `Conciliación semanal — ${desde} al ${hasta}`,
+    html,
+  })
+}

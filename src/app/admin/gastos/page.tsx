@@ -14,7 +14,7 @@ export default async function GastosPage() {
   const hoy       = new Date()
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
 
-  const [gastos, usuarios, pagos] = await Promise.all([
+  const [gastos, usuarios, pagos, clientes] = await Promise.all([
     prisma.gasto.findMany({
       include: {
         registradoPor: { select: { nombre: true } },
@@ -31,6 +31,7 @@ export default async function GastosPage() {
       },
       orderBy: { fechaPago: "desc" },
     }),
+    prisma.cliente.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
   ])
 
   const totalEsteMes  = gastos
@@ -77,6 +78,7 @@ export default async function GastosPage() {
       gastos={gastosSerial}
       ingresos={ingresosSerial}
       usuarios={usuarios}
+      clientes={clientes}
       currentUserId={session.user.id ?? ""}
       kpis={{ totalEsteMes, totalHistorico, porCategoria }}
       isAdmin={session.user.role === "ADMIN"}

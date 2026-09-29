@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   CreditCard, TrendingUp, TrendingDown, Minus, Users, AlertTriangle,
-  Plus, X, FileText, Download, ChevronDown, ChevronUp, Loader2, Pencil, Trash2,
+  Plus, X, FileText, Download, ChevronDown, ChevronUp, ArrowLeftRight, Loader2, Pencil, Trash2,
   Sparkles, Code2, Receipt, Search,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -400,6 +400,7 @@ function ModalRegistrarPago({
   const [custodias, setCustodias] = useState<Record<string, string>>(() => ({ [currentUserId]: "" }))
   const [file, setFile]            = useState<File | null>(null)
   const [submitting, setSub]       = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
   const [busqCliente, setBusq]     = useState("")
   const [dropOpen, setDropOpen]    = useState(false)
   const fileRef                    = useRef<HTMLInputElement>(null)
@@ -422,7 +423,7 @@ function ModalRegistrarPago({
   function setField(key: string, val: string) { setForm(f => ({ ...f, [key]: val })) }
   function setMes(offset: number) { const m = getMesCompleto(offset); setForm(f => ({ ...f, periodoInicio: m.inicio, periodoFin: m.fin })) }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.clienteId || !form.monto || Number(form.monto) <= 0) {
       toast.error("Completa todos los campos obligatorios"); return
@@ -436,6 +437,13 @@ function ModalRegistrarPago({
         toast.error("El reparto de custodia no cuadra con el monto"); return
       }
     }
+    setConfirmando(true)
+  }
+
+  async function confirmarIngreso() {
+    const splitCustodias = Object.entries(custodias)
+      .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
+      .filter(c => c.monto > 0)
     setSub(true)
     try {
       const fd = new FormData()
@@ -632,6 +640,37 @@ function ModalRegistrarPago({
           </div>
         </form>
       </div>
+
+      {/* Confirmación con color: deja claro que es un INGRESO antes de guardar */}
+      {confirmando && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !submitting && setConfirmando(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-emerald-500 text-white px-5 py-4 text-center">
+              <TrendingUp size={22} className="mx-auto mb-1" />
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-100">Vas a registrar un</p>
+              <p className="text-2xl font-extrabold">INGRESO</p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-emerald-600">{formatMonto(parseFloat(form.monto) || 0, form.moneda)}</p>
+                <p className="text-sm text-gray-700 font-medium mt-1">{clienteSeleccionado?.nombre ?? "—"}</p>
+                <div className="mt-2 flex justify-center"><ConceptoBadge concepto={form.concepto} /></div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setConfirmando(false)} disabled={submitting}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60">
+                  Volver
+                </button>
+                <button type="button" onClick={confirmarIngreso} disabled={submitting}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 flex items-center justify-center gap-2">
+                  {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Sí, es un ingreso"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -849,6 +888,7 @@ export default function PagosClient({
   const [exportando,     setExportando]     = useState(false)
   const [editandoPago,   setEditandoPago]   = useState<PagoItem | null>(null)
   const [eliminandoId,   setEliminandoId]   = useState<string | null>(null)
+  const [reclasificando, setReclasificando] = useState<PagoItem | null>(null)
   const PER_PAGE = 20
 
   const pagosFiltrados = pagos.filter(p => {
@@ -1250,6 +1290,10 @@ export default function PagosClient({
                       {isAdmin && (
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => setReclasificando(p)} title="Era un gasto — reclasificar"
+                              className="p-1.5 rounded-lg hover:bg-rose-50 text-gray-300 hover:text-rose-500 transition-colors">
+                              <ArrowLeftRight size={13} />
+                            </button>
                             <button onClick={() => setEditandoPago(p)}
                               className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
                               <Pencil size={13} />
@@ -1294,6 +1338,9 @@ export default function PagosClient({
                       )}
                       {isAdmin && (
                         <>
+                          <button onClick={() => setReclasificando(p)} title="Era un gasto" className="p-1 rounded text-gray-300 hover:text-rose-500">
+                            <ArrowLeftRight size={13} />
+                          </button>
                           <button onClick={() => setEditandoPago(p)} className="p-1 rounded text-indigo-400 hover:text-indigo-600">
                             <Pencil size={13} />
                           </button>
@@ -1351,6 +1398,86 @@ export default function PagosClient({
           onSuccess={() => { setEditandoPago(null); router.refresh() }}
         />
       )}
+      {reclasificando && (
+        <ModalReclasificarPago
+          pago={reclasificando}
+          onClose={() => setReclasificando(null)}
+          onSuccess={() => { setReclasificando(null); router.refresh() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Modal: reclasificar ingreso → gasto ──────────────────────────────────────
+const CAT_GASTO = [
+  { k: "HERRAMIENTA_IA",  l: "IA" },
+  { k: "SOFTWARE",        l: "Software" },
+  { k: "INFRAESTRUCTURA", l: "Infraestructura" },
+  { k: "PUBLICIDAD",      l: "Publicidad" },
+  { k: "OTRO",            l: "Otro" },
+] as const
+
+function ModalReclasificarPago({
+  pago, onClose, onSuccess,
+}: {
+  pago: PagoItem
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [categoria, setCategoria] = useState<string>("OTRO")
+  const [saving, setSaving]       = useState(false)
+
+  async function confirmar() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/pagos/${pago.id}/reclasificar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoria }),
+      })
+      if (!res.ok) { const d = await res.json().catch(() => null); toast.error(d?.error ?? "No se pudo reclasificar"); return }
+      toast.success("Reclasificado como gasto")
+      onSuccess()
+    } catch { toast.error("Error de conexión") } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={() => !saving && onClose()} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="bg-rose-500 text-white px-5 py-4 text-center">
+          <TrendingDown size={20} className="mx-auto mb-1" />
+          <p className="text-xs text-rose-100 uppercase tracking-wide">Esto era un</p>
+          <p className="text-xl font-extrabold">GASTO</p>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-gray-500 text-center">
+            Convertiremos el ingreso de <b className="text-gray-700">{pago.clienteNombre}</b> ({formatMonto(pago.monto, pago.moneda)}) en un gasto. Se conserva el comprobante y queda en auditoría.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Categoría del gasto *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {CAT_GASTO.map(c => (
+                <button key={c.k} type="button" onClick={() => setCategoria(c.k)}
+                  className={`px-2 py-2 rounded-xl border-2 text-xs font-medium transition-all ${categoria === c.k ? "border-rose-500 bg-rose-50 text-rose-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                  {c.l}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60">
+              Cancelar
+            </button>
+            <button type="button" onClick={confirmar} disabled={saving}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Convirtiendo…</> : "Convertir a gasto"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
