@@ -251,6 +251,9 @@ function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
 }
 function todayISO() { return new Date().toISOString().split("T")[0] }
+function esImagenComprobante(nombre: string | null) {
+  return !!nombre && /\.(jpe?g|png|webp|gif)$/i.test(nombre)
+}
 
 // ─── Formulario compartido ────────────────────────────────────────────────────
 
@@ -532,6 +535,7 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
   const [filtroCat,    setFiltroCat]    = useState("todas")
   const [filtroMes,    setFiltroMes]    = useState("todos")
   const [chartScope,   setChartScope]   = useState<"mes" | "todo">("mes")
+  const [catAbierta,   setCatAbierta]   = useState<string | null>(null)
   const [pagina,       setPagina]       = useState(1)
   const [sortKey,      setSortKey]      = useState<SortKey>("fecha")
   const [sortDir,      setSortDir]      = useState<"asc" | "desc">("desc")
@@ -740,24 +744,93 @@ export default function GastosClient({ gastos, ingresos, usuarios, currentUserId
         </div>
       </div>
 
-      {/* Desglose por categoría — este mes */}
+      {/* Desglose por categoría — este mes (tocar una categoría abre sus gastos) */}
       {kpis.totalEsteMes > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-800 mb-4">Desglose este mes por categoría</h2>
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Desglose este mes por categoría</h2>
+          <p className="text-xs text-gray-400 mb-4">Toca una categoría para ver sus gastos y comprobantes.</p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {(Object.entries(CAT_META) as [Categoria, typeof CAT_META[Categoria]][]).map(([cat, meta]) => {
               const val = kpis.porCategoria[cat] ?? 0
+              const activa = catAbierta === cat
+              const conGastos = val > 0
               return (
-                <div key={cat} className={`rounded-xl border p-3 ${val > 0 ? meta.badgeClass : "bg-gray-50 text-gray-400 border-gray-200"}`}>
+                <button
+                  key={cat}
+                  type="button"
+                  disabled={!conGastos}
+                  onClick={() => setCatAbierta(activa ? null : cat)}
+                  className={`text-left rounded-xl border p-3 transition-all ${conGastos ? meta.badgeClass : "bg-gray-50 text-gray-400 border-gray-200"} ${conGastos ? "cursor-pointer hover:shadow-sm" : "cursor-default"} ${activa ? "ring-2 ring-gray-800/40" : ""}`}
+                >
                   <div className="flex items-center gap-1.5 mb-1">
                     {meta.icon}
                     <span className="text-xs font-medium">{meta.label}</span>
+                    {conGastos && (activa ? <ChevronUp size={12} className="ml-auto" /> : <ChevronDown size={12} className="ml-auto" />)}
                   </div>
-                  <p className="text-base font-bold">{val > 0 ? formatUSD(val) : "—"}</p>
-                </div>
+                  <p className="text-base font-bold">{conGastos ? formatUSD(val) : "—"}</p>
+                </button>
               )
             })}
           </div>
+
+          {/* Panel expandido: gastos de la categoría tocada (este mes) con comprobante visible */}
+          {catAbierta && (() => {
+            const items = gastos
+              .filter((g) => g.categoria === catAbierta && keyDe(g.fecha) === mesActualKey)
+              .sort((a, b) => b.fecha.localeCompare(a.fecha))
+            const meta = CAT_META[catAbierta as Categoria] ?? CAT_META.OTRO
+            return (
+              <div className="mt-4 border-t border-gray-100 pt-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <CategoriaBadge categoria={catAbierta} />
+                  <span className="text-xs text-gray-500">{items.length} gasto{items.length !== 1 ? "s" : ""} este mes</span>
+                </div>
+                {items.map((g) => (
+                  <div key={g.id} className="rounded-xl border border-gray-100 bg-gray-50/40 p-3 flex gap-3">
+                    {/* Comprobante visible */}
+                    <div className="shrink-0">
+                      {g.comprobante ? (
+                        esImagenComprobante(g.comprobante) ? (
+                          <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer" title="Ver comprobante en grande">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/gastos/${g.id}/comprobante`}
+                              alt={`Comprobante de ${g.concepto}`}
+                              className="w-16 h-16 rounded-lg object-cover border border-gray-200 hover:ring-2 hover:ring-indigo-300 transition"
+                            />
+                          </a>
+                        ) : (
+                          <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                            className="w-16 h-16 rounded-lg border border-gray-200 bg-white flex flex-col items-center justify-center gap-1 text-indigo-600 hover:bg-indigo-50 transition">
+                            <FileText size={20} />
+                            <span className="text-[10px] font-medium">PDF</span>
+                          </a>
+                        )
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-[10px] text-gray-300 text-center px-1">Sin comprobante</div>
+                      )}
+                    </div>
+                    {/* Detalle del gasto */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{g.concepto}</p>
+                        <p className="text-sm font-bold text-rose-500 shrink-0">{formatMonto(g.monto, g.moneda)}</p>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{formatFecha(g.fecha)} · {g.custodioNombre}</p>
+                      {g.notas && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{g.notas}</p>}
+                      {g.comprobante && (
+                        <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-1.5">
+                          <FileText size={12} /> Ver comprobante
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {items.length === 0 && <p className="text-xs text-gray-400">Sin gastos de {meta.label} este mes.</p>}
+              </div>
+            )
+          })()}
         </div>
       )}
 
