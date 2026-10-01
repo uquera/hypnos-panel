@@ -18,6 +18,7 @@ Panel de administración para gestionar licencias, pagos y estado de todas las a
 | Centro Hiperbárico | hiperbarico.srv1485601.hstgr.cloud | centro-hiperbarico |
 | Bisodent | bisodent.srv1485601.hstgr.cloud | bisodent |
 | Agenda Allamey | — | agenda-allamey |
+| PodoClinic Linares | podocliniclinares.hypnosapps.com | podoclinic |
 
 ## Tropiezos de infraestructura (VPS)
 
@@ -84,6 +85,32 @@ NEXT_PUBLIC_GOBERNANZA_CONTACTO=contacto@hypnosapps.com
 ### 6. En hypnos-panel: registrar el cliente con
 - `apiUrl`: URL base del cliente
 - `masterKey`: misma que `GOBERNANZA_MASTER_KEY` del cliente
+
+---
+
+## Estándar obligatorio: Correos automáticos en apps cliente
+
+**Cada app cliente envía sus correos desde `no-reply@hypnosapps.com`**, nunca desde el Gmail
+personal del cliente (en PodoClinic Google revocó esa app password y los correos fallaron en
+silencio 2 días). hypnosapps.com es Workspace con SPF + DKIM + DMARC. Solo cambia el nombre visible
+y el correo del cliente:
+
+```
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT="587"
+EMAIL_USER="contacto@hypnosapps.com"            # autentica (app password "Agendas Hypnos")
+EMAIL_PASS="<app password de contacto@>"        # la carga el operador con su comando, no va en git
+EMAIL_FROM="<Nombre del Cliente> <no-reply@hypnosapps.com>"
+EMAIL_REPLY_TO="<correo del cliente>"           # las respuestas le llegan al cliente
+ADMIN_EMAIL="<correo del cliente>"              # avisos de nuevas solicitudes
+```
+
+- Código: `nodemailer.createTransport({...}, { replyTo: process.env.EMAIL_REPLY_TO || undefined })`
+  y en el pie del correo el contacto del cliente (referencia: `PodoClinic/src/lib/email.ts`).
+- Infra compartida (ya hecha): alias `no-reply@` en la cuenta `contacto@` (admin.google.com) +
+  Gmail de contacto@ → Cuentas → "Enviar como" no-reply@ (sin "Tratar como alias").
+- Verificar con `transporter.verify()` y una prueba real antes de entregar. Un `535` = app password
+  revocada → generar otra de contacto@ y recargar `EMAIL_PASS` (`pm2 restart`, sin rebuild).
 
 ---
 
