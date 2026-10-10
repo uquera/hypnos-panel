@@ -6,6 +6,7 @@ import { toUSD } from "@/lib/monedas"
 import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
 import RenovarButton from "./_components/RenovarButton"
 import HealthMonitor from "./_components/HealthMonitor"
+import RankingClientes, { type RankingCliente, type TramoIngresos } from "./_components/RankingClientes"
 
 export const metadata = { title: "Clientes — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -48,16 +49,14 @@ export default async function AdminPage() {
   const primerDiaMes    = new Date(now.getFullYear(), now.getMonth(), 1)
   const primerDiaSigMes = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
-  const [clientes, pagosMes, pagosTotal, actividadReciente] = await Promise.all([
-    prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: "asc" } }),
-    // Pagos del mes actual (todos los pagos, convertir a USD luego)
+  // Incluye archivados: el ranking histórico debe reconocer lo que aportó un
+  // cliente aunque hoy ya no esté activo. La tabla de abajo sigue siendo solo
+  // de activos.
+  const [clientesTodos, pagosTotal, actividadReciente] = await Promise.all([
+    prisma.cliente.findMany({ orderBy: { nombre: "asc" } }),
+    // Todos los pagos históricos (se convierten a USD y se segmentan en JS)
     prisma.pago.findMany({
-      where: { fechaPago: { gte: primerDiaMes, lt: primerDiaSigMes } },
-      select: { monto: true, moneda: true },
-    }),
-    // Todos los pagos históricos
-    prisma.pago.findMany({
-      select: { monto: true, moneda: true },
+      select: { clienteId: true, monto: true, moneda: true, concepto: true, fechaPago: true },
     }),
     // Últimas 10 acciones
     prisma.actividadLog.findMany({
@@ -66,8 +65,58 @@ export default async function AdminPage() {
     }),
   ])
 
-  const mrr            = pagosMes.reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
+  const clientes = clientesTodos.filter(c => c.activo)
+
+  const esDelMes = (f: Date) => f >= primerDiaMes && f < primerDiaSigMes
+
+  const mrr            = pagosTotal.reduce((s, p) => s + (esDelMes(p.fechaPago) ? toUSD(p.monto, p.moneda) : 0), 0)
   const totalHistorico = pagosTotal.reduce((s, p) => s + toUSD(p.monto, p.moneda), 0)
+
+  // ─── Ranking de clientes por ingresos generados ─────────────────────────────
+  // Tres tramos (mes, últimos 12 meses, histórico), cada uno desglosado por
+  // vertical, para que el cliente pueda alternar el período sin recargar.
+  const inicio12Meses = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+
+  const tramoVacio = (): TramoIngresos => ({ licencia: 0, marketing: 0, desarrollo: 0, total: 0 })
+
+  const acum = new Map<string, RankingCliente & { primerPago: Date | null; ultimoPago: Date | null }>()
+  for (const c of clientesTodos) {
+    acum.set(c.id, {
+      id: c.id, nombre: c.nombre, plan: c.plan, activo: c.activo,
+      pagos: 0, mesesActivo: 1, primerPago: null, ultimoPago: null,
+      mes: tramoVacio(), anio: tramoVacio(), hist: tramoVacio(),
+    })
+  }
+
+  for (const p of pagosTotal) {
+    const r = acum.get(p.clienteId)
+    if (!r) continue
+    const usd   = toUSD(p.monto, p.moneda)
+    const clave = p.concepto === "MARKETING" ? "marketing"
+                : p.concepto === "DESARROLLO" ? "desarrollo"
+                : "licencia"
+
+    const sumar = (t: TramoIngresos) => { t[clave] += usd; t.total += usd }
+    sumar(r.hist)
+    if (p.fechaPago >= inicio12Meses) sumar(r.anio)
+    if (esDelMes(p.fechaPago))        sumar(r.mes)
+
+    r.pagos += 1
+    if (!r.primerPago || p.fechaPago < r.primerPago) r.primerPago = p.fechaPago
+    if (!r.ultimoPago || p.fechaPago > r.ultimoPago) r.ultimoPago = p.fechaPago
+  }
+
+  const mesesEntre = (a: Date, b: Date) =>
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1
+
+  const ranking: RankingCliente[] = [...acum.values()].map(({ primerPago, ultimoPago, ...r }) => ({
+    ...r,
+    // Meses de vida del cliente, para el promedio mensual. En los archivados se
+    // corta en su último pago: si no, el promedio se diluye mes a mes.
+    mesesActivo: primerPago
+      ? Math.max(1, mesesEntre(primerPago, r.activo ? now : (ultimoPago ?? now)))
+      : 1,
+  }))
 
   const porVencer = clientes.filter((c) => {
     const dias = Math.ceil((new Date(c.fechaVencimiento).getTime() - now.getTime()) / 86_400_000)
@@ -284,6 +333,9 @@ export default async function AdminPage() {
           </div>
         </>
       )}
+
+      {/* Ranking de clientes por ingresos generados */}
+      {ranking.length > 0 && <RankingClientes clientes={ranking} />}
 
       {/* Log de actividad reciente */}
       {actividadReciente.length > 0 && (
