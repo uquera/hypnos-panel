@@ -7,6 +7,7 @@ import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriang
 import RenovarButton from "./_components/RenovarButton"
 import HealthMonitor from "./_components/HealthMonitor"
 import RankingClientes, { type RankingCliente, type TramoIngresos } from "./_components/RankingClientes"
+import RankingMeses, { type MesIngresos } from "./_components/RankingMeses"
 
 export const metadata = { title: "Clientes — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -116,6 +117,46 @@ export default async function AdminPage() {
     mesesActivo: primerPago
       ? Math.max(1, mesesEntre(primerPago, r.activo ? now : (ultimoPago ?? now)))
       : 1,
+  }))
+
+  // ─── Ranking de meses por ingresos ──────────────────────────────────────────
+  // Serie continua desde el primer pago hasta el mes actual: los meses sin
+  // ingresos también cuentan (en la vista cronológica se ven como huecos).
+  const claveMes = (f: Date) => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}`
+
+  const porMes = new Map<string, MesIngresos & { clientesSet: Set<string> }>()
+
+  if (pagosTotal.length > 0) {
+    const primero = pagosTotal.reduce((min, p) => (p.fechaPago < min ? p.fechaPago : min), pagosTotal[0].fechaPago)
+    const cursor  = new Date(primero.getFullYear(), primero.getMonth(), 1)
+    while (cursor <= primerDiaMes) {
+      porMes.set(claveMes(cursor), {
+        key:   claveMes(cursor),
+        label: cursor.toLocaleDateString("es-CL", { month: "long", year: "numeric" }),
+        corto: cursor.toLocaleDateString("es-CL", { month: "short", year: "2-digit" }),
+        licencia: 0, marketing: 0, desarrollo: 0, total: 0,
+        clientes: 0, pagos: 0, clientesSet: new Set<string>(),
+      })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+  }
+
+  for (const p of pagosTotal) {
+    const m = porMes.get(claveMes(p.fechaPago))
+    if (!m) continue
+    const usd   = toUSD(p.monto, p.moneda)
+    const clave = p.concepto === "MARKETING" ? "marketing"
+                : p.concepto === "DESARROLLO" ? "desarrollo"
+                : "licencia"
+    m[clave] += usd
+    m.total  += usd
+    m.pagos  += 1
+    m.clientesSet.add(p.clienteId)
+  }
+
+  const meses: MesIngresos[] = [...porMes.values()].map(({ clientesSet, ...m }) => ({
+    ...m,
+    clientes: clientesSet.size,
   }))
 
   const porVencer = clientes.filter((c) => {
@@ -336,6 +377,9 @@ export default async function AdminPage() {
 
       {/* Ranking de clientes por ingresos generados */}
       {ranking.length > 0 && <RankingClientes clientes={ranking} />}
+
+      {/* Ranking de meses por ingresos */}
+      {meses.length > 0 && <RankingMeses meses={meses} />}
 
       {/* Log de actividad reciente */}
       {actividadReciente.length > 0 && (
