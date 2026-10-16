@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import SyncLicenciaForm from "./SyncLicenciaForm"
 import EditClienteForm from "./EditClienteForm"
+import { urlSitio } from "@/lib/url-sitio"
 import PagosSection from "./PagosSection"
 import PagoRenovarButton from "./PagoRenovarButton"
 
@@ -90,7 +91,7 @@ export default async function EditarClientePage({ params }: Props) {
           <p className="text-sm text-gray-500 mt-0.5">{cliente.dominio}</p>
         </div>
         <a
-          href={`https://${cliente.dominio}`}
+          href={urlSitio(cliente.dominio)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"

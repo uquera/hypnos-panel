@@ -2,6 +2,7 @@ import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { calcularEstado } from "@/lib/licencia-utils"
+import { urlSitio } from "@/lib/url-sitio"
 import { toUSD } from "@/lib/monedas"
 import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
 import RenovarButton from "./_components/RenovarButton"
@@ -287,7 +288,7 @@ export default async function AdminPage() {
                       <Edit2 size={13} /> Editar
                     </Link>
                     <a
-                      href={`https://${c.dominio}`}
+                      href={urlSitio(c.dominio)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="h-9 px-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -348,7 +349,7 @@ export default async function AdminPage() {
                       <td className="px-5 py-4">
                         <div className="relative z-10 flex items-center justify-end gap-2">
                           <a
-                            href={`https://${c.dominio}`}
+                            href={urlSitio(c.dominio)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
