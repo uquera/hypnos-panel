@@ -34,6 +34,18 @@ Panel de administración para gestionar licencias, pagos y estado de todas las a
   acepta sesión ADMIN (como venía Bisodent), aparece caído. El `GET` debe
   autorizar por master key (operador) **o** sesión ADMIN (página del cliente).
 
+## Hypnos POS (app Android de las máquinas TUU Pro 2)
+
+Una sola app para todos los clientes: el negocio escribe su **código** y la app baja su marca.
+- Modelos `PosCuenta`, `PosUsuario`, `PosToken` (`prisma/schema.prisma`; SQL de referencia en `prisma/sql/20261030_hypnos_pos.sql`).
+- Hypnos (solo ADMIN): `/admin/pos` crea/edita cuentas (código, link, colores, logo, cliente de la gobernanza), suspende e invita sub-cuentas.
+- Portal del negocio: `/pos/login`, `/pos/crear-contrasena`, `/pos/recuperar`, `/pos/marca`, `/pos/equipo` (solo DUENO).
+  Sesión propia en cookie `hypnos_pos` (`src/lib/pos/sesion.ts`), separada de NextAuth: un PosUsuario nunca entra a `/admin`.
+- API pública de la app (sin sesión, 60/min por IP): `GET /api/pos-app/config?code=` y `GET /api/pos-app/logo/<codigo>.png`.
+- Logos normalizados a PNG ≤512 px con `sharp` en `POS_UPLOAD_DIR` (por defecto `<cwd>/uploads/pos`).
+- Correos: `"Hypnos POS" <no-reply@hypnosapps.com>`, Reply-To contacto@ (`src/lib/pos/email.ts`; usa `EMAIL_*` o `SMTP_*`).
+- Datos iniciales: `npx tsx scripts/pos-seed.ts` (cuenta `donaany`, idempotente; `--forzar` restablece).
+
 ---
 
 ## Estándar obligatorio: Gobernanza en apps cliente

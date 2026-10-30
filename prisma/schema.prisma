@@ -49,6 +49,7 @@ model Cliente {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   pagos            Pago[]
+  posCuentas       PosCuenta[]
 
   @@map("clientes")
 }
@@ -203,6 +204,69 @@ model AgendaBackup {
 
   @@index([slug])
   @@map("agenda_backups")
+}
+
+// ─── HYPNOS POS ───────────────────────────────────────────────────────────────
+// App Android única para las máquinas TUU Pro 2: el negocio escribe su código y
+// la app descarga su marca con GET /api/pos-app/config?code=<codigo>.
+// Hypnos crea las cuentas (/admin/pos); cada negocio edita su marca en /pos/marca.
+// Los PosUsuario NO son usuarios del panel: tienen su propia sesión (cookie hypnos_pos).
+
+model PosCuenta {
+  id                 String       @id @default(cuid())
+  codigo             String       @unique                // "donaany": a-z0-9 y guiones, 3-30
+  nombre             String                              // nombre visible en la app
+  posUrl             String                              // https del sistema web del negocio (solo Hypnos lo cambia)
+  logo               String?                             // archivo PNG en POS_UPLOAD_DIR (<id>.png)
+  colorPrimario      String       @default("#f26522")
+  colorTextoPrimario String       @default("#ffffff")    // texto sobre el color primario
+  colorFondo         String       @default("#ffffff")
+  colorTexto         String       @default("#1f2937")
+  activo             Boolean      @default(true)         // false = suspendida (la app y el portal la rechazan)
+  clienteId          String?                             // vínculo opcional con el Cliente de la gobernanza
+  cliente            Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  usuarios           PosUsuario[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@map("pos_cuentas")
+}
+
+// Sub-cuentas del negocio. passwordHash null = invitado que aún no crea su contraseña.
+// rol: DUENO (edita la marca e invita EDITOR) | EDITOR (solo edita la marca)
+model PosUsuario {
+  id            String     @id @default(cuid())
+  cuentaId      String
+  cuenta        PosCuenta  @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  nombre        String
+  email         String     @unique                       // siempre en minúsculas
+  passwordHash  String?
+  rol           String     @default("EDITOR")
+  activo        Boolean    @default(true)
+  ultimoIngreso DateTime?
+  tokens        PosToken[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([cuentaId])
+  @@map("pos_usuarios")
+}
+
+// Enlaces de invitación (7 días) y recuperación (1 hora). Se guarda solo el
+// sha256 del token; cada enlace sirve una vez (usadoEn) y uno nuevo anula los anteriores.
+// tipo: INVITACION | RECUPERACION
+model PosToken {
+  id        String     @id @default(cuid())
+  usuarioId String
+  usuario   PosUsuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo      String
+  tokenHash String     @unique
+  expiraEn  DateTime
+  usadoEn   DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([usuarioId])
+  @@map("pos_tokens")
 }
 
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────

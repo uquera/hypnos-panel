@@ -48,3 +48,6 @@ next-env.d.ts
 *.db-shm
 *.db-wal
 .playwright-mcp/
+
+# Archivos subidos (comprobantes, logos de Hypnos POS)
+/uploads/

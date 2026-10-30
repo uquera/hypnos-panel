@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import {
   LayoutDashboard, UserCog, LogOut, ShieldCheck, X,
-  CreditCard, TrendingDown, BarChart2, Users, ClipboardList, Monitor, Inbox,
+  CreditCard, TrendingDown, BarChart2, Users, ClipboardList, Monitor, Inbox, Smartphone,
 } from "lucide-react"
 import { ThemeToggle } from "@/app/_components/ThemeToggle"
 
@@ -18,6 +18,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin",              label: "Clientes",    icon: LayoutDashboard, exact: true },
   { href: "/admin/leads",        label: "Leads",       icon: Inbox },
+  { href: "/admin/pos",          label: "Hypnos POS",  icon: Smartphone,    adminOnly: true },
   { href: "/admin/pagos",        label: "Ingresos",    icon: CreditCard },
   { href: "/admin/gastos",       label: "Gastos",      icon: TrendingDown },
   { href: "/admin/balance",      label: "Balance",     icon: BarChart2 },

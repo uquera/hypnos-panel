@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ShieldCheck, TrendingUp, TrendingDown, Wallet, Users, RefreshCw, Search, Inbox } from "lucide-react"
+import { ShieldCheck, TrendingUp, TrendingDown, Wallet, Users, RefreshCw, Search, Inbox, Smartphone } from "lucide-react"
 
 // ─── Configuración de acciones ────────────────────────────────────────────────
 
@@ -32,6 +32,11 @@ const ACCIONES: Record<string, AccionMeta> = {
   CLIENTE_ARCHIVADO: { label: "Cliente archivado",     categoria: "clientes",  color: "bg-gray-200",   textColor: "text-gray-600",    icon: <Users size={11} />,        verbo: "archivó cliente" },
   LEAD_ESTADO:       { label: "Lead actualizado",      categoria: "clientes",  color: "bg-indigo-100", textColor: "text-indigo-700",  icon: <Inbox size={11} />,        verbo: "movió lead" },
   LEAD_ELIMINADO:    { label: "Lead eliminado",        categoria: "clientes",  color: "bg-rose-100",   textColor: "text-rose-600",    icon: <Inbox size={11} />,        verbo: "eliminó lead" },
+  POS_CUENTA_CREADA:     { label: "Cuenta POS creada",     categoria: "clientes", color: "bg-orange-100", textColor: "text-orange-700", icon: <Smartphone size={11} />, verbo: "creó la cuenta POS" },
+  POS_CUENTA_EDITADA:    { label: "Cuenta POS editada",    categoria: "clientes", color: "bg-orange-100", textColor: "text-orange-700", icon: <Smartphone size={11} />, verbo: "editó la cuenta POS" },
+  POS_USUARIO_INVITADO:  { label: "Sub-cuenta POS invitada", categoria: "clientes", color: "bg-orange-100", textColor: "text-orange-700", icon: <Smartphone size={11} />, verbo: "invitó a la sub-cuenta POS" },
+  POS_USUARIO_EDITADO:   { label: "Sub-cuenta POS editada",  categoria: "clientes", color: "bg-orange-100", textColor: "text-orange-700", icon: <Smartphone size={11} />, verbo: "editó la sub-cuenta POS" },
+  POS_USUARIO_ELIMINADO: { label: "Sub-cuenta POS eliminada", categoria: "clientes", color: "bg-rose-100", textColor: "text-rose-600", icon: <Smartphone size={11} />, verbo: "eliminó la sub-cuenta POS" },
   PASSWORD_RESTABLECIDO: { label: "Contraseña restablecida", categoria: "otro", color: "bg-purple-100", textColor: "text-purple-700", icon: <ShieldCheck size={11} />, verbo: "restableció su contraseña" },
 }
 
