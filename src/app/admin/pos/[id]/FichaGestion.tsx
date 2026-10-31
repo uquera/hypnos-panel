@@ -12,6 +12,7 @@ import { accionPos } from "../_components/accionPos"
 
 interface Datos {
   nombre: string; dueno: string; email: string; whatsapp: string; notas: string; vence: string; precioMensual: string
+  menuUrl: string; mesas: string; direccion: string; horario: string
 }
 
 const input = "w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -90,6 +91,26 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
               onChange={e => setForm({ ...form, precioMensual: e.target.value.replace(/[^\d]/g, "") })} />
           </div>
         </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="space-y-1 sm:col-span-2">
+            <label className={label}>Link del menú online</label>
+            <input className={input} value={form.menuUrl} disabled={bloqueada} placeholder="https://menu.fu.do/…" onChange={e => setForm({ ...form, menuUrl: e.target.value.trim() })} />
+          </div>
+          <div className="space-y-1">
+            <label className={label}>Dirección</label>
+            <input className={input} value={form.direccion} disabled={bloqueada} onChange={e => setForm({ ...form, direccion: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-[1fr_5rem] gap-3">
+            <div className="space-y-1">
+              <label className={label}>Horario</label>
+              <input className={input} value={form.horario} disabled={bloqueada} onChange={e => setForm({ ...form, horario: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className={label}>Mesas</label>
+              <input className={input} inputMode="numeric" value={form.mesas} disabled={bloqueada} onChange={e => setForm({ ...form, mesas: e.target.value.replace(/[^\d]/g, "") })} />
+            </div>
+          </div>
+        </div>
         {lic && (
           <div className="space-y-1">
             <label className={label}>Notas internas</label>
@@ -103,7 +124,7 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
             {spin("guardar", <Save size={14} />)} Guardar
           </button>
         )}
-        {lic && <p className="text-xs text-gray-400">Cambiar el vencimiento se sincroniza con la instancia del restaurante.</p>}
+        {lic && <p className="text-xs text-gray-400">Cambiar el vencimiento se sincroniza con la instancia del restaurante. Menú, mesas, dirección y horario se usan al reintentar la instalación.</p>}
       </form>
 
       {/* Acciones */}

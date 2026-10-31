@@ -2,7 +2,8 @@ import { spawn } from "child_process"
 import fs from "fs"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
-import { basePublica } from "./servidor"
+import { basePublica, dirLogos } from "./servidor"
+import { rutaLogo, rutaClientes, type ResultadoAlta } from "./onboarding"
 import { enviarInvitacion } from "./usuarios"
 import { correoBienvenida, avisoHypnosErrorAlta } from "./correos"
 import { errorCodigo, normalizarCodigo } from "./validacion"
@@ -87,7 +88,8 @@ function recortar(log: string): string {
 }
 
 /** Última línea no vacía de stdout interpretada como JSON del contrato. */
-function leerResultado(stdout: string): { ok: boolean; url?: string; port?: number; error?: string } | null {
+type ResultadoCmd = { ok: boolean; url?: string; port?: number; error?: string } & ResultadoAlta
+function leerResultado(stdout: string): ResultadoCmd | null {
   const lineas = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   const ultima = lineas[lineas.length - 1]
   if (!ultima) return null
@@ -128,6 +130,8 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
   if (tomado.count === 0) return
 
   const cliente = cuenta.cliente
+  const logo = await rutaLogo(cuenta, dirLogos())
+  const clientes = rutaClientes(cuenta)
   const args = [
     "create",
     "--codigo", cuenta.codigo,
@@ -137,6 +141,14 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
     "--master-key", cliente.masterKey,
     "--vence", cliente.fechaVencimiento.toISOString(),
     ...(cuenta.enPrueba ? ["--prueba"] : []),
+    // Onboarding (flags opcionales del contrato ampliado)
+    ...(logo ? ["--logo", logo] : []),
+    ...(cuenta.menuUrl ? ["--menu-url", cuenta.menuUrl] : ["--ejemplo"]),
+    "--mesas", String(cuenta.mesas),
+    ...(cuenta.direccion ? ["--direccion", cuenta.direccion] : []),
+    ...(cuenta.whatsapp ? ["--telefono", cuenta.whatsapp] : []),
+    ...(cuenta.horario ? ["--horario", cuenta.horario] : []),
+    ...(clientes ? ["--clientes", clientes] : []),
   ]
   const ocultar = (t: string) => t.split(cliente.masterKey).join("***")
 
@@ -152,10 +164,20 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
     // Desarrollo: simulación (POS_TENANT_SIMULADO_MS, default 4 s)
     const ms  = Number(process.env.POS_TENANT_SIMULADO_MS || 4000)
     const url = `https://${cuenta.codigo}.${DOMINIO_POS}`
-    const log = `[simulado] ${cmd} no existe; NODE_ENV=${process.env.NODE_ENV}\n[simulado] args: ${ocultar(args.join(" "))}\n`
+    const log = `[simulado] ${cmd} no existe; NODE_ENV=${process.env.NODE_ENV}\n[simulado] args: ${ocultar(args.map(a => /\s/.test(a) ? JSON.stringify(a) : a).join(" "))}\n`
+    // Acepta los flags de onboarding. POS_TENANT_SIMULADO_MENU=falla simula un menú que no se pudo importar.
+    const sim: ResultadoCmd = {
+      ok: true, url, port: 3999,
+      ...(cuenta.menuUrl ? {
+        menu: process.env.POS_TENANT_SIMULADO_MENU === "falla"
+          ? { ok: false, productos: 0, error: "No se pudo leer el menú (simulado)" }
+          : { ok: true, productos: 48 },
+      } : {}),
+      ...(clientes ? { clientes: { ok: true, importados: 12 } } : {}),
+    }
     setTimeout(() => {
       enCurso.delete(cuentaId)
-      terminar(cuentaId, { ok: true, url, port: 3999 }, log + JSON.stringify({ ok: true, url, port: 3999 }) + "\n")
+      terminar(cuentaId, sim, log + JSON.stringify(sim) + "\n")
         .catch(e => console.error("[pos-alta] simulación:", e))
     }, ms)
     return
@@ -197,8 +219,8 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
     if (errorSpawn) log += `\n[panel] no se pudo ejecutar: ${errorSpawn.message}\n`
     const r = leerResultado(stdout)
     const ok = !errorSpawn && code === 0 && r?.ok === true && typeof r.url === "string"
-    const resultado = ok
-      ? { ok: true, url: r!.url, port: r!.port }
+    const resultado: ResultadoCmd = ok
+      ? { ok: true, url: r!.url, port: r!.port, menu: r!.menu, clientes: r!.clientes }
       : { ok: false, error: r?.error || (errorSpawn ? errorSpawn.message : `El comando terminó con código ${code}`) }
     terminar(cuentaId, resultado, ocultar(log)).catch(e => console.error("[pos-alta] terminar:", e))
   }
@@ -207,7 +229,7 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
 }
 
 /** Guarda el resultado y avisa (bienvenida al dueño o error a Hypnos). */
-async function terminar(cuentaId: string, r: { ok: boolean; url?: string; port?: number; error?: string }, log: string) {
+async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
   const cuenta = await prisma.posCuenta.findUnique({
     where: { id: cuentaId },
     include: { cliente: true, usuarios: { where: { rol: "DUENO" }, orderBy: { createdAt: "asc" }, take: 1 } },
@@ -233,11 +255,19 @@ async function terminar(cuentaId: string, r: { ok: boolean; url?: string; port?:
 
   // La URL que entrega el comando es la base; apiUrl es el endpoint completo (estándar del panel)
   const url = r.url.replace(/\/+$/, "")
+  // Resultado de la importación (menú y clientes) que puede traer la última línea JSON
+  const resultadoAlta: ResultadoAlta = {
+    ...(r.menu ? { menu: { ok: !!r.menu.ok, productos: Number(r.menu.productos) || 0, ...(r.menu.error ? { error: String(r.menu.error).slice(0, 300) } : {}) } } : {}),
+    ...(r.clientes ? { clientes: { ok: !!r.clientes.ok, importados: Number(r.clientes.importados) || 0, ...(r.clientes.error ? { error: String(r.clientes.error).slice(0, 300) } : {}) } } : {}),
+  }
   const host = (() => { try { return new URL(url).host } catch { return `${cuenta.codigo}.${DOMINIO_POS}` } })()
   await prisma.$transaction([
     prisma.posCuenta.update({
       where: { id: cuentaId },
-      data:  { estadoAlta: "LISTO", posUrl: url, altaLog: recortar(`${log}\n[panel] LISTO: ${url}${r.port ? ` (puerto ${r.port})` : ""}`) },
+      data:  {
+        estadoAlta: "LISTO", posUrl: url, resultadoAlta: JSON.stringify(resultadoAlta),
+        altaLog: recortar(`${log}\n[panel] LISTO: ${url}${r.port ? ` (puerto ${r.port})` : ""}`),
+      },
     }),
     ...(cuenta.clienteId ? [prisma.cliente.update({
       where: { id: cuenta.clienteId },
@@ -256,6 +286,7 @@ async function terminar(cuentaId: string, r: { ok: boolean; url?: string; port?:
       to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url,
       enPrueba: cuenta.enPrueba, vence: cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${base}/pos/pago`,
       monto: cuenta.precioMensual ?? precioMensual(),
+      mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: resultadoAlta,
     })
   } catch (e) {
     console.error("[pos-alta] bienvenida:", e)

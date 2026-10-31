@@ -237,6 +237,15 @@ model PosCuenta {
   terminosAt         DateTime?                           // aceptación de términos en el registro público
   precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
   eliminadaAt        DateTime?                           // eliminada (instancia respaldada y fuera de línea); se conserva el historial
+  // Onboarding (registro / crear restaurante): se pasa a hypnos-pos-tenant create.
+  // Archivos en POS_ONBOARDING_DIR/<cuentaId>/ (por defecto uploads/pos-onboarding), fuera de public.
+  menuUrl            String       @default("")           // menú online a importar (Fudo u otro)
+  mesas              Int          @default(10)
+  direccion          String       @default("")
+  horario            String       @default("")
+  archivoClientes    String?                             // "clientes.xlsx" | "clientes.csv" dentro de la carpeta de la cuenta
+  archivoClientesNombre String    @default("")           // nombre original del archivo subido
+  resultadoAlta      String?                             // JSON {menu:{ok,productos,error?}, clientes:{ok,importados}} del último create
   usuarios           PosUsuario[]
   comprobantes       PosComprobante[]
   avisos             PosAviso[]

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { CheckCircle2, Loader2, Store } from "lucide-react"
-import { postJson } from "../_components/accionPos"
+import { postForm } from "../_components/accionPos"
 
 const input = "w-full h-11 px-3.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
 const label = "text-xs font-semibold text-gray-500 uppercase tracking-wide"
@@ -18,7 +18,12 @@ export default function CrearRestauranteForm({ precioGeneral, diasPrueba, venceD
   precioGeneral: number; diasPrueba: number; venceDefecto: string
 }) {
   const router = useRouter()
-  const [f, setF] = useState({ nombre: "", dueno: "", email: "", whatsapp: "", codigo: "", vence: venceDefecto, precioMensual: "" })
+  const [f, setF] = useState({
+    nombre: "", dueno: "", email: "", whatsapp: "", codigo: "", vence: venceDefecto, precioMensual: "",
+    menuUrl: "", mesas: "10", direccion: "", horario: "",
+  })
+  const [logo, setLogo] = useState<File | null>(null)
+  const [clientes, setClientes] = useState<File | null>(null)
   const [editado, setEditado] = useState(false)
   const [prueba, setPrueba] = useState(true)
   const [resultado, setResultado] = useState<{ codigo: string; ok: boolean; msg?: string } | null>(null)
@@ -42,7 +47,12 @@ export default function CrearRestauranteForm({ precioGeneral, diasPrueba, venceD
     e.preventDefault()
     if (disp.ok === false) { toast.error(disp.msg ?? "Subdominio no disponible"); return }
     setLoading(true)
-    const d = await postJson("/api/pos-admin/restaurantes", { ...f, codigo, prueba, precioMensual: Number(f.precioMensual) || undefined })
+    const fd = new FormData()
+    for (const [k, v] of Object.entries({ ...f, codigo })) fd.set(k, v)
+    fd.set("prueba", String(prueba))
+    if (logo) fd.set("logo", logo)
+    if (clientes) fd.set("clientes", clientes)
+    const d = await postForm("/api/pos-admin/restaurantes", fd)
     setLoading(false)
     if (d?.id) {
       toast.success("Restaurante creado; instalando su sistema…")
@@ -81,6 +91,41 @@ export default function CrearRestauranteForm({ precioGeneral, diasPrueba, venceD
       <div className="space-y-1.5">
         <label className={label} htmlFor="email">Correo del dueño</label>
         <input id="email" type="email" required className={input} value={f.email} onChange={e => setF({ ...f, email: e.target.value })} />
+      </div>
+
+      <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+        <p className="text-sm font-semibold text-gray-800">Local y migración <span className="font-normal text-gray-400">(opcional)</span></p>
+        <div className="space-y-1.5">
+          <label className={label} htmlFor="menuUrl">Link del menú online (Fudo u otro)</label>
+          <input id="menuUrl" className={input} inputMode="url" placeholder="https://menu.fu.do/…" value={f.menuUrl} onChange={e => setF({ ...f, menuUrl: e.target.value.trim() })} />
+          <p className="text-xs text-gray-400">Se importa al instalar; sin link se carga la carta de ejemplo.</p>
+        </div>
+        <div className="grid sm:grid-cols-[1fr_1fr_6rem] gap-3">
+          <div className="space-y-1.5">
+            <label className={label} htmlFor="direccion">Dirección</label>
+            <input id="direccion" maxLength={160} className={input} value={f.direccion} onChange={e => setF({ ...f, direccion: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <label className={label} htmlFor="horario">Horario</label>
+            <input id="horario" maxLength={120} className={input} placeholder="Lun a Sáb 12–23" value={f.horario} onChange={e => setF({ ...f, horario: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <label className={label} htmlFor="mesas">Mesas</label>
+            <input id="mesas" inputMode="numeric" className={input} value={f.mesas} onChange={e => setF({ ...f, mesas: e.target.value.replace(/[^\d]/g, "") })} />
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="text-xs text-gray-500 space-y-1.5 block">
+            <span className={label}>Logo (PNG/JPG/WebP, 5 MB)</span>
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="block w-full text-xs file:mr-2 file:px-3 file:h-9 file:rounded-lg file:border-0 file:bg-gray-100"
+              onChange={e => setLogo(e.target.files?.[0] ?? null)} />
+          </label>
+          <label className="text-xs text-gray-500 space-y-1.5 block">
+            <span className={label}>Clientes (Excel/CSV, 10 MB)</span>
+            <input type="file" accept=".xlsx,.csv" className="block w-full text-xs file:mr-2 file:px-3 file:h-9 file:rounded-lg file:border-0 file:bg-gray-100"
+              onChange={e => setClientes(e.target.files?.[0] ?? null)} />
+          </label>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-100 p-4 space-y-3">

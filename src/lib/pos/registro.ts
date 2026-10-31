@@ -5,6 +5,7 @@ import { EMAIL_RE, COLORES_DEFECTO, normalizarCodigo } from "./validacion"
 import { DOMINIO_POS, errorCodigoDisponible, lanzarAlta } from "./alta"
 import { diasPrueba } from "./config"
 import { fechaCorta } from "./fechas"
+import { guardarOnboarding, type Onboarding } from "./onboarding"
 
 // Alta de un restaurante (registro público /pos/registro y "Crear restaurante" del admin).
 // Crea en una transacción: Cliente (gobernanza, plan POS) + PosCuenta + PosUsuario DUENO,
@@ -18,7 +19,10 @@ export interface DatosRestaurante {
   codigo:   string
 }
 
-export function leerDatosRestaurante(body: Record<string, unknown>): DatosRestaurante {
+export function leerDatosRestaurante(entrada: Record<string, unknown> | FormData): DatosRestaurante {
+  const body: Record<string, unknown> = entrada instanceof FormData
+    ? Object.fromEntries([...entrada.entries()].filter(([, v]) => typeof v === "string"))
+    : entrada
   const nombre   = String(body.nombre ?? "").trim().replace(/\s+/g, " ").slice(0, 60)
   const dueno    = String(body.dueno ?? "").trim().replace(/\s+/g, " ").slice(0, 80)
   const email    = String(body.email ?? "").trim().toLowerCase().slice(0, 180)
@@ -47,6 +51,7 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
   vence?:   Date            // obligatorio si no es prueba
   origen:   "REGISTRO" | "ADMIN"
   ip?:      string
+  onboarding?: Onboarding   // logo, menú, mesas, dirección, horario, clientes (ya validados)
 }) {
   const errCodigo = await errorCodigoDisponible(d.codigo)
   if (errCodigo) throw new ErrorPos(errCodigo, 409)
@@ -89,6 +94,10 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
           whatsapp: d.whatsapp,
           origen: o.origen,
           terminosAt: o.origen === "REGISTRO" ? ahora : null,
+          ...(o.onboarding ? {
+            menuUrl: o.onboarding.menuUrl, mesas: o.onboarding.mesas,
+            direccion: o.onboarding.direccion, horario: o.onboarding.horario,
+          } : {}),
         },
       })
       await tx.posUsuario.create({ data: { cuentaId: cuenta.id, nombre: d.dueno, email: d.email, rol: "DUENO" } })
@@ -102,6 +111,9 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
     throw e
   }
 
+  if (o.onboarding) {
+    await guardarOnboarding(cuentaId, o.onboarding).catch(e => console.error("[pos-registro] archivos de onboarding:", e))
+  }
   await lanzarAlta(cuentaId).catch(e => console.error("[pos-registro] no se pudo lanzar el alta:", e))
   return cuentaId
 }

@@ -8,6 +8,9 @@ import { usuarioPublico } from "@/lib/pos/usuarios"
 import { includeTablero, filaTablero } from "@/lib/pos/tablero"
 import { claveDiaChile, fechaCorta } from "@/lib/pos/fechas"
 import { precioMensual, formatoCLP } from "@/lib/pos/config"
+import { dirOnboarding, leerResultadoAlta } from "@/lib/pos/onboarding"
+import fs from "fs/promises"
+import path from "path"
 import PosMarcaForm from "@/app/_components/pos/PosMarcaForm"
 import PosUsuarios from "@/app/_components/pos/PosUsuarios"
 import EstadoCuentaButton from "./EstadoCuentaButton"
@@ -40,6 +43,8 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
   ])
 
   const fila = filaTablero(cuenta)
+  const resultado = leerResultadoAlta(cuenta.resultadoAlta)
+  const tieneLogoOnb = await fs.access(path.join(dirOnboarding(cuenta.id), "logo.png")).then(() => true, () => false)
   const logoUrl = urlLogo("", cuenta)
   const dueno = usuarios.find(u => u.rol === "DUENO")
   const clp = (n: number, m: string) => m === "CLP" ? formatoCLP(n) : `${m} ${n.toLocaleString("es-CL")}`
@@ -90,11 +95,48 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
           notas: cuenta.cliente?.notasAdmin ?? "",
           vence: cuenta.cliente ? claveDiaChile(cuenta.cliente.fechaVencimiento) : "",
           precioMensual: cuenta.precioMensual ? String(cuenta.precioMensual) : "",
+          menuUrl: cuenta.menuUrl, mesas: String(cuenta.mesas), direccion: cuenta.direccion, horario: cuenta.horario,
         }}
         precioGeneral={precioMensual()}
         tieneDueno={!!dueno}
         clienteId={cuenta.clienteId}
       />
+
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-gray-900">Entregado en el registro</h2>
+        <div className={`${card} p-4 grid sm:grid-cols-2 gap-4 text-sm`}>
+          <div className="flex items-start gap-3">
+            {tieneLogoOnb
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <a href={`/api/pos-admin/cuentas/${cuenta.id}/onboarding?archivo=logo`} target="_blank" rel="noreferrer"><img src={`/api/pos-admin/cuentas/${cuenta.id}/onboarding?archivo=logo`} alt="Logo" className="w-14 h-14 rounded-xl object-contain bg-gray-50 border border-gray-100 p-1" /></a>
+              : <div className="w-14 h-14 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center text-[10px] text-gray-400 text-center">Sin logo</div>}
+            <div className="min-w-0 space-y-1">
+              <p className="text-gray-500 text-xs uppercase font-semibold tracking-wide">Menú online</p>
+              {cuenta.menuUrl
+                ? <a href={cuenta.menuUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline break-all">{cuenta.menuUrl}</a>
+                : <p className="text-gray-400">Sin link (carta de ejemplo)</p>}
+              {resultado.menu && (
+                <p className={resultado.menu.ok ? "text-green-700" : "text-amber-700"}>
+                  {resultado.menu.ok ? `Importados ${resultado.menu.productos ?? 0} productos` : `No se importó${resultado.menu.error ? `: ${resultado.menu.error}` : ""}`}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-gray-500 text-xs uppercase font-semibold tracking-wide">Clientes</p>
+            {cuenta.archivoClientes
+              ? <a href={`/api/pos-admin/cuentas/${cuenta.id}/onboarding?archivo=clientes`} className="text-indigo-600 hover:underline break-all">Descargar {cuenta.archivoClientesNombre || cuenta.archivoClientes}</a>
+              : <p className="text-gray-400">No subió archivo</p>}
+            {resultado.clientes && (
+              <p className={resultado.clientes.ok ? "text-green-700" : "text-amber-700"}>
+                {resultado.clientes.ok ? `Importados ${resultado.clientes.importados ?? 0} clientes` : `No se importaron${resultado.clientes.error ? `: ${resultado.clientes.error}` : ""}`}
+              </p>
+            )}
+            <p className="text-gray-600 pt-1">{cuenta.mesas} mesas{cuenta.horario ? ` · ${cuenta.horario}` : ""}</p>
+            {cuenta.direccion && <p className="text-gray-500">{cuenta.direccion}</p>}
+          </div>
+        </div>
+      </section>
 
       <section id="comprobantes" className="space-y-3">
         <h2 className="text-base font-bold text-gray-900">Comprobantes</h2>

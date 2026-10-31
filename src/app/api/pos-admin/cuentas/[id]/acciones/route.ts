@@ -10,10 +10,12 @@ import { cambiarLicenciaPos, registrarPagoPos, precioDe } from "@/lib/pos/cobro"
 import { correoBienvenida } from "@/lib/pos/correos"
 import { finDelDiaChile } from "@/lib/pos/fechas"
 import { precioMensual } from "@/lib/pos/config"
+import { leerResultadoAlta, validarMenuUrl } from "@/lib/pos/onboarding"
 
 // POST /api/pos-admin/cuentas/:id/acciones — acciones de Hypnos sobre un restaurante (solo ADMIN).
 // { accion, ...datos }:
-//   guardar            nombre, dueno, email, whatsapp, notas, vence (YYYY-MM-DD), precioMensual ("" = precio general)
+//   guardar            nombre, dueno, email, whatsapp, notas, vence (YYYY-MM-DD), precioMensual ("" = precio general),
+//                      menuUrl, mesas, direccion, horario
 //   suspender | reactivar
 //   extender-prueba    dias (7|14|…) o fecha (YYYY-MM-DD)
 //   pasar-pagado       quita enPrueba
@@ -64,8 +66,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           if (otro) throw new ErrorPos("Ese correo ya tiene acceso a una cuenta de Hypnos POS.", 409)
         }
 
+        // Datos de onboarding (se usan al reintentar la instalación)
+        const onb: { menuUrl?: string; mesas?: number; direccion?: string; horario?: string } = {}
+        if (body.menuUrl !== undefined) onb.menuUrl = await validarMenuUrl(body.menuUrl)
+        if (body.mesas !== undefined && String(body.mesas).trim() !== "") {
+          const m = Math.round(Number(body.mesas))
+          if (!(m >= 0 && m <= 200)) throw new ErrorPos("El número de mesas debe estar entre 0 y 200.")
+          onb.mesas = m
+        }
+        if (body.direccion !== undefined) onb.direccion = String(body.direccion).trim().slice(0, 160)
+        if (body.horario !== undefined) onb.horario = String(body.horario).trim().slice(0, 120)
+
         await prisma.$transaction([
-          prisma.posCuenta.update({ where: { id }, data: { nombre, whatsapp, precioMensual: precio, updatedAt: new Date() } }),
+          prisma.posCuenta.update({ where: { id }, data: { nombre, whatsapp, precioMensual: precio, ...onb, updatedAt: new Date() } }),
           ...(dueno ? [prisma.posUsuario.update({ where: { id: dueno.id }, data: { nombre: duenoNombre || dueno.nombre, email } })] : []),
           ...(cuenta.cliente ? [prisma.cliente.update({
             where: { id: cuenta.cliente.id },
@@ -136,6 +149,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url: cuenta.posUrl,
             enPrueba: cuenta.enPrueba, vence: cuenta.cliente.fechaVencimiento, linkPago: `${base}/pos/pago`,
             monto: cuenta.precioMensual ?? precioMensual(),
+            mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: leerResultadoAlta(cuenta.resultadoAlta),
           })
         }
         const enviado = await enviarInvitacion(dueno.id, "Hypnos", base)

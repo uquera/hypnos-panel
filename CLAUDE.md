@@ -54,6 +54,13 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
   Sin el comando y fuera de producción se simula. Estado en `PosCuenta.estadoAlta`: `MANUAL` (cuentas hechas a mano,
   p. ej. donaany: no se instalan ni eliminan) | `PENDIENTE` | `INSTALANDO` | `LISTO` | `ERROR`; log en `altaLog`.
   Al quedar LISTO: correo de bienvenida + invitación al portal. Error: aviso a `POS_AVISOS_EMAIL` (contacto@).
+- Onboarding (`src/lib/pos/onboarding.ts`): el registro (3 pasos) y "Crear restaurante" piden opcionalmente logo
+  (PNG/JPG/WebP ≤5 MB → PNG ≤512 px, también logo de la app), link del menú online (Fudo u otro; solo http/https
+  públicos, se rechazan IPs privadas), mesas (10), dirección, horario y Excel/CSV de clientes (≤10 MB). Archivos en
+  `POS_ONBOARDING_DIR/<cuentaId>/` (por defecto `uploads/pos-onboarding`). Se pasan a `create` como
+  `--logo --menu-url --mesas --direccion --telefono (WhatsApp) --horario --clientes`; sin menú va `--ejemplo`.
+  El resultado `menu`/`clientes` de la última línea JSON queda en `PosCuenta.resultadoAlta` (ficha, pantalla de espera
+  y correo de bienvenida). nginx del panel debe aceptar cuerpos de ~16 MB (`client_max_body_size`).
 - Cobro (`src/lib/pos/cobro.ts`, `comprobantes.ts`): el dueño sube el comprobante en `/pos/pago`
   (`uploads/pos-comprobantes`, `POS_COMPROBANTES_DIR`); Hypnos aprueba/rechaza en `/admin/pos`. Aprobar crea un `Pago`
   LICENCIA en CLP (período max(vencimiento, hoy) → +N meses), extiende la licencia, quita prueba/suspensión y hace

@@ -1,6 +1,7 @@
 import { enviarCorreoPos, escHtml as esc, multilinea } from "./email"
 import { correoAvisosHypnos, datosTransferencia, formatoCLP, whatsappDigitos, CORREO_CONTACTO } from "./config"
 import { fechaLarga } from "./fechas"
+import type { ResultadoAlta } from "./onboarding"
 
 // Correos de negocio de Hypnos POS: bienvenida, cobro, comprobantes y avisos a Hypnos.
 // Todos salen desde "Hypnos POS" <no-reply@hypnosapps.com> con Reply-To contacto@ (email.ts).
@@ -16,7 +17,25 @@ function bloqueTransferencia(monto: number): string {
 /** Al terminar la instalación: el sistema está listo. */
 export async function correoBienvenida(d: {
   to: string; dueno: string; restaurante: string; url: string; enPrueba: boolean; vence: Date; linkPago: string; monto: number
+  mesas?: number; menuUrl?: string; resultado?: ResultadoAlta
 }) {
+  // Lo que quedó listo según el resultado de la instalación
+  const listo: string[] = []
+  const menu = d.resultado?.menu
+  if (menu?.ok && (menu.productos ?? 0) > 0) listo.push(`Importamos <strong>${menu.productos} productos</strong> de tu menú online.`)
+  else if (d.menuUrl) listo.push(`No pudimos importar tu menú automáticamente: cargamos una carta de ejemplo y te ayudamos a pasarlo por WhatsApp (+56 9 3368 8302).`)
+  else listo.push(`Cargamos una carta de ejemplo para que pruebes; reemplázala por tus productos cuando quieras.`)
+  const cli = d.resultado?.clientes
+  if (cli?.ok && (cli.importados ?? 0) > 0) listo.push(`Importamos <strong>${cli.importados} clientes</strong> desde tu archivo.`)
+  else if (cli && !cli.ok) listo.push(`No pudimos importar tu archivo de clientes; lo revisamos contigo.`)
+  if (d.mesas) listo.push(`Dejamos creadas <strong>${d.mesas} mesas</strong>.`)
+
+  const pasos = [
+    `<strong>Crea tu contraseña</strong> con el enlace que te llega en otro correo (si no lo ves, revisa spam o usa «¿Olvidaste tu contraseña?» en el sistema con este correo).`,
+    `<strong>Conecta tu impresora</strong> de comandas y boletas desde Configuración.`,
+    `<strong>Comparte tu tienda</strong> online con tus clientes para recibir pedidos.`,
+  ]
+
   await enviarCorreoPos({
     to: d.to,
     subject: `Tu sistema ${d.restaurante} está listo — Hypnos POS`,
@@ -24,12 +43,13 @@ export async function correoBienvenida(d: {
     parrafos: [
       `Hola, <strong>${esc(d.dueno)}</strong>:`,
       `El sistema de <strong>${esc(d.restaurante)}</strong> ya está funcionando en <a href="${d.url}">${esc(d.url.replace(/^https?:\/\//, ""))}</a>.`,
-      `Revisa tu correo: te llegará un mensaje para <strong>crear tu contraseña</strong> (si no lo ves, revisa spam o usa «¿Olvidaste tu contraseña?» en el sistema con este correo).`,
       d.enPrueba
         ? `Tu prueba gratis dura hasta el <strong>${esc(fechaLarga(d.vence))}</strong>. Después el plan cuesta ${esc(formatoCLP(d.monto))} al mes, por transferencia. Te avisaremos antes de que termine.`
         : `Tu plan está activo hasta el <strong>${esc(fechaLarga(d.vence))}</strong>.`,
+      `<strong>Próximos pasos:</strong><br>${pasos.map((p, i) => `${i + 1}. ${p}`).join("<br>")}`,
       `También te invitamos a tu portal de Hypnos POS, donde subes tus comprobantes de pago y personalizas la marca de la app.`,
     ],
+    bloque: `<strong>Lo que ya quedó listo</strong><br>${listo.map(l => `✓ ${l}`).join("<br>")}`,
     boton: { texto: "Abrir mi sistema", link: d.url },
     pie: `Pagos y comprobantes: <a href="${d.linkPago}">${esc(d.linkPago)}</a>`,
     color: "#f26522",

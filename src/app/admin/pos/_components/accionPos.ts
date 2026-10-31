@@ -6,8 +6,17 @@ import { toast } from "sonner"
 // cuando el cambio quedó guardado en el panel pero la instancia no respondió.
 
 export async function postJson(url: string, body: unknown): Promise<Record<string, unknown> | null> {
+  return enviar(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+}
+
+/** POST multipart (formularios con archivos). */
+export function postForm(url: string, fd: FormData) {
+  return enviar(url, { method: "POST", body: fd })
+}
+
+async function enviar(url: string, init: RequestInit): Promise<Record<string, unknown> | null> {
   try {
-    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const r = await fetch(url, init)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { toast.error((d as { error?: string }).error ?? "No se pudo completar la acción."); return null }
     if ((d as { syncedRemote?: boolean }).syncedRemote === false) {
