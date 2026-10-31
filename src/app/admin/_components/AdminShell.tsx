@@ -4,9 +4,9 @@ import { useState } from "react"
 import { Menu, ShieldCheck } from "lucide-react"
 import AdminSidebar from "./AdminSidebar"
 
-interface Props { role: string; userName: string; isOwner?: boolean; children: React.ReactNode }
+interface Props { role: string; userName: string; isOwner?: boolean; badges?: Record<string, number>; children: React.ReactNode }
 
-export default function AdminShell({ role, userName, isOwner = false, children }: Props) {
+export default function AdminShell({ role, userName, isOwner = false, badges, children }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -14,7 +14,7 @@ export default function AdminShell({ role, userName, isOwner = false, children }
 
       {/* Sidebar lg+ */}
       <div className="hidden lg:flex shrink-0">
-        <AdminSidebar role={role} userName={userName} isOwner={isOwner} />
+        <AdminSidebar role={role} userName={userName} isOwner={isOwner} badges={badges} />
       </div>
 
       {/* Overlay móvil */}
@@ -27,7 +27,7 @@ export default function AdminShell({ role, userName, isOwner = false, children }
         "fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ease-in-out",
         open ? "translate-x-0" : "-translate-x-full",
       ].join(" ")}>
-        <AdminSidebar role={role} userName={userName} isOwner={isOwner} onClose={() => setOpen(false)} />
+        <AdminSidebar role={role} userName={userName} isOwner={isOwner} badges={badges} onClose={() => setOpen(false)} />
       </div>
 
       {/* Contenido */}

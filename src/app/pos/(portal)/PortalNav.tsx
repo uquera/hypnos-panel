@@ -2,13 +2,16 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LogOut, Palette, Users } from "lucide-react"
+import { CreditCard, LogOut, Palette, Users } from "lucide-react"
 
 export default function PortalNav({ nombre, esDueno }: { nombre: string; esDueno: boolean }) {
   const pathname = usePathname()
   const items = [
     { href: "/pos/marca", label: "Marca", icon: Palette },
-    ...(esDueno ? [{ href: "/pos/equipo", label: "Equipo", icon: Users }] : []),
+    ...(esDueno ? [
+      { href: "/pos/pago", label: "Pago", icon: CreditCard },
+      { href: "/pos/equipo", label: "Equipo", icon: Users },
+    ] : []),
   ]
 
   async function salir() {

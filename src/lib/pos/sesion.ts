@@ -71,9 +71,15 @@ export async function getSesionPos() {
 
 export type UsuarioPos = NonNullable<Awaited<ReturnType<typeof getSesionPos>>>
 
-/** Para páginas del portal: sin sesión → /pos/login. */
-export async function requireSesionPos(): Promise<UsuarioPos> {
+/** Para páginas del portal: sin sesión → /pos/login (con ?next= para volver a la página). */
+export async function requireSesionPos(next?: string): Promise<UsuarioPos> {
   const usuario = await getSesionPos()
-  if (!usuario) redirect("/pos/login")
+  if (!usuario) redirect(next ? `/pos/login?next=${encodeURIComponent(next)}` : "/pos/login")
   return usuario
+}
+
+/** Destino seguro tras el login: solo rutas internas del portal. */
+export function destinoPortal(next: unknown): string {
+  const s = String(next ?? "")
+  return /^\/pos\/[a-z0-9/-]*$/i.test(s) && !s.startsWith("//") ? s : "/pos/marca"
 }

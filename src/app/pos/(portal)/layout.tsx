@@ -1,11 +1,13 @@
-import { requireSesionPos } from "@/lib/pos/sesion"
+import { getSesionPos } from "@/lib/pos/sesion"
 import { urlLogo } from "@/lib/pos/logo"
 import PortalNav from "./PortalNav"
 
 // Portal de las sub-cuentas (/pos/marca, /pos/equipo). Sesión propia (cookie hypnos_pos);
 // cada página vuelve a pedir la sesión porque los layouts no se re-ejecutan al navegar.
+// Sin sesión el layout no redirige: lo hace cada página con su ?next= (p. ej. /pos/pago).
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const usuario = await requireSesionPos()
+  const usuario = await getSesionPos()
+  if (!usuario) return <>{children}</>
   const { cuenta } = usuario
 
   return (

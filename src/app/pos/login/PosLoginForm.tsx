@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import PosAuthCard, { botonPos, inputPos, labelPos } from "../_components/PosAuthCard"
 
-export default function PosLoginForm() {
+export default function PosLoginForm({ destino = "/pos/marca" }: { destino?: string }) {
   const [form, setForm]         = useState({ email: "", password: "" })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -20,7 +20,7 @@ export default function PosLoginForm() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data.error ?? "No se pudo ingresar."); return }
-      window.location.href = "/pos/marca"
+      window.location.href = destino
     } catch {
       toast.error("No se pudo conectar con el servidor. Intenta de nuevo.")
     } finally {
@@ -30,7 +30,7 @@ export default function PosLoginForm() {
 
   return (
     <PosAuthCard titulo="Hypnos POS" subtitulo="Administra la marca de tu negocio"
-      pie={<span className="text-xs text-gray-400">¿Eres del equipo Hypnos? <Link href="/login" className="text-gray-600 underline">Entra al panel</Link></span>}>
+      pie={<span className="text-xs text-gray-400">¿Aún no tienes cuenta? <Link href="/pos/registro" className="text-gray-600 underline">Prueba gratis</Link> · ¿Eres del equipo Hypnos? <Link href="/login" className="text-gray-600 underline">Entra al panel</Link></span>}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">
           <label htmlFor="email" className={labelPos}>Correo</label>

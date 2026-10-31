@@ -28,9 +28,9 @@ const navItems: NavItem[] = [
   { href: "/admin/monitor",      label: "Monitor",     icon: Monitor,       ownerOnly: true },
 ]
 
-interface Props { role: string; userName: string; isOwner?: boolean; onClose?: () => void }
+interface Props { role: string; userName: string; isOwner?: boolean; badges?: Record<string, number>; onClose?: () => void }
 
-export default function AdminSidebar({ role, userName, isOwner = false, onClose }: Props) {
+export default function AdminSidebar({ role, userName, isOwner = false, badges = {}, onClose }: Props) {
   const pathname = usePathname()
   const isAdmin  = role === "ADMIN"
   const visible  = navItems.filter(i => (!i.adminOnly || isAdmin) && (!i.ownerOnly || isOwner))
@@ -73,7 +73,13 @@ export default function AdminSidebar({ role, userName, isOwner = false, onClose 
               style={active ? { background: "linear-gradient(135deg, #818cf8, #6366f1)" } : undefined}
             >
               <item.icon size={16} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {(badges[item.href] ?? 0) > 0 && (
+                <span title="Comprobantes por revisar"
+                  className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${active ? "bg-white/25 text-white" : "bg-amber-100 text-amber-800"}`}>
+                  {badges[item.href]}
+                </span>
+              )}
             </Link>
           )
         })}
