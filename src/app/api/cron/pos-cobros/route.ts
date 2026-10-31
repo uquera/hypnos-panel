@@ -6,31 +6,25 @@ import { basePublica } from "@/lib/pos/servidor"
 import { diasGracia } from "@/lib/pos/config"
 import { claveDiaChile, diasHastaChile } from "@/lib/pos/fechas"
 import { correoCobroDe, precioDe } from "@/lib/pos/cobro"
-import { correoCobro, correoPruebaTermina, correoSuspension } from "@/lib/pos/correos"
+import { correoCobro, correoPruebaTermina } from "@/lib/pos/correos"
 
 // GET /api/cron/pos-cobros — cobro diario de Hypnos POS. Protegido por CRON_SECRET (igual que /api/cron/alertas).
 // Crontab del VPS (09:00 hora de Chile):
 //   0 9 * * * curl -4 -s -H "x-cron-secret: $CRON_SECRET" https://panel.hypnosapps.com/api/cron/pos-cobros >> /var/log/hypnos-pos-cobros.log 2>&1
+// Sin spam: UN solo correo por cliente y por vencimiento.
 // Por cada restaurante instalado (estadoAlta LISTO, no eliminado, con licencia):
-//   prueba: 3 días antes → PRUEBA_3; 1 día antes → PRUEBA_1
-//   pagado: 5 días antes → COBRO_5
-//   día del vencimiento (o después, dentro de la gracia) → VENCE_HOY
-//   vencido + POS_DIAS_GRACIA → suspende (PATCH suspendida:true) y SUSPENSION
-// Cada aviso se guarda en pos_avisos (cuenta, tipo, período = fecha de vencimiento) y no se repite.
-// Si el cron se salta un día, el aviso pendiente sale al día siguiente (rangos, no días exactos).
+//   faltan 3 días o menos (prueba o pagado), o ya venció sin haber avisado → POR_VENCER (un correo)
+//   vencido + POS_DIAS_GRACIA → suspende (PATCH suspendida:true) SIN correo: el POS muestra /suspendido con el pago
+// El aviso se guarda en pos_avisos (cuenta, tipo, período = fecha de vencimiento) y no se repite;
+// al pagar cambia el vencimiento (otro período) y el próximo mes vuelve a avisar una vez.
 // ?dry=1 informa sin enviar ni suspender.
 
-type Tipo = "PRUEBA_3" | "PRUEBA_1" | "COBRO_5" | "VENCE_HOY" | "SUSPENSION"
+type Tipo = "POR_VENCER" | "SUSPENSION"
+const DIAS_AVISO = 3
 
-function avisoQueToca(dias: number, enPrueba: boolean, gracia: number): Tipo | null {
+function avisoQueToca(dias: number, gracia: number): Tipo | null {
   if (dias <= -gracia) return "SUSPENSION"
-  if (dias <= 0) return "VENCE_HOY"
-  if (enPrueba) {
-    if (dias === 1) return "PRUEBA_1"
-    if (dias <= 3) return "PRUEBA_3"
-    return null
-  }
-  return dias <= 5 ? "COBRO_5" : null
+  return dias <= DIAS_AVISO ? "POR_VENCER" : null
 }
 
 export async function GET(req: NextRequest) {
@@ -54,7 +48,7 @@ export async function GET(req: NextRequest) {
     const cliente = c.cliente!
     res.revisadas++
     const dias = diasHastaChile(cliente.fechaVencimiento, hoy)
-    const tipo = avisoQueToca(dias, c.enPrueba, gracia)
+    const tipo = avisoQueToca(dias, gracia)
     if (!tipo) { res.omitidos++; continue }
 
     const periodo = claveDiaChile(cliente.fechaVencimiento)
@@ -75,9 +69,8 @@ export async function GET(req: NextRequest) {
           accion: "LICENCIA_SYNC", detalle: `[Hypnos POS] Suspendida por no pago (${-dias} días vencida)${r.ok ? "" : ` · sin sincronizar: ${r.error}`}`,
         })
         res.suspendidas++
-        if (to) await correoSuspension({ to, restaurante: c.nombre, linkPago, monto }).catch(e => console.error("[cron/pos-cobros] correo suspensión:", e))
       } else if (to) {
-        if (tipo === "PRUEBA_3" || tipo === "PRUEBA_1") {
+        if (c.enPrueba && dias > 0) {
           await correoPruebaTermina({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, monto })
         } else {
           await correoCobro({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, enPrueba: c.enPrueba, monto })

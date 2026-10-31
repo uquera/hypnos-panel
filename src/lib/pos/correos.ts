@@ -87,16 +87,19 @@ export async function correoPruebaTermina(d: { to: string; restaurante: string; 
 /** Cobro (5 días antes) o recordatorio (día del vencimiento). */
 export async function correoCobro(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; enPrueba: boolean; monto: number }) {
   const hoy = d.dias <= 0
+  const que = d.enPrueba ? "prueba" : "plan"
+  // el aviso puede salir después del vencimiento (cron atrasado): entonces dice "venció"
+  const vencioYa = d.dias < 0
   await enviarCorreoPos({
     to: d.to,
-    subject: hoy
-      ? `Hoy vence tu ${d.enPrueba ? "prueba" : "plan"} de Hypnos POS`
-      : `Tu plan de Hypnos POS vence el ${fechaLarga(d.vence)}`,
-    titulo: hoy ? `Hoy vence tu ${d.enPrueba ? "prueba" : "plan"}` : "Se acerca tu próximo pago",
+    subject: vencioYa
+      ? `Tu ${que} de Hypnos POS venció el ${fechaLarga(d.vence)}`
+      : hoy ? `Hoy vence tu ${que} de Hypnos POS` : `Tu plan de Hypnos POS vence el ${fechaLarga(d.vence)}`,
+    titulo: vencioYa ? `Tu ${que} venció` : hoy ? `Hoy vence tu ${que}` : "Se acerca tu próximo pago",
     parrafos: [
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       hoy
-        ? `Tu ${d.enPrueba ? "prueba gratis" : "plan"} de Hypnos POS vence <strong>hoy</strong>. Si ya pagaste, sube el comprobante para que lo confirmemos. Si no recibimos el pago, el sistema se suspenderá en unos días.`
+        ? `Tu ${d.enPrueba ? "prueba gratis" : "plan"} de Hypnos POS ${vencioYa ? `venció el <strong>${esc(fechaLarga(d.vence))}</strong>` : "vence <strong>hoy</strong>"}. Si ya pagaste, sube el comprobante para que lo confirmemos. Si no recibimos el pago, el sistema se suspenderá en unos días.`
         : `Tu plan de Hypnos POS vence el <strong>${esc(fechaLarga(d.vence))}</strong> (en ${d.dias} días). Puedes pagar por transferencia y subir el comprobante en tu portal:`,
     ],
     bloque: await bloqueTransferencia(d.monto),
