@@ -3,13 +3,15 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Check, Copy, FileUp, Loader2, ShieldCheck, Clock, XCircle, CheckCircle2 } from "lucide-react"
+import { Check, Copy, CreditCard, ExternalLink, FileUp, Loader2, ShieldCheck, Clock, XCircle, CheckCircle2 } from "lucide-react"
 
 interface Props {
   estado: { titulo: string; detalle: string; tono: "verde" | "ambar" | "rojo" | "gris" }
   monto: number
   montoTxt: string
   datos: string | null
+  /** Link de cobro TUU del monto de este restaurante (tarjeta o Webpay); null = solo transferencia. */
+  linkTarjeta: string | null
   contacto: string
   sinPlan: boolean
   pagos: { id: string; fecha: string; monto: string; periodo: string }[]
@@ -25,7 +27,7 @@ const TONOS = {
 const MAX = 8 * 1024 * 1024
 const card = "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
 
-export default function PagoCliente({ estado, monto, montoTxt, datos, contacto, sinPlan, pagos, comprobantes }: Props) {
+export default function PagoCliente({ estado, monto, montoTxt, datos, linkTarjeta, contacto, sinPlan, pagos, comprobantes }: Props) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [copiado, setCopiado] = useState(false)
@@ -107,7 +109,19 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, contacto, 
                 </button>
               )}
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5">Datos para transferir</p>
+            {linkTarjeta && (
+              <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-sm font-semibold text-gray-900">Paga con tarjeta o Webpay</p>
+                <p className="mt-0.5 text-sm text-gray-600">
+                  Pago seguro con TUU. En el formulario escribe el <b>nombre de tu local</b> y, al terminar, sube aquí abajo el comprobante que te llega por correo (o una captura).
+                </p>
+                <a href={linkTarjeta} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700">
+                  <CreditCard size={16} /> Pagar {montoTxt} con tarjeta <ExternalLink size={14} className="opacity-70" />
+                </a>
+              </div>
+            )}
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5">{linkTarjeta ? "O transfiere a esta cuenta" : "Datos para transferir"}</p>
             {datos
               ? <p className="mt-1.5 text-sm text-gray-800 whitespace-pre-line leading-relaxed bg-gray-50 border border-gray-100 rounded-xl p-4">{datos}</p>
               : <p className="mt-1.5 text-sm text-gray-600">Solicita los datos de transferencia a <a className="underline" href={`mailto:${contacto}`}>{contacto}</a>.</p>}
@@ -116,7 +130,7 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, contacto, 
           <form onSubmit={enviar} className={`${card} space-y-4`}>
             <div>
               <h2 className="text-base font-bold text-gray-900">Subir comprobante</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Foto o PDF de la transferencia (máx. 8 MB).</p>
+              <p className="text-sm text-gray-500 mt-0.5">Foto o PDF de la transferencia{linkTarjeta ? " o del pago con tarjeta" : ""} (máx. 8 MB).</p>
             </div>
             <button type="button" onClick={() => fileRef.current?.click()}
               className="w-full border-2 border-dashed border-gray-200 rounded-xl p-5 text-center hover:border-gray-400 transition-colors">

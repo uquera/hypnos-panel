@@ -333,3 +333,13 @@ model PosToken {
 }
 
 // ─── NextAuth — sesiones JWT (no requiere tablas adicionales) ─────────────────
+
+// Ajustes de Hypnos POS editables desde el panel (clave → valor JSON).
+// linksPago: { "20000": "https://…", "40000": "…", "45000": "…" } links de cobro TUU por monto.
+model PosConfig {
+  clave     String   @id
+  valor     String
+  updatedAt DateTime @updatedAt
+
+  @@map("pos_config")
+}

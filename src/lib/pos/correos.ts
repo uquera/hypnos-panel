@@ -1,3 +1,4 @@
+import { linkPagoPara } from "./links-pago"
 import { enviarCorreoPos, escHtml as esc, multilinea } from "./email"
 import { correoAvisosHypnos, datosTransferencia, formatoCLP, whatsappDigitos, CORREO_CONTACTO } from "./config"
 import { fechaLarga } from "./fechas"
@@ -6,12 +7,18 @@ import type { ResultadoAlta } from "./onboarding"
 // Correos de negocio de Hypnos POS: bienvenida, cobro, comprobantes y avisos a Hypnos.
 // Todos salen desde "Hypnos POS" <no-reply@hypnosapps.com> con Reply-To contacto@ (email.ts).
 
-function bloqueTransferencia(monto: number): string {
+/** Monto, botón "Pagar con tarjeta" (link TUU de ese monto, si hay) y datos de transferencia. */
+async function bloqueTransferencia(monto: number): Promise<string> {
   const datos = datosTransferencia()
   const cuerpo = datos
     ? multilinea(datos)
     : `Solicita los datos de transferencia a <a href="mailto:${CORREO_CONTACTO}">${CORREO_CONTACTO}</a>.`
-  return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${cuerpo}`
+  const link = await linkPagoPara(monto)
+  const tarjeta = link
+    ? `<a href="${esc(link)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">Pagar con tarjeta o Webpay</a>`
+      + `<br><span style="color:#6b7280;font-size:12px;">Escribe el nombre de tu local en el formulario y luego sube el comprobante en tu portal.</span><br><br><strong>O transfiere a:</strong><br>`
+    : ""
+  return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${tarjeta}${cuerpo}`
 }
 
 /** Al terminar la instalación: el sistema está listo. */
@@ -67,7 +74,7 @@ export async function correoPruebaTermina(d: { to: string; restaurante: string; 
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       `Tu prueba gratis de Hypnos POS termina el <strong>${esc(fechaLarga(d.vence))}</strong>. Para seguir usando el sistema sin interrupciones, transfiere la mensualidad y sube el comprobante en tu portal:`,
     ],
-    bloque: bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto),
     boton: { texto: "Subir comprobante", link: d.linkPago },
     color: "#f26522",
   })
@@ -88,7 +95,7 @@ export async function correoCobro(d: { to: string; restaurante: string; dias: nu
         ? `Tu ${d.enPrueba ? "prueba gratis" : "plan"} de Hypnos POS vence <strong>hoy</strong>. Si ya pagaste, sube el comprobante para que lo confirmemos. Si no recibimos el pago, el sistema se suspenderá en unos días.`
         : `Tu plan de Hypnos POS vence el <strong>${esc(fechaLarga(d.vence))}</strong> (en ${d.dias} días). Puedes pagar por transferencia y subir el comprobante en tu portal:`,
     ],
-    bloque: bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto),
     boton: { texto: "Subir comprobante", link: d.linkPago },
   })
 }
@@ -102,7 +109,7 @@ export async function correoSuspension(d: { to: string; restaurante: string; lin
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       `No recibimos el pago de tu plan de Hypnos POS, así que el sistema quedó <strong>suspendido</strong>. Tus datos están guardados: apenas confirmemos la transferencia, se reactiva.`,
     ],
-    bloque: bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto),
     boton: { texto: "Subir comprobante", link: d.linkPago },
     color: "#b91c1c",
   })

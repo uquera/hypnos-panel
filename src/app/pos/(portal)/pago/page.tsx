@@ -5,11 +5,12 @@ import { estadoPos, precioDe, ETIQUETA_ESTADO } from "@/lib/pos/cobro"
 import { datosTransferencia, formatoCLP, CORREO_CONTACTO, diasGracia } from "@/lib/pos/config"
 import { fechaLarga, fechaCorta } from "@/lib/pos/fechas"
 import PagoCliente from "./PagoCliente"
+import { linkPagoPara } from "@/lib/pos/links-pago"
 
 export const metadata = { title: "Pago — Hypnos POS" }
 export const dynamic = "force-dynamic"
 
-// Pago mensual por transferencia: estado del plan, datos para transferir y subida del comprobante.
+// Pago mensual: estado del plan, pago con tarjeta (link TUU del monto) o transferencia, y subida del comprobante.
 export default async function PosPagoPage() {
   const yo = await requireSesionPos("/pos/pago")
   if (yo.rol !== "DUENO") redirect("/pos/marca")
@@ -27,12 +28,13 @@ export default async function PosPagoPage() {
   const vence = cuenta.cliente?.fechaVencimiento ?? null
   const monto = precioDe(cuenta)
   const datos = datosTransferencia()
+  const linkTarjeta = await linkPagoPara(monto)
 
   let titulo = ETIQUETA_ESTADO[estado]
   let detalle = ""
   let tono: "verde" | "ambar" | "rojo" | "gris" = "gris"
   if (vence) {
-    if (estado === "SUSPENDIDO") { titulo = "Sistema suspendido"; detalle = "Transfiere y sube tu comprobante para reactivarlo."; tono = "rojo" }
+    if (estado === "SUSPENDIDO") { titulo = "Sistema suspendido"; detalle = "Paga con tarjeta o transfiere, y sube tu comprobante para reactivarlo."; tono = "rojo" }
     else if (estado === "VENCIDO") { titulo = "Plan vencido"; detalle = `Venció el ${fechaLarga(vence)}. Paga pronto: se suspende ${diasGracia()} días después del vencimiento.`; tono = "rojo" }
     else if (estado === "EN_PRUEBA") { titulo = `En prueba gratis · ${dias === 0 ? "termina hoy" : `${dias} día${dias === 1 ? "" : "s"}`}`; detalle = `Tu prueba termina el ${fechaLarga(vence)}.`; tono = "ambar" }
     else if (estado === "POR_VENCER") { titulo = `Vence ${dias === 0 ? "hoy" : `en ${dias} día${dias === 1 ? "" : "s"}`}`; detalle = `Tu plan vence el ${fechaLarga(vence)}.`; tono = "ambar" }
@@ -50,6 +52,7 @@ export default async function PosPagoPage() {
         monto={monto}
         montoTxt={formatoCLP(monto)}
         datos={datos}
+        linkTarjeta={linkTarjeta}
         contacto={CORREO_CONTACTO}
         sinPlan={!cuenta.cliente}
         pagos={(cuenta.cliente?.pagos ?? []).map(p => ({

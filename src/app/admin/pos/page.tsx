@@ -8,6 +8,8 @@ import { formatoCLP } from "@/lib/pos/config"
 import { claveDiaChile, fechaCorta } from "@/lib/pos/fechas"
 import PosTablero from "./_components/PosTablero"
 import ComprobantesBandeja, { type ComprobanteFila } from "./_components/ComprobantesBandeja"
+import LinksPago from "./_components/LinksPago"
+import { getLinksPago } from "@/lib/pos/links-pago"
 
 export const metadata = { title: "Hypnos POS — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -17,12 +19,13 @@ export default async function PosCuentasPage() {
   const session = await auth()
   if (!session || session.user.role !== "ADMIN") redirect("/admin")
 
-  const [cuentas, pendientes] = await Promise.all([
+  const [cuentas, pendientes, linksPago] = await Promise.all([
     prisma.posCuenta.findMany({ orderBy: { createdAt: "desc" }, include: includeTablero }),
     prisma.posComprobante.findMany({
       where: { estado: "PENDIENTE" }, orderBy: { createdAt: "asc" },
       include: { cuenta: { select: { id: true, nombre: true, codigo: true, precioMensual: true } } },
     }),
+    getLinksPago(),
   ])
   const filas = cuentas.map(filaTablero)
   const vivas = filas.filter(f => !f.eliminada)
@@ -88,6 +91,8 @@ export default async function PosCuentasPage() {
       )}
 
       <PosTablero filas={filas} />
+
+      <LinksPago inicial={linksPago} enUso={vivas.reduce<Record<string, number>>((m, f) => { m[String(f.precio)] = (m[String(f.precio)] ?? 0) + 1; return m }, {})} />
     </div>
   )
 }
