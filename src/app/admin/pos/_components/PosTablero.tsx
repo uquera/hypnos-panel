@@ -183,7 +183,7 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
                 <th className="text-left px-3 py-3 font-semibold">Dueño</th>
                 <th className="text-left px-3 py-3 font-semibold">Estado</th>
                 <th className="text-left px-3 py-3 font-semibold">Vence</th>
-                <th className="text-left px-3 py-3 font-semibold">Último pago</th>
+                <th className="hidden xl:table-cell text-left px-3 py-3 font-semibold">Último pago</th>
                 <th className="text-center px-3 py-3 font-semibold" title="Comprobantes pendientes"><FileClock size={14} className="inline" /></th>
                 <th className="px-3 py-3"></th>
               </tr>
@@ -207,7 +207,7 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
                   </td>
                   <td className="px-3 py-3"><EstadoBadge f={f} /></td>
                   <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{fecha(f.vence)}</td>
-                  <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                  <td className="hidden xl:table-cell px-3 py-3 text-gray-700 whitespace-nowrap">
                     {f.ultimoPago ? <>{fecha(f.ultimoPago.fecha)}<span className="block text-xs text-gray-400">{f.ultimoPago.moneda === "CLP" ? clp(f.ultimoPago.monto) : `${f.ultimoPago.moneda} ${f.ultimoPago.monto}`}</span></> : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-3 py-3 text-center">

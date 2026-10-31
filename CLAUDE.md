@@ -46,6 +46,28 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
 - Correos: `"Hypnos POS" <no-reply@hypnosapps.com>`, Reply-To contacto@ (`src/lib/pos/email.ts`; usa `EMAIL_*` o `SMTP_*`).
 - Datos iniciales: `npx tsx scripts/pos-seed.ts` (cuenta `donaany`, idempotente; `--forzar` restablece).
 
+### Venta de Hypnos POS (registro → instalación → prueba → cobro)
+- Registro público `/pos/registro` (prueba de `POS_DIAS_PRUEBA`=14 días) y "Crear restaurante" en `/admin/pos/crear`:
+  crean `Cliente` (plan `POS`, masterKey aleatoria, `apiUrl` = `https://<codigo>.hypnosapps.com/api/gobernanza/licencia`),
+  `PosCuenta` y el `PosUsuario` DUENO (`src/lib/pos/registro.ts`), y lanzan la instalación en segundo plano.
+- Instalación (`src/lib/pos/alta.ts`): `hypnos-pos-tenant create|status|destroy` (ruta `POS_TENANT_CMD`, sin shell).
+  Sin el comando y fuera de producción se simula. Estado en `PosCuenta.estadoAlta`: `MANUAL` (cuentas hechas a mano,
+  p. ej. donaany: no se instalan ni eliminan) | `PENDIENTE` | `INSTALANDO` | `LISTO` | `ERROR`; log en `altaLog`.
+  Al quedar LISTO: correo de bienvenida + invitación al portal. Error: aviso a `POS_AVISOS_EMAIL` (contacto@).
+- Cobro (`src/lib/pos/cobro.ts`, `comprobantes.ts`): el dueño sube el comprobante en `/pos/pago`
+  (`uploads/pos-comprobantes`, `POS_COMPROBANTES_DIR`); Hypnos aprueba/rechaza en `/admin/pos`. Aprobar crea un `Pago`
+  LICENCIA en CLP (período max(vencimiento, hoy) → +N meses), extiende la licencia, quita prueba/suspensión y hace
+  PATCH `{fechaVencimiento, suspendida:false, enPrueba:false}` + POST pagos a la instancia (`src/lib/gobernanza-remota.ts`).
+- Precio: `POS_PRECIO_MENSUAL` (20000) o `PosCuenta.precioMensual`; `POS_DATOS_TRANSFERENCIA` (multilínea, `\n`);
+  `POS_DIAS_GRACIA` (3).
+- Cron diario `GET /api/cron/pos-cobros` (header `x-cron-secret: $CRON_SECRET`, `?dry=1` para simular):
+  `0 9 * * * curl -4 -s -H "x-cron-secret: $CRON_SECRET" https://panel.hypnosapps.com/api/cron/pos-cobros >> /var/log/hypnos-pos-cobros.log 2>&1`
+  Avisos PRUEBA_3/PRUEBA_1/COBRO_5/VENCE_HOY y SUSPENSION (vencido + gracia), sin repetir (tabla `pos_avisos`).
+  `/api/cron/alertas` ya no avisa a los clientes con plan `POS`.
+- Suspender por no pago = licencia (`Cliente.suspendida`, se sincroniza; el dueño sigue entrando a pagar).
+  "Bloquear app" = `PosCuenta.activo=false` (la app Android y el portal quedan fuera).
+- Eliminar restaurante: `destroy` + `PosCuenta.eliminadaAt` y `Cliente.activo=false` (pagos e historial se conservan).
+
 ---
 
 ## Estándar obligatorio: Gobernanza en apps cliente

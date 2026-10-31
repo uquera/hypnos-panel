@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { adminPos, jsonError, manejar } from "@/lib/pos/api"
+import { adminPos, jsonError, manejar, operadorDe } from "@/lib/pos/api"
 import { aprobarComprobante, rechazarComprobante } from "@/lib/pos/comprobantes"
 import { ErrorPos } from "@/lib/pos/usuarios"
 
@@ -8,9 +8,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const session = await adminPos()
   if (!session) return jsonError("No autorizado", 401)
   const { id } = await params
-  const operador = { id: session.user.id, nombre: session.user.name ?? "Hypnos" }
 
   return manejar(async () => {
+    const operador = await operadorDe(session)
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     if (body.accion === "aprobar") {
       const r = await aprobarComprobante(id, operador, Number(body.monto) || undefined, Number(body.meses) || undefined)

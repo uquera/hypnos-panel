@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
-import { adminPos, jsonError, manejar } from "@/lib/pos/api"
+import { adminPos, jsonError, manejar, operadorDe } from "@/lib/pos/api"
 import { basePublica } from "@/lib/pos/servidor"
 import { ErrorPos, enviarInvitacion } from "@/lib/pos/usuarios"
 import { EMAIL_RE } from "@/lib/pos/validacion"
-import { lanzarAlta, eliminarInstancia, estadoInstancia } from "@/lib/pos/alta"
+import { lanzarAlta, eliminarInstancia, estadoInstancia, ALTA_ESTANCADA_MS } from "@/lib/pos/alta"
 import { cambiarLicenciaPos, registrarPagoPos, precioDe } from "@/lib/pos/cobro"
 import { correoBienvenida } from "@/lib/pos/correos"
 import { finDelDiaChile } from "@/lib/pos/fechas"
@@ -28,9 +28,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const session = await adminPos()
   if (!session) return jsonError("No autorizado", 401)
   const { id } = await params
-  const operador = { id: session.user.id, nombre: session.user.name ?? "Hypnos" }
 
   return manejar(async () => {
+    const operador = await operadorDe(session)
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const cuenta = await prisma.posCuenta.findUnique({
       where: { id },
@@ -145,6 +145,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       case "reintentar": {
         if (manual) throw new ErrorPos("Instalación manual: no aplica.")
+        const estancada = cuenta.estadoAlta === "INSTALANDO" && (!cuenta.altaAt || Date.now() - cuenta.altaAt.getTime() > ALTA_ESTANCADA_MS)
+        if (cuenta.estadoAlta !== "ERROR" && cuenta.estadoAlta !== "PENDIENTE" && !estancada) {
+          throw new ErrorPos("Solo se reintenta una instalación con error o estancada.")
+        }
         await lanzarAlta(id)
         await log("reintentó la instalación", "POS_ALTA_REINTENTO")
         return NextResponse.json({ ok: true })

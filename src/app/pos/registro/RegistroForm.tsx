@@ -28,36 +28,35 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
   const [form, setForm] = useState({ nombre: "", dueno: "", email: "", whatsapp: "", codigo: "", website: "" })
   const [codigoEditado, setCodigoEditado] = useState(false)
   const [terminos, setTerminos] = useState(false)
-  const [disp, setDisp] = useState<Disp>({ estado: "vacio" })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState("")
   const [fase, setFase] = useState<Fase>({ tipo: "form" })
   const consulta = useRef(0)
 
-  // Sugerencia automática del subdominio mientras no lo edite a mano
-  useEffect(() => {
-    if (!codigoEditado) setForm(f => ({ ...f, codigo: sugerir(f.nombre) }))
-  }, [form.nombre, codigoEditado])
+  // Subdominio: sugerido desde el nombre mientras no lo edite a mano
+  const codigo = codigoEditado ? form.codigo : sugerir(form.nombre)
 
-  // Verificación de disponibilidad en vivo (con espera de 450 ms)
+  // Verificación de disponibilidad en vivo (con espera de 450 ms); el resultado queda asociado a su código
+  const [resultado, setResultado] = useState<{ codigo: string; ok: boolean; mensaje?: string } | null>(null)
   useEffect(() => {
-    const codigo = form.codigo
-    if (!codigo) { setDisp({ estado: "vacio" }); return }
-    setDisp({ estado: "revisando" })
+    if (!codigo) return
     const n = ++consulta.current
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/pos-registro/disponible?codigo=${encodeURIComponent(codigo)}`)
         const d = await r.json()
         if (n !== consulta.current) return
-        if (!r.ok) setDisp({ estado: "error", mensaje: d.error ?? "No pudimos verificar." })
-        else setDisp(d.disponible ? { estado: "ok" } : { estado: "error", mensaje: d.error ?? "No disponible." })
+        if (!r.ok) setResultado({ codigo, ok: false, mensaje: d.error ?? "No pudimos verificar." })
+        else setResultado({ codigo, ok: !!d.disponible, mensaje: d.error ?? "No disponible." })
       } catch {
-        if (n === consulta.current) setDisp({ estado: "error", mensaje: "Sin conexión." })
+        if (n === consulta.current) setResultado({ codigo, ok: false, mensaje: "Sin conexión." })
       }
     }, 450)
     return () => clearTimeout(t)
-  }, [form.codigo])
+  }, [codigo])
+  const disp: Disp = !codigo ? { estado: "vacio" }
+    : resultado?.codigo !== codigo ? { estado: "revisando" }
+    : resultado.ok ? { estado: "ok" } : { estado: "error", mensaje: resultado.mensaje }
 
   // Consulta del estado de la instalación
   useEffect(() => {
@@ -86,7 +85,7 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
     try {
       const r = await fetch("/api/pos-registro", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, terminos: true }),
+        body: JSON.stringify({ ...form, codigo, terminos: true }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setError(d.error ?? "No pudimos crear tu cuenta. Intenta de nuevo."); return }
@@ -149,13 +148,13 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
                 <div className={`flex items-stretch rounded-xl border bg-white overflow-hidden focus-within:ring-4 transition ${disp.estado === "error" ? "border-red-300 focus-within:ring-red-500/10" : "border-gray-200 focus-within:ring-orange-500/15 focus-within:border-orange-500"}`}>
                   <input id="codigo" maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     className="flex-1 min-w-0 h-12 pl-4 pr-1 text-[15px] font-mono text-gray-900 focus:outline-none"
-                    placeholder="mirestaurante" value={form.codigo}
+                    placeholder="mirestaurante" value={codigo}
                     onChange={e => { setCodigoEditado(true); setForm({ ...form, codigo: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }) }} />
                   <span className="flex items-center pr-4 text-sm text-gray-400 font-mono shrink-0">.hypnosapps.com</span>
                 </div>
                 <p className="mt-1.5 text-xs min-h-[1rem]">
                   {disp.estado === "revisando" && <span className="text-gray-400 inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Verificando…</span>}
-                  {disp.estado === "ok" && <span className="text-green-600 inline-flex items-center gap-1"><CheckCircle2 size={12} /> <span className="font-mono">{form.codigo}.hypnosapps.com</span> está disponible</span>}
+                  {disp.estado === "ok" && <span className="text-green-600 inline-flex items-center gap-1"><CheckCircle2 size={12} className="shrink-0" /> Disponible: <span className="font-mono break-all">{codigo}.hypnosapps.com</span></span>}
                   {disp.estado === "error" && <span className="text-red-600">{disp.mensaje}</span>}
                 </p>
               </div>

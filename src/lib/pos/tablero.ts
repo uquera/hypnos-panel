@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { estadoPos, precioDe, ETIQUETA_ESTADO, type EstadoPos } from "./cobro"
 import { claveDiaChile } from "./fechas"
 import { urlLogo } from "./logo"
@@ -12,10 +12,7 @@ export const includeTablero = {
   _count: { select: { comprobantes: { where: { estado: "PENDIENTE" } } } },
 }
 
-type CuentaTablero = NonNullable<Awaited<ReturnType<typeof cargarCuenta>>>
-function cargarCuenta(id: string) {
-  return prisma.posCuenta.findUnique({ where: { id }, include: includeTablero })
-}
+type CuentaTablero = Prisma.PosCuentaGetPayload<{ include: typeof includeTablero }>
 
 export function filaTablero(c: CuentaTablero) {
   const { estado, dias } = estadoPos(c)

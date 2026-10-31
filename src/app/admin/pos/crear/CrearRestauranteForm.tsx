@@ -21,27 +21,28 @@ export default function CrearRestauranteForm({ precioGeneral, diasPrueba, venceD
   const [f, setF] = useState({ nombre: "", dueno: "", email: "", whatsapp: "", codigo: "", vence: venceDefecto, precioMensual: "" })
   const [editado, setEditado] = useState(false)
   const [prueba, setPrueba] = useState(true)
-  const [disp, setDisp] = useState<{ ok: boolean | null; msg?: string }>({ ok: null })
+  const [resultado, setResultado] = useState<{ codigo: string; ok: boolean; msg?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const n = useRef(0)
+  const codigo = editado ? f.codigo : sugerir(f.nombre)
 
-  useEffect(() => { if (!editado) setF(x => ({ ...x, codigo: sugerir(x.nombre) })) }, [f.nombre, editado])
   useEffect(() => {
-    if (!f.codigo) { setDisp({ ok: null }); return }
+    if (!codigo) return
     const k = ++n.current
     const t = setTimeout(async () => {
-      const r = await fetch(`/api/pos-registro/disponible?codigo=${encodeURIComponent(f.codigo)}`).catch(() => null)
+      const r = await fetch(`/api/pos-registro/disponible?codigo=${encodeURIComponent(codigo)}`).catch(() => null)
       const d = await r?.json().catch(() => null)
-      if (k === n.current) setDisp(d ? { ok: !!d.disponible, msg: d.error ?? undefined } : { ok: false, msg: "No se pudo verificar" })
+      if (k === n.current) setResultado(d ? { codigo, ok: !!d.disponible, msg: d.error ?? undefined } : { codigo, ok: false, msg: "No se pudo verificar" })
     }, 400)
     return () => clearTimeout(t)
-  }, [f.codigo])
+  }, [codigo])
+  const disp = !codigo || resultado?.codigo !== codigo ? { ok: null as boolean | null, msg: undefined as string | undefined } : { ok: resultado.ok, msg: resultado.msg }
 
   async function crear(e: React.FormEvent) {
     e.preventDefault()
     if (disp.ok === false) { toast.error(disp.msg ?? "Subdominio no disponible"); return }
     setLoading(true)
-    const d = await postJson("/api/pos-admin/restaurantes", { ...f, prueba, precioMensual: Number(f.precioMensual) || undefined })
+    const d = await postJson("/api/pos-admin/restaurantes", { ...f, codigo, prueba, precioMensual: Number(f.precioMensual) || undefined })
     setLoading(false)
     if (d?.id) {
       toast.success("Restaurante creado; instalando su sistema…")
@@ -59,7 +60,7 @@ export default function CrearRestauranteForm({ precioGeneral, diasPrueba, venceD
         <label className={label} htmlFor="codigo">Subdominio</label>
         <div className="flex items-center rounded-xl border border-gray-200 bg-gray-50 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
           <input id="codigo" required maxLength={30} className="flex-1 min-w-0 h-11 pl-3.5 bg-transparent text-sm font-mono focus:outline-none"
-            value={f.codigo} onChange={e => { setEditado(true); setF({ ...f, codigo: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }) }} />
+            value={codigo} onChange={e => { setEditado(true); setF({ ...f, codigo: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }) }} />
           <span className="pr-3.5 text-sm text-gray-400 font-mono">.hypnosapps.com</span>
         </div>
         <p className="text-xs min-h-4">

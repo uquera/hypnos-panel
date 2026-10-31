@@ -45,3 +45,12 @@ export function mismoOrigen(req: Request): boolean {
     return false
   }
 }
+
+/** Operador del panel para registrar pagos/logs: confirma el id en la base (o lo busca por correo). */
+export async function operadorDe(session: { user: { id?: string; name?: string | null; email?: string | null } }) {
+  const { prisma } = await import("@/lib/prisma")
+  const porId = session.user.id ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true, nombre: true } }) : null
+  const u = porId ?? (session.user.email ? await prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true, nombre: true } }) : null)
+  if (!u) throw new ErrorPos("Tu usuario del panel no existe. Vuelve a iniciar sesión.", 401)
+  return { id: u.id, nombre: session.user.name ?? u.nombre }
+}
