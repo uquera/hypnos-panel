@@ -1,4 +1,4 @@
-import { linkPagoPara } from "./links-pago"
+import { opcionesPago } from "./links-pago"
 import { enviarCorreoPos, escHtml as esc, multilinea } from "./email"
 import { correoAvisosHypnos, datosTransferencia, formatoCLP, whatsappDigitos, CORREO_CONTACTO } from "./config"
 import { fechaLarga } from "./fechas"
@@ -13,9 +13,13 @@ async function bloqueTransferencia(monto: number): Promise<string> {
   const cuerpo = datos
     ? multilinea(datos)
     : `Solicita los datos de transferencia a <a href="mailto:${CORREO_CONTACTO}">${CORREO_CONTACTO}</a>.`
-  const link = await linkPagoPara(monto)
-  const tarjeta = link
-    ? `<a href="${esc(link)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">Pagar con tarjeta o Webpay</a>`
+  const opciones = await opcionesPago(monto)
+  const mes = opciones.find(o => o.meses === 1)
+  const largos = opciones.filter(o => o.meses > 1)
+    .map(o => `<a href="${esc(o.url)}" style="color:#4f46e5;font-weight:600;">o paga ${o.meses === 12 ? "el año" : `${o.meses} meses`} por ${esc(formatoCLP(o.monto))}${o.monto < monto * o.meses ? ` (ahorras ${esc(formatoCLP(monto * o.meses - o.monto))})` : ""}</a>`)
+  const tarjeta = mes
+    ? `<a href="${esc(mes.url)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">Pagar con tarjeta o Webpay</a>`
+      + (largos.length ? `<br>${largos.join("<br>")}` : "")
       + `<br><span style="color:#6b7280;font-size:12px;">Escribe el nombre de tu local en el formulario y luego sube el comprobante en tu portal.</span><br><br><strong>O transfiere a:</strong><br>`
     : ""
   return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${tarjeta}${cuerpo}`

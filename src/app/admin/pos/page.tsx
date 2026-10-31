@@ -9,7 +9,8 @@ import { claveDiaChile, fechaCorta } from "@/lib/pos/fechas"
 import PosTablero from "./_components/PosTablero"
 import ComprobantesBandeja, { type ComprobanteFila } from "./_components/ComprobantesBandeja"
 import LinksPago from "./_components/LinksPago"
-import { getLinksPago } from "@/lib/pos/links-pago"
+import { getLinksPago, mesesDePago } from "@/lib/pos/links-pago"
+import { precioDe } from "@/lib/pos/cobro"
 
 export const metadata = { title: "Hypnos POS — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -40,11 +41,13 @@ export default async function PosCuentasPage() {
     .filter(f => f.estado !== "INSTALANDO" && f.estado !== "ERROR")
   const porCobrarMonto = porCobrar.reduce((s, f) => s + f.precio, 0)
 
-  const bandeja: ComprobanteFila[] = pendientes.map(c => ({
+  const bandeja: ComprobanteFila[] = await Promise.all(pendientes.map(async c => ({
+    // anual u otra opción de varios meses: se sugiere al aprobar
+    mesesSugeridos: await mesesDePago(precioDe(c.cuenta), c.montoDeclarado),
     id: c.id, cuentaId: c.cuenta.id, restaurante: c.cuenta.nombre, codigo: c.cuenta.codigo,
     monto: c.montoDeclarado, mime: c.mime, comentario: c.comentario, subidoPor: c.subidoPor,
     fecha: fechaCorta(c.createdAt), estado: c.estado, motivo: c.motivoRechazo, revisadoPor: c.revisadoPor,
-  }))
+  })))
 
   const stats = [
     { label: "Restaurantes activos", valor: String(activos.length), nota: "pagados y al día" },

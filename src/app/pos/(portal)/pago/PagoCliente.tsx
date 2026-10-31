@@ -10,8 +10,8 @@ interface Props {
   monto: number
   montoTxt: string
   datos: string | null
-  /** Link de cobro TUU del monto de este restaurante (tarjeta o Webpay); null = solo transferencia. */
-  linkTarjeta: string | null
+  /** Pago con tarjeta (links TUU del plan): mensualidad y, si hay, varios meses; vacío = solo transferencia. */
+  opciones: { meses: number; url: string; montoTxt: string; ahorroTxt: string | null }[]
   contacto: string
   sinPlan: boolean
   pagos: { id: string; fecha: string; monto: string; periodo: string }[]
@@ -27,7 +27,8 @@ const TONOS = {
 const MAX = 8 * 1024 * 1024
 const card = "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
 
-export default function PagoCliente({ estado, monto, montoTxt, datos, linkTarjeta, contacto, sinPlan, pagos, comprobantes }: Props) {
+export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, contacto, sinPlan, pagos, comprobantes }: Props) {
+  const linkTarjeta = opciones.length > 0
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [copiado, setCopiado] = useState(false)
@@ -115,10 +116,19 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, linkTarjet
                 <p className="mt-0.5 text-sm text-gray-600">
                   Pago seguro con TUU. En el formulario escribe el <b>nombre de tu local</b> y, al terminar, sube aquí abajo el comprobante que te llega por correo (o una captura).
                 </p>
-                <a href={linkTarjeta} target="_blank" rel="noopener noreferrer"
-                  className="mt-3 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700">
-                  <CreditCard size={16} /> Pagar {montoTxt} con tarjeta <ExternalLink size={14} className="opacity-70" />
-                </a>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {opciones.map(o => (
+                    <a key={o.meses} href={o.url} target="_blank" rel="noopener noreferrer"
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold ${o.meses === 1 ? "bg-indigo-600 text-white hover:bg-indigo-700" : "border-2 border-indigo-600 bg-white text-indigo-700 hover:bg-indigo-50"}`}>
+                      <CreditCard size={16} />
+                      <span>
+                        {o.meses === 1 ? `Pagar el mes · ${o.montoTxt}` : o.meses === 12 ? `Pagar el año · ${o.montoTxt}` : `Pagar ${o.meses} meses · ${o.montoTxt}`}
+                        {o.ahorroTxt && <span className="block text-xs font-medium opacity-80">Ahorras {o.ahorroTxt}</span>}
+                      </span>
+                      <ExternalLink size={14} className="opacity-70" />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5">{linkTarjeta ? "O transfiere a esta cuenta" : "Datos para transferir"}</p>

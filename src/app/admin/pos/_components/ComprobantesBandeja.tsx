@@ -10,6 +10,8 @@ import { postJson } from "./accionPos"
 export interface ComprobanteFila {
   id: string; cuentaId: string; restaurante: string; codigo: string
   monto: number; mime: string; comentario: string | null; subidoPor: string; fecha: string
+  /** Meses que cubre el monto según los links de pago (anual = 12); por defecto 1. */
+  mesesSugeridos?: number
   estado: string; motivo: string | null; revisadoPor: string | null
 }
 
@@ -18,7 +20,7 @@ const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", c
 function Fila({ c, mostrarRestaurante }: { c: ComprobanteFila; mostrarRestaurante: boolean }) {
   const router = useRouter()
   const [monto, setMonto] = useState(String(c.monto))
-  const [meses, setMeses] = useState("1")
+  const [meses, setMeses] = useState(String(c.mesesSugeridos ?? 1))
   const [rechazando, setRechazando] = useState(false)
   const [motivo, setMotivo] = useState("")
   const [loading, setLoading] = useState<"" | "a" | "r">("")

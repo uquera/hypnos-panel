@@ -5,7 +5,7 @@ import { estadoPos, precioDe, ETIQUETA_ESTADO } from "@/lib/pos/cobro"
 import { datosTransferencia, formatoCLP, CORREO_CONTACTO, diasGracia } from "@/lib/pos/config"
 import { fechaLarga, fechaCorta } from "@/lib/pos/fechas"
 import PagoCliente from "./PagoCliente"
-import { linkPagoPara } from "@/lib/pos/links-pago"
+import { opcionesPago } from "@/lib/pos/links-pago"
 
 export const metadata = { title: "Pago — Hypnos POS" }
 export const dynamic = "force-dynamic"
@@ -28,7 +28,11 @@ export default async function PosPagoPage() {
   const vence = cuenta.cliente?.fechaVencimiento ?? null
   const monto = precioDe(cuenta)
   const datos = datosTransferencia()
-  const linkTarjeta = await linkPagoPara(monto)
+  // opciones con tarjeta del plan: mensualidad y, si existe, pago por varios meses (anual)
+  const opciones = (await opcionesPago(monto)).map(o => ({
+    meses: o.meses, url: o.url, montoTxt: formatoCLP(o.monto),
+    ahorroTxt: o.monto < monto * o.meses ? formatoCLP(monto * o.meses - o.monto) : null,
+  }))
 
   let titulo = ETIQUETA_ESTADO[estado]
   let detalle = ""
@@ -52,7 +56,7 @@ export default async function PosPagoPage() {
         monto={monto}
         montoTxt={formatoCLP(monto)}
         datos={datos}
-        linkTarjeta={linkTarjeta}
+        opciones={opciones}
         contacto={CORREO_CONTACTO}
         sinPlan={!cuenta.cliente}
         pagos={(cuenta.cliente?.pagos ?? []).map(p => ({
