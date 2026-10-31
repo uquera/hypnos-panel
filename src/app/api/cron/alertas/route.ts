@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const results = { enviados: 0, errores: 0, omitidos: 0 }
 
   const clientes = await prisma.cliente.findMany({
-    where: { activo: true, suspendida: false, emailContacto: { not: null } },
+    // Los restaurantes de Hypnos POS tienen su propio cobro (/api/cron/pos-cobros)
+    where: { activo: true, suspendida: false, emailContacto: { not: null }, plan: { not: "POS" } },
   })
 
   for (const cliente of clientes) {

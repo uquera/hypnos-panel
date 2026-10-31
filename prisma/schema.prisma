@@ -38,7 +38,7 @@ model Cliente {
   dominio          String                         // "centrobambu.cl"
   apiUrl           String                         // "https://centrobambu.cl/api/gobernanza/licencia"
   masterKey        String                         // GOBERNANZA_MASTER_KEY de esa instancia
-  plan             String    @default("BASICO")   // BASICO | PRO | ENTERPRISE
+  plan             String    @default("BASICO")   // BASICO | PRO | ENTERPRISE | POS (Hypnos POS, CLP)
   fechaVencimiento DateTime
   suspendida       Boolean   @default(false)
   notasAdmin       String?
@@ -225,11 +225,65 @@ model PosCuenta {
   activo             Boolean      @default(true)         // false = suspendida (la app y el portal la rechazan)
   clienteId          String?                             // vínculo opcional con el Cliente de la gobernanza
   cliente            Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  // Alta automática de la instancia (<codigo>.hypnosapps.com) con hypnos-pos-tenant.
+  // Las cuentas creadas a mano (antes del alta automática, p. ej. donaany) quedan en MANUAL:
+  // no se instalan ni se eliminan con el comando.
+  estadoAlta         String       @default("MANUAL")     // MANUAL | PENDIENTE | INSTALANDO | LISTO | ERROR
+  altaLog            String?                             // salida del comando, recortada (sin la master key)
+  altaAt             DateTime?                           // inicio del último intento de instalación
+  enPrueba           Boolean      @default(false)        // prueba gratis (14 días) aún sin primer pago
+  whatsapp           String       @default("")           // WhatsApp del dueño (registro / ficha)
+  origen             String       @default("ADMIN")      // ADMIN | REGISTRO (formulario público /pos/registro)
+  terminosAt         DateTime?                           // aceptación de términos en el registro público
+  precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
+  eliminadaAt        DateTime?                           // eliminada (instancia respaldada y fuera de línea); se conserva el historial
   usuarios           PosUsuario[]
+  comprobantes       PosComprobante[]
+  avisos             PosAviso[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
   @@map("pos_cuentas")
+}
+
+// Comprobantes de transferencia que sube el dueño en /pos/pago. Hypnos los revisa
+// en /admin/pos: aprobar crea el Pago (LICENCIA, CLP) y extiende la licencia.
+// estado: PENDIENTE | APROBADO | RECHAZADO
+model PosComprobante {
+  id             String    @id @default(cuid())
+  cuentaId       String
+  cuenta         PosCuenta @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  archivo        String                              // nombre en POS_COMPROBANTES_DIR (uploads/pos-comprobantes)
+  mime           String                              // image/jpeg | image/png | image/webp | application/pdf
+  nombreOriginal String    @default("")
+  montoDeclarado Float
+  comentario     String?                             // nota opcional del dueño
+  estado         String    @default("PENDIENTE")
+  motivoRechazo  String?
+  subidoPor      String    @default("")              // correo del PosUsuario que lo subió
+  revisadoPor    String?                             // nombre del operador de Hypnos
+  revisadoAt     DateTime?
+  pagoId         String?                             // Pago creado al aprobar
+  createdAt      DateTime  @default(now())
+
+  @@index([estado])
+  @@index([cuentaId])
+  @@map("pos_comprobantes")
+}
+
+// Avisos automáticos del cron de cobro (para no repetirlos).
+// tipo: PRUEBA_3 | PRUEBA_1 | COBRO_5 | VENCE_HOY | SUSPENSION
+// periodo: fecha de vencimiento (YYYY-MM-DD, hora de Chile) a la que se refiere el aviso.
+model PosAviso {
+  id        String    @id @default(cuid())
+  cuentaId  String
+  cuenta    PosCuenta @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  tipo      String
+  periodo   String
+  createdAt DateTime  @default(now())
+
+  @@unique([cuentaId, tipo, periodo])
+  @@map("pos_avisos")
 }
 
 // Sub-cuentas del negocio. passwordHash null = invitado que aún no crea su contraseña.

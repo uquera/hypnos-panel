@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { logActividad } from "@/lib/actividad"
 import { revalidatePath } from "next/cache"
+import { patchLicenciaRemota } from "@/lib/gobernanza-remota"
 
 export interface SyncData {
   plan?:             string
@@ -40,34 +41,9 @@ export async function syncLicencia(
   })
 
   // 2. Sincronizar con el servidor remoto del cliente
-  let syncedRemote = false
-  let syncError: string | undefined
-
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10_000)
-
-    const res = await fetch(cliente.apiUrl, {
-      method:  "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key":  cliente.masterKey,
-      },
-      body:   JSON.stringify(data),
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-
-    if (res.ok) {
-      syncedRemote = true
-    } else {
-      syncError = `HTTP ${res.status} al sincronizar con ${cliente.dominio}`
-    }
-  } catch (err) {
-    syncError = err instanceof Error && err.name === "AbortError"
-      ? `Tiempo de espera agotado conectando a ${cliente.dominio}`
-      : `No se pudo conectar con ${cliente.dominio}`
-  }
+  const remoto = await patchLicenciaRemota(cliente, { ...data })
+  const syncedRemote = remoto.ok
+  const syncError    = remoto.error
 
   // Log de actividad
   if (session.user.id) {

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { NextResponse } from "next/server"
+import { patchLicenciaRemota } from "@/lib/gobernanza-remota"
 
 // PATCH /api/clientes/[id]/renovar
 // Renueva la licencia +30 días desde el vencimiento actual (o desde hoy si ya venció).
@@ -34,19 +35,7 @@ export async function PATCH(
   })
 
   // Sincronizar con el servidor del cliente (best-effort)
-  let syncedRemote = false
-  try {
-    const controller = new AbortController()
-    const timeoutId  = setTimeout(() => controller.abort(), 10_000)
-    const res = await fetch(cliente.apiUrl, {
-      method:  "PATCH",
-      headers: { "Content-Type": "application/json", "X-Master-Key": cliente.masterKey },
-      body:    JSON.stringify({ fechaVencimiento: nuevaFechaStr, suspendida: false }),
-      signal:  controller.signal,
-    })
-    clearTimeout(timeoutId)
-    syncedRemote = res.ok
-  } catch { /* cliente caído — operación local ya guardada */ }
+  const { ok: syncedRemote } = await patchLicenciaRemota(cliente, { fechaVencimiento: nuevaFechaStr, suspendida: false })
 
   // Log de actividad
   if (session.user.id) {

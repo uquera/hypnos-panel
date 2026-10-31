@@ -99,3 +99,55 @@ export async function enviarRecuperacionPos(d: Datos) {
   })
   await enviar(d.email, "Restablece tu contraseña — Hypnos POS", html, d.link)
 }
+
+// ─── Alta, cobro y avisos (registro público, comprobantes, cron) ──────────────
+
+interface CorreoLibre {
+  to:        string
+  subject:   string
+  titulo:    string
+  parrafos:  string[]            // HTML ya escapado
+  bloque?:   string              // HTML ya escapado (p. ej. datos de transferencia)
+  boton?:    { texto: string; link: string }
+  pie?:      string
+  color?:    string              // color del encabezado
+}
+
+function plantillaLibre(o: CorreoLibre) {
+  const boton = o.boton
+    ? `<p style="text-align:center;margin:0 0 24px;"><a href="${o.boton.link}" style="display:inline-block;background:#f26522;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:13px 26px;border-radius:12px;">${o.boton.texto}</a></p>`
+    : ""
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:540px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:${o.color ?? "#111827"};padding:26px 32px;">
+      <span style="color:rgba(255,255,255,0.75);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Hypnos POS</span>
+      <h1 style="color:#ffffff;font-size:21px;font-weight:700;margin:8px 0 0;">${o.titulo}</h1>
+    </div>
+    <div style="padding:28px 32px;">
+      ${o.parrafos.map(p => `<p style="color:#374151;font-size:15px;line-height:1.5;margin:0 0 14px;">${p}</p>`).join("\n      ")}
+      ${o.bloque ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 18px;margin:8px 0 22px;color:#1f2937;font-size:14px;line-height:1.6;">${o.bloque}</div>` : ""}
+      ${boton}
+      ${o.pie ? `<p style="color:#6b7280;font-size:13px;margin:0 0 8px;">${o.pie}</p>` : ""}
+      ${o.boton ? `<p style="color:#9ca3af;font-size:12px;margin:0;word-break:break-all;">¿El botón no funciona? Copia este enlace: ${o.boton.link}</p>` : ""}
+      <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0;">
+      <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;">Hypnos POS · ¿Dudas? Responde este correo o escribe a contacto@hypnosapps.com · WhatsApp +56 9 3368 8302</p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+/** Envía un correo con la plantilla general de Hypnos POS. Lanza si falla el SMTP. */
+export async function enviarCorreoPos(o: CorreoLibre) {
+  await enviar(o.to, o.subject, plantillaLibre(o), o.boton?.link ?? "")
+}
+
+export const escHtml = esc
+
+/** Texto multilínea → HTML escapado con <br>. */
+export function multilinea(txt: string): string {
+  return esc(txt).replace(/\r?\n/g, "<br>")
+}

@@ -5,6 +5,7 @@ import { logActividad } from "@/lib/actividad"
 import { randomUUID } from "crypto"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { patchLicenciaRemota, postPagoRemoto } from "@/lib/gobernanza-remota"
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const ALLOWED    = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
@@ -88,30 +89,11 @@ export async function POST(
   ])
 
   // Sincronizar con el cliente (best-effort)
-  let syncedRemote = false
-  try {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), 10_000)
-
-    // Sync licencia
-    const resLic = await fetch(cliente.apiUrl, {
-      method:  "PATCH",
-      headers: { "Content-Type": "application/json", "X-Master-Key": cliente.masterKey },
-      body:    JSON.stringify({ fechaVencimiento: nuevaFechaStr, suspendida: false }),
-      signal:  controller.signal,
-    })
-
-    // Sync pago
-    const pagosUrl = cliente.apiUrl.replace(/\/licencia$/, "/pagos")
-    await fetch(pagosUrl, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "X-Master-Key": cliente.masterKey },
-      body:    JSON.stringify({ monto, moneda, periodoInicio, periodoFin, fechaPago }),
-      signal:  controller.signal,
-    })
-
-    syncedRemote = resLic.ok
-  } catch { /* cliente caído */ }
+  const [resLic] = await Promise.all([
+    patchLicenciaRemota(cliente, { fechaVencimiento: nuevaFechaStr, suspendida: false }),
+    postPagoRemoto(cliente, { monto, moneda, periodoInicio, periodoFin, fechaPago }),
+  ])
+  const syncedRemote = resLic.ok
 
   // Log de actividad
   await logActividad({

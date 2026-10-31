@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
 import { randomUUID } from "crypto"
+import { postPagoRemoto } from "@/lib/gobernanza-remota"
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -167,19 +168,8 @@ export async function POST(
   // Sincronizar al cliente remoto solo para pagos de licencia
   let syncedRemote = false
   if (concepto === "LICENCIA") {
-    try {
-      const pagosUrl = cliente.apiUrl.replace(/\/licencia$/, "/pagos")
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10_000)
-      const res = await fetch(pagosUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Master-Key": cliente.masterKey },
-        body: JSON.stringify({ monto, moneda, periodoInicio, periodoFin, fechaPago, notas }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-      syncedRemote = res.ok
-    } catch { /* cliente caído — no bloquea */ }
+    const res = await postPagoRemoto(cliente, { monto, moneda, periodoInicio, periodoFin, fechaPago, notas })
+    syncedRemote = res.ok
   }
 
   return NextResponse.json({ pago, syncedRemote }, { status: 201 })
