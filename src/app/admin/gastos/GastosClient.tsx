@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   TrendingDown, TrendingUp, Plus, X, FileText, ChevronDown, ChevronUp, ArrowUpDown,
   ArrowLeftRight, Loader2, Pencil, Trash2, Bot, Monitor, Server, Megaphone, Package,
-  CopyCheck, AlertTriangle,
+  CopyCheck, AlertTriangle, FileWarning, ShieldCheck, ShieldAlert,
 } from "lucide-react"
 import { toast } from "sonner"
 import { buscarSimilares, paresDuplicados } from "@/lib/duplicados"
@@ -209,6 +209,8 @@ interface GastoItem {
   moneda: string
   fecha: string
   comprobante: string | null
+  comprobanteOk: boolean | null
+  comprobanteNota: string | null
   notas: string | null
   registradoPor: string
   registradoPorId: string
@@ -314,6 +316,109 @@ function ModalDuplicado({ duplicados, submitting, onVolver, onIgual }: {
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Comprobantes ─────────────────────────────────────────────────────────────
+
+// Lo que devuelve el servidor con 422: el archivo adjunto no se ve como un
+// comprobante de pago. Tampoco se pierde nada: se puede subir otro o guardarlo
+// igual, y en ese caso el gasto queda marcado como "sin verificar".
+interface AvisoComprobante {
+  veredicto: "debil" | "ilegible" | "recorte" | "ok"
+  motivo:    string | null
+  faltan:    string[]
+  senales:   { clave: string; label: string; evidencia?: string }[]
+  repetido:  { concepto: string; monto: number; moneda: string; fecha: string } | null
+}
+
+const QUE_DEBE_TENER = [
+  "El monto pagado, tal como lo registras",
+  "La fecha del cobro",
+  "El nombre del proveedor o del servicio",
+]
+
+function ModalComprobante({ aviso, submitting, onOtro, onIgual }: {
+  aviso: AvisoComprobante
+  submitting: boolean
+  onOtro: () => void
+  onIgual: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={() => !submitting && onOtro()} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh]">
+        <div className="bg-amber-500 text-white px-5 py-4 text-center">
+          <FileWarning size={22} className="mx-auto mb-1" />
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-100">El archivo adjunto</p>
+          <p className="text-xl font-extrabold">
+            {aviso.repetido ? "YA JUSTIFICA OTRO GASTO" : "NO PARECE UN COMPROBANTE"}
+          </p>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-gray-600">{aviso.motivo}</p>
+
+          {aviso.repetido && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+              <p className="font-bold">Este archivo ya está usado</p>
+              <p className="mt-0.5">
+                {aviso.repetido.concepto} · {formatFecha(aviso.repetido.fecha)} · {formatMonto(aviso.repetido.monto, aviso.repetido.moneda)}
+              </p>
+            </div>
+          )}
+
+          {!aviso.repetido && aviso.faltan.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="font-bold">No encontramos en el documento</p>
+              <ul className="mt-1 space-y-0.5">
+                {aviso.faltan.map(f => <li key={f}>· {f}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {!aviso.repetido && aviso.senales.length > 0 && (
+            <p className="text-xs text-gray-400">
+              Sí encontramos: {aviso.senales.map(s => s.label).join(", ")}.
+            </p>
+          )}
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+            <p className="font-semibold text-gray-600">Un comprobante que sirve muestra</p>
+            <ul className="mt-1 space-y-0.5">
+              {QUE_DEBE_TENER.map(q => <li key={q}>· {q}</li>)}
+            </ul>
+            <p className="mt-1.5">Sirve el correo del cobro, la boleta en PDF o la pantalla completa del pago. Un recorte de una parte de la pantalla, no.</p>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onOtro} disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60">
+              Subir otro archivo
+            </button>
+            <button type="button" onClick={onIgual} disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 flex items-center justify-center gap-2">
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Guardarlo así"}
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400 text-center">
+            Si lo guardas así, el gasto queda marcado como <b>comprobante sin verificar</b> y se ve en la lista.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Sello del comprobante en la lista: verde si pasó la revisión, ámbar si se
+// guardó igual. Los gastos cargados antes del validador no tienen sello.
+function SelloComprobante({ ok, nota, size = 12 }: { ok: boolean | null; nota: string | null; size?: number }) {
+  if (ok === null) return null
+  return (
+    <span title={`${ok ? "Comprobante verificado" : "Comprobante sin verificar"}${nota ? ` · ${nota}` : ""}`} className="inline-flex">
+      {ok
+        ? <ShieldCheck size={size} className="text-emerald-500 shrink-0" />
+        : <ShieldAlert size={size} className="text-amber-500 shrink-0" />}
+    </span>
   )
 }
 
@@ -485,6 +590,10 @@ function FormGasto({
             ? <p className="text-xs text-gray-400">Comprobante existente · click para reemplazar</p>
             : <p className="text-xs text-gray-400">PDF, JPG, PNG o WebP · máx 10 MB</p>}
         </div>
+        <p className="mt-1.5 text-[11px] text-gray-400 leading-relaxed">
+          Que se vea el <b>monto</b>, la <b>fecha</b> y el <b>proveedor</b>: el correo del cobro, la boleta en PDF
+          o la pantalla completa del pago. Revisamos el documento al guardar.
+        </p>
       </div>
 
       {/* Notas */}
@@ -594,6 +703,7 @@ function ModalRegistrar({
 }) {
   const [submitting, setSub] = useState(false)
   const [repetido, setRepetido] = useState<{ fd: FormData; duplicados: DuplicadoAviso[] } | null>(null)
+  const [malComprobante, setMalComprobante] = useState<{ fd: FormData; aviso: AvisoComprobante } | null>(null)
 
   async function enviar(fd: FormData) {
     setSub(true)
@@ -602,6 +712,11 @@ function ModalRegistrar({
       if (res.status === 409) {
         const d = await res.json()
         setRepetido({ fd, duplicados: d.duplicados ?? [] })
+        return
+      }
+      if (res.status === 422) {
+        const d = await res.json()
+        setMalComprobante({ fd, aviso: d.comprobante })
         return
       }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
@@ -619,6 +734,14 @@ function ModalRegistrar({
     const fd = repetido.fd
     fd.set("confirmarDuplicado", "1")
     setRepetido(null)
+    await enviar(fd)
+  }
+
+  async function registrarSinVerificar() {
+    if (!malComprobante) return
+    const fd = malComprobante.fd
+    fd.set("confirmarComprobante", "1")
+    setMalComprobante(null)
     await enviar(fd)
   }
 
@@ -647,6 +770,14 @@ function ModalRegistrar({
           onIgual={registrarIgual}
         />
       )}
+      {malComprobante && (
+        <ModalComprobante
+          aviso={malComprobante.aviso}
+          submitting={submitting}
+          onOtro={() => setMalComprobante(null)}
+          onIgual={registrarSinVerificar}
+        />
+      )}
     </div>
   )
 }
@@ -665,6 +796,7 @@ function ModalEditar({
 }) {
   const [submitting, setSub] = useState(false)
   const [repetido, setRepetido] = useState<{ fd: FormData; duplicados: DuplicadoAviso[] } | null>(null)
+  const [malComprobante, setMalComprobante] = useState<{ fd: FormData; aviso: AvisoComprobante } | null>(null)
 
   async function enviar(fd: FormData) {
     setSub(true)
@@ -673,6 +805,11 @@ function ModalEditar({
       if (res.status === 409) {
         const d = await res.json()
         setRepetido({ fd, duplicados: d.duplicados ?? [] })
+        return
+      }
+      if (res.status === 422) {
+        const d = await res.json()
+        setMalComprobante({ fd, aviso: d.comprobante })
         return
       }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
@@ -690,6 +827,14 @@ function ModalEditar({
     const fd = repetido.fd
     fd.set("confirmarDuplicado", "1")
     setRepetido(null)
+    await enviar(fd)
+  }
+
+  async function guardarSinVerificar() {
+    if (!malComprobante) return
+    const fd = malComprobante.fd
+    fd.set("confirmarComprobante", "1")
+    setMalComprobante(null)
     await enviar(fd)
   }
 
@@ -725,6 +870,14 @@ function ModalEditar({
           submitting={submitting}
           onVolver={() => setRepetido(null)}
           onIgual={guardarIgual}
+        />
+      )}
+      {malComprobante && (
+        <ModalComprobante
+          aviso={malComprobante.aviso}
+          submitting={submitting}
+          onOtro={() => setMalComprobante(null)}
+          onIgual={guardarSinVerificar}
         />
       )}
     </div>
@@ -792,6 +945,12 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
     gastos.find(g => g.id === a.id)!,
     gastos.find(g => g.id === b.id)!,
   ] as [GastoItem, GastoItem])
+
+  // Comprobantes que se guardaron pese al aviso: quedan a la vista hasta que
+  // alguien suba el documento que sí acredita el gasto.
+  const sinVerificar = gastos
+    .filter(g => g.comprobante && g.comprobanteOk === false)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
 
   const totalPaginas = Math.ceil(gastosOrdenados.length / PER_PAGE)
   const gastosPagina = gastosOrdenados.slice((pagina - 1) * PER_PAGE, pagina * PER_PAGE)
@@ -1037,10 +1196,13 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
                       <p className="text-xs text-gray-400 mt-0.5">{formatFecha(g.fecha)} · {g.custodioNombre}</p>
                       {g.notas && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{g.notas}</p>}
                       {g.comprobante && (
-                        <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-1.5">
-                          <FileText size={12} /> Ver comprobante
-                        </a>
+                        <span className="inline-flex items-center gap-1.5 mt-1.5">
+                          <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700">
+                            <FileText size={12} /> Ver comprobante
+                          </a>
+                          <SelloComprobante ok={g.comprobanteOk} nota={g.comprobanteNota} />
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1146,6 +1308,50 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
         </div>
       )}
 
+      {/* Comprobantes que se guardaron sin pasar la revisión */}
+      {sinVerificar.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <ShieldAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">
+                {sinVerificar.length} gasto{sinVerificar.length !== 1 ? "s" : ""} con comprobante sin verificar
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                El archivo adjunto no se ve como un comprobante de pago y se guardó igual. Reemplázalo por el correo del cobro o la boleta.
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-2">
+            {sinVerificar.slice(0, 8).map(g => (
+              <li key={g.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-800">
+                    <b>{g.concepto}</b> · {formatFecha(g.fecha)} · {formatMonto(g.monto, g.moneda)} · {g.custodioNombre}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">{g.comprobanteNota}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-white flex items-center gap-1.5">
+                    <FileText size={12} /> Ver
+                  </a>
+                  {isAdmin && (
+                    <button onClick={() => setEditando(g)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5">
+                      <Pencil size={12} /> Reemplazar
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {sinVerificar.length > 8 && (
+            <p className="text-xs text-gray-400">Y {sinVerificar.length - 8} más en la tabla, con el escudo ámbar.</p>
+          )}
+        </div>
+      )}
+
       {/* Tabla */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         {/* Filtros */}
@@ -1222,10 +1428,13 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
                       <td className="px-5 py-3.5 text-right font-semibold text-rose-400">{formatMonto(g.monto, g.moneda)}</td>
                       <td className="px-5 py-3.5 text-center">
                         {g.comprobante ? (
-                          <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
-                            <FileText size={13} />
-                          </a>
+                          <span className="inline-flex items-center gap-1">
+                            <a href={`/api/gastos/${g.id}/comprobante`} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors">
+                              <FileText size={13} />
+                            </a>
+                            <SelloComprobante ok={g.comprobanteOk} nota={g.comprobanteNota} size={13} />
+                          </span>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-5 py-3.5 text-xs font-medium text-gray-800">{g.custodioNombre}</td>

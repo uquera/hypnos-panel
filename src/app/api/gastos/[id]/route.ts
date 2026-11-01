@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { buscarDuplicadosDelMes, mensajeDuplicado } from "@/lib/gastos-guard"
+import { revisarComprobante, mensajeComprobante } from "@/lib/comprobantes-guard"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -9,7 +10,6 @@ import { randomUUID } from "crypto"
 
 const UPLOAD_DIR    = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE  = 10 * 1024 * 1024
-const ALLOWED_TYPES  = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
 const CATEGORIAS_VALIDAS = ["HERRAMIENTA_IA", "SOFTWARE", "INFRAESTRUCTURA", "PUBLICIDAD", "OTRO"]
 
 // PATCH — editar (solo ADMIN)
@@ -57,22 +57,58 @@ export async function PATCH(
     )
   }
 
-  let comprobante = gasto.comprobante
+  let comprobante     = gasto.comprobante
+  let comprobanteOk   = gasto.comprobanteOk
+  let comprobanteNota = gasto.comprobanteNota
+  let comprobanteHash = gasto.comprobanteHash
+
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Archivo supera 10 MB" }, { status: 400 })
-    if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ error: "Tipo no permitido" }, { status: 400 })
+
+    const buf     = Buffer.from(await file.arrayBuffer())
+    const revisto = await revisarComprobante(buf, file.name, { concepto, monto, moneda, fecha: new Date(fecha) }, id)
+
+    if (revisto.veredicto === "invalido")
+      return NextResponse.json({ error: revisto.motivo }, { status: 400 })
+
+    if (!revisto.limpio && formData.get("confirmarComprobante") !== "1") {
+      return NextResponse.json(
+        { error: mensajeComprobante(revisto), comprobante: { ...revisto, hash: undefined } },
+        { status: 422 },
+      )
+    }
+
     if (gasto.comprobante) {
       try { await fs.unlink(path.join(UPLOAD_DIR, gasto.comprobante)) } catch { /* ignorar */ }
     }
-    const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg")
-    comprobante = `${randomUUID()}${ext}`
+    const ext = revisto.tipo === "pdf" ? ".pdf" : `.${revisto.tipo === "jpeg" ? "jpg" : revisto.tipo}`
+    comprobante     = `${randomUUID()}${ext}`
+    comprobanteOk   = revisto.limpio
+    comprobanteNota = revisto.limpio ? revisto.nota : `confirmado a mano · ${revisto.nota}`
+    comprobanteHash = revisto.hash
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
+    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buf)
+
+  } else if (gasto.comprobante && (concepto !== gasto.concepto || monto !== gasto.monto || moneda !== gasto.moneda
+             || new Date(fecha).getTime() !== gasto.fecha.getTime())) {
+    // Cambió lo que el comprobante debía acreditar: se revisa de nuevo el
+    // archivo que ya está guardado. Esto no bloquea la edición; solo deja el
+    // sello al día para que en la lista se vea si sigue calzando.
+    try {
+      const buf     = await fs.readFile(path.join(UPLOAD_DIR, gasto.comprobante))
+      const revisto = await revisarComprobante(buf, gasto.comprobante, { concepto, monto, moneda, fecha: new Date(fecha) }, id)
+      comprobanteOk   = revisto.limpio
+      comprobanteNota = revisto.limpio ? revisto.nota : `tras editar · ${revisto.nota}`
+      comprobanteHash = revisto.hash
+    } catch { /* el archivo ya no está: se deja el sello como estaba */ }
   }
 
   const updated = await prisma.gasto.update({
     where: { id },
-    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante, custodioId },
+    data: {
+      concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, custodioId,
+      comprobante, comprobanteOk, comprobanteNota, comprobanteHash,
+    },
     include: {
       registradoPor: { select: { nombre: true } },
       custodio:      { select: { nombre: true } },
@@ -83,7 +119,8 @@ export async function PATCH(
     usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
     accion: "GASTO_EDITADO",
     detalle: `${updated.concepto} · ${updated.moneda} ${updated.monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`
-             + (confirmado ? " · confirmado pese al aviso de repetido" : ""),
+             + (confirmado ? " · confirmado pese al aviso de repetido" : "")
+             + (comprobanteOk === false ? ` · comprobante sin verificar (${comprobanteNota})` : ""),
   })
 
   return NextResponse.json({ gasto: updated })

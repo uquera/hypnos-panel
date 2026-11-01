@@ -108,6 +108,9 @@ model Gasto {
   moneda          String   @default("USD")         // USD | CLP | EUR
   fecha           DateTime @default(now())
   comprobante     String?                          // archivo en uploads/comprobantes/
+  comprobanteOk   Boolean?                         // revisión del comprobante: null = no evaluado (carga anterior al validador)
+  comprobanteNota String?                          // resumen del chequeo: "verificado · monto, fecha" / "débil · falta…"
+  comprobanteHash String?                          // sha256 del archivo: detecta el mismo comprobante reusado en otro gasto
   notas           String?
   registradoPorId String
   registradoPor   User     @relation("GastosRegistrados", fields: [registradoPorId], references: [id])
@@ -115,6 +118,7 @@ model Gasto {
   custodio        User?    @relation("GastosCustodiados", fields: [custodioId], references: [id])
   createdAt       DateTime @default(now())
 
+  @@index([comprobanteHash])
   @@map("gastos")
 }
 

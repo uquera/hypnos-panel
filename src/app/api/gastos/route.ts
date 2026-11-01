@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { buscarDuplicadosDelMes, mensajeDuplicado } from "@/lib/gastos-guard"
+import { revisarComprobante, mensajeComprobante } from "@/lib/comprobantes-guard"
+import { MIME_POR_TIPO } from "@/lib/comprobantes"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -9,7 +11,6 @@ import { randomUUID } from "crypto"
 
 const UPLOAD_DIR   = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
 const CATEGORIAS_VALIDAS = ["HERRAMIENTA_IA", "SOFTWARE", "INFRAESTRUCTURA", "PUBLICIDAD", "OTRO"]
 
 export async function GET(req: Request) {
@@ -82,20 +83,47 @@ export async function POST(req: Request) {
     )
   }
 
-  let comprobante: string | null = null
+  // Revisión del comprobante: que el archivo sea un documento y que de verdad
+  // parezca un comprobante de pago. Igual que con los repetidos, un documento
+  // débil no se pierde: se avisa y el formulario reenvía con
+  // confirmarComprobante=1, y el gasto queda marcado como sin verificar.
+  let comprobante:     string | null  = null
+  let comprobanteOk:   boolean | null = null
+  let comprobanteNota: string | null  = null
+  let comprobanteHash: string | null  = null
+
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "El archivo supera el tamaño máximo de 10 MB" }, { status: 400 })
-    if (!ALLOWED_TYPES.includes(file.type))
-      return NextResponse.json({ error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" }, { status: 400 })
-    const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg")
-    comprobante = `${randomUUID()}${ext}`
+
+    const buf     = Buffer.from(await file.arrayBuffer())
+    const revisto = await revisarComprobante(buf, file.name, { concepto, monto, moneda, fecha: new Date(fecha) })
+
+    if (revisto.veredicto === "invalido")
+      return NextResponse.json({ error: revisto.motivo }, { status: 400 })
+
+    if (!revisto.limpio && formData.get("confirmarComprobante") !== "1") {
+      return NextResponse.json(
+        { error: mensajeComprobante(revisto), comprobante: { ...revisto, hash: undefined } },
+        { status: 422 },
+      )
+    }
+
+    const ext = MIME_POR_TIPO[revisto.tipo!] === "application/pdf" ? ".pdf" : `.${revisto.tipo === "jpeg" ? "jpg" : revisto.tipo}`
+    comprobante     = `${randomUUID()}${ext}`
+    comprobanteOk   = revisto.limpio
+    comprobanteNota = revisto.limpio ? revisto.nota : `confirmado a mano · ${revisto.nota}`
+    comprobanteHash = revisto.hash
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
+    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buf)
   }
 
   const gasto = await prisma.gasto.create({
-    data: { concepto, categoria, monto, moneda, fecha: new Date(fecha), notas, comprobante, registradoPorId, custodioId },
+    data: {
+      concepto, categoria, monto, moneda, fecha: new Date(fecha), notas,
+      comprobante, comprobanteOk, comprobanteNota, comprobanteHash,
+      registradoPorId, custodioId,
+    },
     include: {
       registradoPor: { select: { nombre: true } },
       custodio:      { select: { nombre: true } },
@@ -106,7 +134,8 @@ export async function POST(req: Request) {
     usuarioId: registradoPorId, usuarioNombre: session.user.name ?? session.user.email ?? "?",
     accion: "GASTO_REGISTRADO",
     detalle: `${concepto} · ${moneda} ${monto} · ${gasto.custodio?.nombre ?? gasto.registradoPor.nombre}`
-             + (confirmado ? " · confirmado pese al aviso de repetido" : ""),
+             + (confirmado ? " · confirmado pese al aviso de repetido" : "")
+             + (comprobanteOk === false ? ` · comprobante sin verificar (${comprobanteNota})` : ""),
   })
 
   return NextResponse.json({ gasto }, { status: 201 })

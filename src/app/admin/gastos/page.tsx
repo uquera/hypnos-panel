@@ -57,6 +57,8 @@ export default async function GastosPage() {
     moneda:          g.moneda,
     fecha:           g.fecha.toISOString(),
     comprobante:     g.comprobante,
+    comprobanteOk:   g.comprobanteOk,
+    comprobanteNota: g.comprobanteNota,
     notas:           g.notas,
     registradoPor:   g.registradoPor.nombre,
     registradoPorId: g.registradoPorId,
