@@ -22,6 +22,12 @@ Panel de administración para gestionar licencias, pagos y estado de todas las a
 
 ## Tropiezos de infraestructura (VPS)
 
+- **El validador de comprobantes necesita binarios del sistema.** `src/lib/comprobante-texto.ts`
+  lee los adjuntos con `pdftotext`/`pdftoppm` (poppler-utils) y `tesseract` (+ `tesseract-ocr-spa`),
+  instalados por apt en el VPS — no son dependencias npm. Si se reinstala el servidor o se
+  mueve el panel: `apt-get install -y tesseract-ocr tesseract-ocr-spa poppler-utils`. Sin ellos
+  nada se cae, pero **todos** los comprobantes caen en "no se pudo leer" y piden confirmación.
+
 - **IPv6 rompe los fetch de gobernanza.** Los subdominios `*.srv1485601.hstgr.cloud`
   tienen registro AAAA (IPv6) hacia un edge de Hostinger cuyo certificado NO
   corresponde al host → `ERR_TLS_CERT_ALTNAME_INVALID`. Por IPv4 nginx sirve el
