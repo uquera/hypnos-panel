@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
+import { buscarDuplicadosDelMes, mensajeDuplicado } from "@/lib/gastos-guard"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -43,6 +44,19 @@ export async function PATCH(
   if (!fecha || isNaN(new Date(fecha).getTime())) return NextResponse.json({ error: "Fecha inválida" }, { status: 400 })
   if (!CATEGORIAS_VALIDAS.includes(categoria)) return NextResponse.json({ error: "Categoría inválida" }, { status: 400 })
 
+  // Mismo chequeo que al crear: editar un concepto no puede dejar dos gastos
+  // iguales en el mes (se excluye el propio gasto).
+  const confirmado = formData.get("confirmarDuplicado") === "1"
+  const duplicados = confirmado
+    ? []
+    : await buscarDuplicadosDelMes({ concepto, notas, monto, moneda, fecha: new Date(fecha) }, id)
+  if (duplicados.length > 0) {
+    return NextResponse.json(
+      { error: mensajeDuplicado(duplicados), duplicados },
+      { status: 409 },
+    )
+  }
+
   let comprobante = gasto.comprobante
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Archivo supera 10 MB" }, { status: 400 })
@@ -68,7 +82,8 @@ export async function PATCH(
   await logActividad({
     usuarioId: session.user.id ?? "", usuarioNombre: session.user.name ?? session.user.email ?? "?",
     accion: "GASTO_EDITADO",
-    detalle: `${updated.concepto} · ${updated.moneda} ${updated.monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`,
+    detalle: `${updated.concepto} · ${updated.moneda} ${updated.monto} · ${updated.custodio?.nombre ?? updated.registradoPor.nombre}`
+             + (confirmado ? " · confirmado pese al aviso de repetido" : ""),
   })
 
   return NextResponse.json({ gasto: updated })

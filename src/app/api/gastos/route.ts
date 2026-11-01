@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
+import { buscarDuplicadosDelMes, mensajeDuplicado } from "@/lib/gastos-guard"
 import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
@@ -67,6 +68,20 @@ export async function POST(req: Request) {
   if (isNaN(monto) || monto <= 0) return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
   if (!CATEGORIAS_VALIDAS.includes(categoria)) return NextResponse.json({ error: "Categoría inválida" }, { status: 400 })
 
+  // Antirepetidos: el mismo concepto (aunque cambien palabras) ya cargado este
+  // mes. No se bloquea para siempre — el formulario reenvía con
+  // confirmarDuplicado=1 si de verdad son dos gastos distintos.
+  const confirmado = formData.get("confirmarDuplicado") === "1"
+  const duplicados = confirmado
+    ? []
+    : await buscarDuplicadosDelMes({ concepto, notas, monto, moneda, fecha: new Date(fecha) })
+  if (duplicados.length > 0) {
+    return NextResponse.json(
+      { error: mensajeDuplicado(duplicados), duplicados },
+      { status: 409 },
+    )
+  }
+
   let comprobante: string | null = null
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE)
@@ -90,7 +105,8 @@ export async function POST(req: Request) {
   await logActividad({
     usuarioId: registradoPorId, usuarioNombre: session.user.name ?? session.user.email ?? "?",
     accion: "GASTO_REGISTRADO",
-    detalle: `${concepto} · ${moneda} ${monto} · ${gasto.custodio?.nombre ?? gasto.registradoPor.nombre}`,
+    detalle: `${concepto} · ${moneda} ${monto} · ${gasto.custodio?.nombre ?? gasto.registradoPor.nombre}`
+             + (confirmado ? " · confirmado pese al aviso de repetido" : ""),
   })
 
   return NextResponse.json({ gasto }, { status: 201 })

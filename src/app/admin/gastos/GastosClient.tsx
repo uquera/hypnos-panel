@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation"
 import {
   TrendingDown, TrendingUp, Plus, X, FileText, ChevronDown, ChevronUp, ArrowUpDown,
   ArrowLeftRight, Loader2, Pencil, Trash2, Bot, Monitor, Server, Megaphone, Package,
+  CopyCheck, AlertTriangle,
 } from "lucide-react"
 import { toast } from "sonner"
+import { buscarSimilares, paresDuplicados } from "@/lib/duplicados"
 
 type SortKey = "fecha" | "concepto" | "categoria" | "monto" | "custodioNombre"
 
@@ -256,6 +258,65 @@ function esImagenComprobante(nombre: string | null) {
   return !!nombre && /\.(jpe?g|png|webp|gif)$/i.test(nombre)
 }
 
+// ─── Repetidos ────────────────────────────────────────────────────────────────
+
+interface DuplicadoAviso {
+  id: string; concepto: string; notas: string | null
+  monto: number; moneda: string; fecha: string; quien: string; mismoMonto: boolean
+}
+
+// Lo que devuelve el servidor con 409: el gasto ya estaba cargado este mes.
+// Nada se guarda hasta que alguien diga que de verdad son dos gastos distintos.
+function ModalDuplicado({ duplicados, submitting, onVolver, onIgual }: {
+  duplicados: DuplicadoAviso[]
+  submitting: boolean
+  onVolver: () => void
+  onIgual: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={() => !submitting && onVolver()} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-amber-500 text-white px-5 py-4 text-center">
+          <CopyCheck size={22} className="mx-auto mb-1" />
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-100">Este gasto</p>
+          <p className="text-xl font-extrabold">YA ESTÁ CARGADO ESTE MES</p>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-gray-600">Encontramos {duplicados.length === 1 ? "este gasto parecido" : "estos gastos parecidos"} en el mismo mes:</p>
+          <ul className="space-y-2">
+            {duplicados.map(d => (
+              <li key={d.id} className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-gray-900 text-sm truncate">{d.concepto}</p>
+                  <p className="text-sm font-bold text-rose-600 shrink-0">{formatMonto(d.monto, d.moneda)}</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formatFecha(d.fecha)} · {d.quien}
+                  {d.notas ? ` · ${d.notas}` : ""}
+                </p>
+                {d.mismoMonto && (
+                  <p className="text-xs font-semibold text-rose-700 mt-1">Mismo monto: casi seguro es el mismo gasto.</p>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onVolver} disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60">
+              No registrarlo
+            </button>
+            <button type="button" onClick={onIgual} disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 flex items-center justify-center gap-2">
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Guardando…</> : "Es otro gasto"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Formulario compartido ────────────────────────────────────────────────────
 
 function FormGasto({
@@ -267,6 +328,8 @@ function FormGasto({
   submitting,
   submitLabel,
   existingComprobante,
+  otrosGastos,
+  excluirId,
 }: {
   initial: {
     concepto: string; categoria: Categoria; monto: string
@@ -279,6 +342,8 @@ function FormGasto({
   submitting: boolean
   submitLabel: string
   existingComprobante?: string | null
+  otrosGastos: GastoItem[]
+  excluirId?: string
 }) {
   const [form, setForm] = useState(initial)
   const [file, setFile] = useState<File | null>(null)
@@ -286,6 +351,23 @@ function FormGasto({
   const fileRef         = useRef<HTMLInputElement>(null)
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  // Aviso en vivo: ¿este concepto ya está cargado este mes? Mismo detector que
+  // usa el servidor, así el aviso aparece mientras se escribe y no al final.
+  const similares = buscarSimilares(
+    {
+      concepto: form.concepto,
+      notas:    form.notas,
+      monto:    parseFloat(form.monto) || 0,
+      moneda:   form.moneda,
+      fecha:    form.fecha,
+    },
+    otrosGastos.map(g => ({
+      id: g.id, concepto: g.concepto, notas: g.notas, monto: g.monto,
+      moneda: g.moneda, fecha: g.fecha, quien: g.custodioNombre,
+    })),
+    excluirId,
+  )
 
   // Alerta de anomalía: ¿el concepto suena a un INGRESO en vez de un gasto?
   const pareceIngreso = /\b(pago|abono|cobro|ingreso|mensualidad|factura|transferencia|dep[oó]sito|cliente|recib|honorario|venta)\w*/i.test(form.concepto)
@@ -317,8 +399,27 @@ function FormGasto({
         <input
           type="text" value={form.concepto} onChange={e => set("concepto", e.target.value)}
           placeholder="Ej: Claude Max, Canva Pro, Dominio hypnosapps.com…"
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${
+            similares.length > 0
+              ? "border-amber-300 bg-amber-50 focus:ring-amber-400"
+              : "border-gray-200 focus:ring-indigo-500"
+          }`}
         />
+        {similares.length > 0 && (
+          <div className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1.5">
+            <p className="font-bold flex items-center gap-1.5">
+              <AlertTriangle size={13} /> Esto ya está cargado este mes
+            </p>
+            {similares.slice(0, 3).map(s => (
+              <p key={s.gasto.id}>
+                · {formatFecha(String(s.gasto.fecha))} — <b>{s.gasto.concepto}</b>{" "}
+                {formatMonto(s.gasto.monto, s.gasto.moneda)} ({s.gasto.quien})
+                {s.mismoMonto && <b> · mismo monto</b>}
+              </p>
+            ))}
+            <p className="text-amber-700">Si es el mismo gasto, cancela. Si de verdad es otro, podrás confirmarlo al guardar.</p>
+          </div>
+        )}
       </div>
 
       {/* Categoría */}
@@ -450,6 +551,13 @@ function FormGasto({
                 <p className="text-sm text-gray-700 font-medium mt-1">{form.concepto}</p>
                 <div className="mt-2 flex justify-center"><CategoriaBadge categoria={form.categoria} /></div>
               </div>
+              {similares.length > 0 && (
+                <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 text-xs text-amber-900">
+                  <b>⚠️ Posible repetido.</b> Este mes ya hay <b>{similares[0].gasto.concepto}</b>{" "}
+                  ({formatMonto(similares[0].gasto.monto, similares[0].gasto.moneda)}, {similares[0].gasto.quien}).
+                  Revisa antes de guardar.
+                </div>
+              )}
               {pareceIngreso && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
                   <b>⚠️ ¿Seguro que es un gasto?</b> El concepto parece más bien un <b>ingreso</b> (pago de cliente, abono, etc.). Si es dinero que <b>entró</b>, cancela y regístralo en Ingresos.
@@ -476,25 +584,42 @@ function FormGasto({
 // ─── Modal Registrar ──────────────────────────────────────────────────────────
 
 function ModalRegistrar({
-  usuarios, currentUserId, onClose, onSuccess,
+  usuarios, currentUserId, gastos, onClose, onSuccess,
 }: {
   usuarios: UsuarioBasic[]
   currentUserId: string
+  gastos: GastoItem[]
   onClose: () => void
   onSuccess: () => void
 }) {
   const [submitting, setSub] = useState(false)
+  const [repetido, setRepetido] = useState<{ fd: FormData; duplicados: DuplicadoAviso[] } | null>(null)
 
-  async function handleSubmit(fd: FormData) {
+  async function enviar(fd: FormData) {
     setSub(true)
     try {
       const res = await fetch("/api/gastos", { method: "POST", body: fd })
+      if (res.status === 409) {
+        const d = await res.json()
+        setRepetido({ fd, duplicados: d.duplicados ?? [] })
+        return
+      }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       toast.success("Gasto registrado")
       onSuccess()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al registrar el gasto")
     } finally { setSub(false) }
+  }
+
+  async function handleSubmit(fd: FormData) { await enviar(fd) }
+
+  async function registrarIgual() {
+    if (!repetido) return
+    const fd = repetido.fd
+    fd.set("confirmarDuplicado", "1")
+    setRepetido(null)
+    await enviar(fd)
   }
 
   return (
@@ -511,8 +636,17 @@ function ModalRegistrar({
           currentUserId={currentUserId}
           onSubmit={handleSubmit} onCancel={onClose}
           submitting={submitting} submitLabel="Registrar gasto"
+          otrosGastos={gastos}
         />
       </div>
+      {repetido && (
+        <ModalDuplicado
+          duplicados={repetido.duplicados}
+          submitting={submitting}
+          onVolver={() => setRepetido(null)}
+          onIgual={registrarIgual}
+        />
+      )}
     </div>
   )
 }
@@ -520,26 +654,43 @@ function ModalRegistrar({
 // ─── Modal Editar ─────────────────────────────────────────────────────────────
 
 function ModalEditar({
-  gasto, usuarios, currentUserId, onClose, onSuccess,
+  gasto, usuarios, currentUserId, gastos, onClose, onSuccess,
 }: {
   gasto: GastoItem
   usuarios: UsuarioBasic[]
   currentUserId: string
+  gastos: GastoItem[]
   onClose: () => void
   onSuccess: () => void
 }) {
   const [submitting, setSub] = useState(false)
+  const [repetido, setRepetido] = useState<{ fd: FormData; duplicados: DuplicadoAviso[] } | null>(null)
 
-  async function handleSubmit(fd: FormData) {
+  async function enviar(fd: FormData) {
     setSub(true)
     try {
       const res = await fetch(`/api/gastos/${gasto.id}`, { method: "PATCH", body: fd })
+      if (res.status === 409) {
+        const d = await res.json()
+        setRepetido({ fd, duplicados: d.duplicados ?? [] })
+        return
+      }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       toast.success("Gasto actualizado")
       onSuccess()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al actualizar")
     } finally { setSub(false) }
+  }
+
+  async function handleSubmit(fd: FormData) { await enviar(fd) }
+
+  async function guardarIgual() {
+    if (!repetido) return
+    const fd = repetido.fd
+    fd.set("confirmarDuplicado", "1")
+    setRepetido(null)
+    await enviar(fd)
   }
 
   return (
@@ -565,8 +716,17 @@ function ModalEditar({
           onSubmit={handleSubmit} onCancel={onClose}
           submitting={submitting} submitLabel="Guardar cambios"
           existingComprobante={gasto.comprobante}
+          otrosGastos={gastos} excluirId={gasto.id}
         />
       </div>
+      {repetido && (
+        <ModalDuplicado
+          duplicados={repetido.duplicados}
+          submitting={submitting}
+          onVolver={() => setRepetido(null)}
+          onIgual={guardarIgual}
+        />
+      )}
     </div>
   )
 }
@@ -623,6 +783,15 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
     }
     return sortDir === "asc" ? cmp : -cmp
   })
+
+  // Repetidos que ya quedaron guardados (p. ej. cargados antes del validador).
+  const repetidos = paresDuplicados(gastos.map(g => ({
+    id: g.id, concepto: g.concepto, notas: g.notas, monto: g.monto,
+    moneda: g.moneda, fecha: g.fecha, quien: g.custodioNombre,
+  }))).map(([a, b]) => [
+    gastos.find(g => g.id === a.id)!,
+    gastos.find(g => g.id === b.id)!,
+  ] as [GastoItem, GastoItem])
 
   const totalPaginas = Math.ceil(gastosOrdenados.length / PER_PAGE)
   const gastosPagina = gastosOrdenados.slice((pagina - 1) * PER_PAGE, pagina * PER_PAGE)
@@ -938,6 +1107,45 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
         </div>
       </div>
 
+      {/* Repetidos ya guardados: mismo mes, concepto parecido y mismo monto */}
+      {repetidos.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-bold text-amber-900">
+                {repetidos.length} posible{repetidos.length !== 1 ? "s" : ""} gasto{repetidos.length !== 1 ? "s" : ""} repetido{repetidos.length !== 1 ? "s" : ""}
+              </h2>
+              <p className="text-xs text-amber-700 mt-0.5">Mismo mes, concepto parecido y el mismo monto. Revisa y elimina el que sobre.</p>
+            </div>
+          </div>
+          <ul className="space-y-2">
+            {repetidos.map(([a, b]) => (
+              <li key={`${a.id}-${b.id}`} className="bg-white rounded-xl border border-amber-200 p-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-800">
+                    <b>{a.concepto}</b> · {formatFecha(a.fecha)} · {formatMonto(a.monto, a.moneda)} · {a.custodioNombre}
+                  </p>
+                  <p className="text-sm text-gray-800 mt-0.5">
+                    <b>{b.concepto}</b> · {formatFecha(b.fecha)} · {formatMonto(b.monto, b.moneda)} · {b.custodioNombre}
+                  </p>
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => eliminar(b.id)}
+                    disabled={eliminandoId === b.id}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-60 flex items-center gap-1.5 shrink-0"
+                  >
+                    {eliminandoId === b.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    Eliminar el segundo
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Tabla */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         {/* Filtros */}
@@ -1092,6 +1300,7 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
         <ModalRegistrar
           usuarios={usuarios}
           currentUserId={currentUserId}
+          gastos={gastos}
           onClose={() => setModalOpen(false)}
           onSuccess={() => { setModalOpen(false); router.refresh() }}
         />
@@ -1101,6 +1310,7 @@ export default function GastosClient({ gastos, ingresos, usuarios, clientes, cur
           gasto={editando}
           usuarios={usuarios}
           currentUserId={currentUserId}
+          gastos={gastos}
           onClose={() => setEditando(null)}
           onSuccess={() => { setEditando(null); router.refresh() }}
         />
