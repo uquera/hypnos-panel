@@ -3,7 +3,7 @@
 //   POS_DATOS_TRANSFERENCIA  texto multilínea con banco, tipo de cuenta, número, RUT, nombre y correo
 //                            (en .env se puede escribir con \n literales entre comillas)
 //   POS_DIAS_GRACIA          días después del vencimiento antes de suspender (default 3)
-//   POS_DIAS_PRUEBA          días de prueba gratis del registro público (default 14)
+//   POS_DIAS_PRUEBA          días de prueba gratis del registro público (default 7)
 //   POS_AVISOS_EMAIL         a quién avisa el panel (registros, comprobantes, errores); default contacto@
 
 export const CORREO_CONTACTO = "contacto@hypnosapps.com"
@@ -22,7 +22,7 @@ export function diasGracia(): number {
 }
 
 export function diasPrueba(): number {
-  return entero(process.env.POS_DIAS_PRUEBA, 14, 1)
+  return entero(process.env.POS_DIAS_PRUEBA, 7, 1)
 }
 
 /** Datos de transferencia o null si no están configurados. */
