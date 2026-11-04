@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 // Solo el DUENO: invita y desactiva a los EDITOR de su cuenta.
 export default async function PosEquipoPage() {
   const yo = await requireSesionPos()
-  if (yo.rol !== "DUENO") redirect("/pos/marca")
+  if (yo.rol !== "DUENO") redirect("/pos/inicio")
 
   const usuarios = await prisma.posUsuario.findMany({
     where: { cuentaId: yo.cuentaId },

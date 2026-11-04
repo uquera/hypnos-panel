@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 // Pago mensual: estado del plan, pago con tarjeta (link TUU del monto) o transferencia, y subida del comprobante.
 export default async function PosPagoPage() {
   const yo = await requireSesionPos("/pos/pago")
-  if (yo.rol !== "DUENO") redirect("/pos/marca")
+  if (yo.rol !== "DUENO") redirect("/pos/inicio")
 
   const cuenta = await prisma.posCuenta.findUnique({
     where: { id: yo.cuentaId },

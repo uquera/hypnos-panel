@@ -42,7 +42,7 @@ export async function correoBienvenida(d: {
   if (d.mesas) listo.push(`Dejamos creadas <strong>${d.mesas} mesas</strong>.`)
 
   const pasos = [
-    `<strong>Crea tu contraseña</strong> con el enlace que te llega en otro correo (si no lo ves, revisa spam o usa «¿Olvidaste tu contraseña?» en el sistema con este correo).`,
+    `<strong>Crea tu contraseña</strong> con el enlace que te llega en otro correo: es una sola, para tu sistema y tu portal (si no lo ves, revisa spam o usa «¿Olvidaste tu contraseña?» con este correo).`,
     `<strong>Conecta tu impresora</strong> de comandas y boletas desde Configuración.`,
     `<strong>Comparte tu tienda</strong> online con tus clientes para recibir pedidos.`,
   ]
@@ -58,7 +58,7 @@ export async function correoBienvenida(d: {
         ? `Tu prueba gratis dura hasta el <strong>${esc(fechaLarga(d.vence))}</strong>. Después el plan cuesta ${esc(formatoCLP(d.monto))} al mes, por transferencia. Te avisaremos antes de que termine.`
         : `Tu plan está activo hasta el <strong>${esc(fechaLarga(d.vence))}</strong>.`,
       `<strong>Próximos pasos:</strong><br>${pasos.map((p, i) => `${i + 1}. ${p}`).join("<br>")}`,
-      `También te invitamos a tu portal de Hypnos POS, donde subes tus comprobantes de pago y personalizas la marca de la app.`,
+      `Tu portal de Hypnos POS (<a href="${d.linkPago.replace(/\/pago$/, "")}">panel.hypnosapps.com/pos</a>) es donde abres tu sistema, pagas tu plan y ves tu prueba gratis.`,
     ],
     bloque: `<strong>Lo que ya quedó listo</strong><br>${listo.map(l => `✓ ${l}`).join("<br>")}`,
     boton: { texto: "Abrir mi sistema", link: d.url },

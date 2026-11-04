@@ -81,5 +81,5 @@ export async function requireSesionPos(next?: string): Promise<UsuarioPos> {
 /** Destino seguro tras el login: solo rutas internas del portal. */
 export function destinoPortal(next: unknown): string {
   const s = String(next ?? "")
-  return /^\/pos\/[a-z0-9/-]*$/i.test(s) && !s.startsWith("//") ? s : "/pos/marca"
+  return /^\/pos\/[a-z0-9/-]*$/i.test(s) && !s.startsWith("//") ? s : "/pos/inicio"
 }

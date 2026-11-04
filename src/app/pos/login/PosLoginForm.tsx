@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import PosAuthCard, { botonPos, inputPos, labelPos } from "../_components/PosAuthCard"
 
-export default function PosLoginForm({ destino = "/pos/marca" }: { destino?: string }) {
+export default function PosLoginForm({ destino = "/pos/inicio" }: { destino?: string }) {
   const [form, setForm]         = useState({ email: "", password: "" })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)

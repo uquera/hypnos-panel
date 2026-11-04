@@ -22,7 +22,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <p className="text-sm font-bold text-gray-900 truncate leading-tight">{cuenta.nombre}</p>
             <p className="text-xs text-gray-400 leading-tight">Hypnos POS · código <span className="font-mono whitespace-nowrap">{cuenta.codigo}</span></p>
           </div>
-          <PortalNav nombre={usuario.nombre} esDueno={usuario.rol === "DUENO"} />
+          <PortalNav nombre={usuario.nombre} esDueno={usuario.rol === "DUENO"} conSistema={cuenta.estadoAlta === "LISTO" || cuenta.estadoAlta === "MANUAL"} />
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>

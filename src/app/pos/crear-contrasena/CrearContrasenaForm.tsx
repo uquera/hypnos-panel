@@ -23,7 +23,7 @@ export default function CrearContrasenaForm({ token, email, invitacion }: { toke
       const data = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(data.error ?? "No se pudo guardar."); return }
       toast.success("Contraseña lista")
-      window.location.href = "/pos/marca"
+      window.location.href = "/pos/inicio"
     } catch {
       toast.error("No se pudo conectar con el servidor. Intenta de nuevo.")
     } finally {

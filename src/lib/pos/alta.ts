@@ -138,6 +138,9 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
     "--nombre", cuenta.nombre,
     "--email", dueno.email,
     "--dueno", dueno.nombre,
+    // sin la invitación propia del sistema: el dueño crea UNA contraseña con la del portal
+    // (se sincroniza al POS) y entra con "Abrir mi sistema"
+    "--sin-correo",
     "--master-key", cliente.masterKey,
     "--vence", cliente.fechaVencimiento.toISOString(),
     ...(cuenta.enPrueba ? ["--prueba"] : []),

@@ -5,6 +5,7 @@ import { buscarTokenVigente } from "@/lib/pos/tokens"
 import { abrirSesionPos } from "@/lib/pos/sesion"
 import { jsonError, mismoOrigen } from "@/lib/pos/api"
 import { excedeLimite, ipDe } from "@/lib/pos/servidor"
+import { sincronizarClave } from "@/lib/pos/acceso"
 
 // POST /api/pos-portal/crear-contrasena — usa un enlace de invitación o recuperación,
 // fija la contraseña, anula el enlace y deja la sesión abierta.
@@ -40,6 +41,8 @@ export async function POST(req: Request) {
   })
   if (!usado) return jsonError("El enlace ya se usó. Pide uno nuevo.")
 
+  // Una sola contraseña: también sirve para entrar al sistema del local (si allá aún no tiene)
+  await sincronizarClave(registro.usuario.cuentaId, registro.usuario.email, passwordHash)
   await abrirSesionPos({ id: registro.usuarioId, passwordHash })
   return NextResponse.json({ ok: true })
 }

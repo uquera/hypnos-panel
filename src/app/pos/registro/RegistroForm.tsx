@@ -18,7 +18,7 @@ type Resultado = { menu?: { ok: boolean; productos?: number }; clientes?: { ok: 
 type Fase =
   | { tipo: "form" }
   | { tipo: "preparando"; id: string; token: string; nombre: string }
-  | { tipo: "listo"; url: string; nombre: string; conMenu: boolean; resultado: Resultado }
+  | { tipo: "listo"; url: string; abrir: string; nombre: string; conMenu: boolean; resultado: Resultado }
   | { tipo: "error"; nombre: string }
   | { tipo: "recibido" }
 
@@ -89,7 +89,7 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
         const r = await fetch(`/api/pos-registro/estado?id=${fase.id}&t=${encodeURIComponent(fase.token)}`, { cache: "no-store" })
         const d = await r.json()
         if (!vivo) return
-        if (d.estado === "LISTO" && d.url) setFase({ tipo: "listo", url: d.url, nombre: fase.nombre, conMenu: !!d.conMenu, resultado: d.resultado ?? null })
+        if (d.estado === "LISTO" && d.url) setFase({ tipo: "listo", url: d.url, abrir: `/api/pos-registro/abrir?id=${encodeURIComponent(fase.id)}&t=${encodeURIComponent(fase.token)}`, nombre: fase.nombre, conMenu: !!d.conMenu, resultado: d.resultado ?? null })
         else if (d.estado === "ERROR") setFase({ tipo: "error", nombre: fase.nombre })
       } catch { /* reintenta en el próximo ciclo */ }
     }
@@ -443,11 +443,15 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
                   <li className="flex gap-2 text-amber-700"><AlertTriangle size={16} className="shrink-0 mt-0.5" /> No pudimos importar tus clientes; lo revisamos contigo.</li>
                 )}
               </ul>
-              <p className="mt-4 text-sm text-gray-600">Revisa tu correo: te enviamos el enlace para <strong>crear tu contraseña</strong>.</p>
-              <a href={fase.url} target="_blank" rel="noreferrer"
+              <a href={fase.abrir} target="_blank" rel="noopener"
                 className="mt-6 w-full h-12 rounded-xl text-white font-bold inline-flex items-center justify-center gap-2" style={{ background: NARANJA }}>
                 Abrir mi sistema <ExternalLink size={16} />
               </a>
+              <p className="mt-3 text-xs text-gray-500">Entras con la sesión ya iniciada, sin contraseña.</p>
+              <div className="mt-5 rounded-xl bg-orange-50/70 border border-orange-100 p-3.5 text-left text-sm text-gray-700">
+                <p className="font-semibold text-gray-900">Para la próxima vez</p>
+                <p className="mt-1">Te enviamos un correo para <strong>crear tu contraseña</strong>. Es una sola: con ella entras a tu sistema desde cualquier equipo y a tu portal, donde ves tu prueba gratis y pagas tu plan.</p>
+              </div>
             </div>
           )}
 

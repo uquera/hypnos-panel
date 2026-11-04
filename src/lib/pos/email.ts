@@ -71,20 +71,26 @@ function plantilla(o: {
 
 interface Datos {
   nombre: string; email: string; link: string
-  cuenta: { nombre: string; colorPrimario: string; colorTextoPrimario: string }
+  cuenta: { nombre: string; colorPrimario: string; colorTextoPrimario: string; estadoAlta?: string }
 }
 
 export async function enviarInvitacionPos(d: Datos & { invitadoPor: string; rol: string }) {
   const html = plantilla({
     titulo: `Te invitaron a ${esc(d.cuenta.nombre)}`,
     saludo: `Hola, <strong>${esc(d.nombre)}</strong>:`,
-    cuerpo: `${esc(d.invitadoPor)} te dio acceso para administrar la marca de <strong>${esc(d.cuenta.nombre)}</strong> en la app Hypnos POS (logo, colores y nombre que se ven en la máquina de pago)${d.rol === "DUENO" ? ", y para invitar a tu equipo" : ""}. Crea tu contraseña para entrar:`,
+    cuerpo: d.rol === "DUENO" && d.cuenta.estadoAlta === "LISTO"
+      // dueño de un local del registro: la misma contraseña sirve para el sistema y el portal
+      ? `El sistema de <strong>${esc(d.cuenta.nombre)}</strong> ya está funcionando. Crea tu contraseña: con ella entras a tu sistema y a tu portal de Hypnos POS (pagos, prueba gratis y equipo).`
+      : `${esc(d.invitadoPor)} te dio acceso para administrar la marca de <strong>${esc(d.cuenta.nombre)}</strong> en la app Hypnos POS (logo, colores y nombre que se ven en la máquina de pago)${d.rol === "DUENO" ? ", y para invitar a tu equipo" : ""}. Crea tu contraseña para entrar:`,
     boton:  "Crear mi contraseña",
     link:   d.link,
     pie:    "El enlace vence en <strong>7 días</strong> y sirve una sola vez. Si no esperabas esta invitación, ignora este correo.",
     color:  d.cuenta.colorPrimario, colorTexto: d.cuenta.colorTextoPrimario,
   })
-  await enviar(d.email, `Tu acceso a ${d.cuenta.nombre} en Hypnos POS`, html, d.link)
+  const asunto = d.rol === "DUENO" && d.cuenta.estadoAlta === "LISTO"
+    ? `Crea tu contraseña de ${d.cuenta.nombre} — Hypnos POS`
+    : `Tu acceso a ${d.cuenta.nombre} en Hypnos POS`
+  await enviar(d.email, asunto, html, d.link)
 }
 
 export async function enviarRecuperacionPos(d: Datos) {
