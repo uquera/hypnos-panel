@@ -22,6 +22,36 @@ type Fase =
   | { tipo: "error"; nombre: string }
   | { tipo: "recibido" }
 
+// En Android, un archivo elegido desde Google Fotos, Drive o la galería puede dejar de ser
+// legible antes del envío (Chrome pierde el permiso): el fetch falla sin llegar al servidor.
+// Por eso se copia a memoria apenas se elige.
+async function enMemoria(f: File): Promise<File | null> {
+  try {
+    return new File([await f.arrayBuffer()], f.name || "archivo", { type: f.type })
+  } catch {
+    return null
+  }
+}
+
+/** Copia el logo a memoria y, si es grande, lo reduce a 800 px en PNG (se ve igual y sube rápido). */
+async function logoEnMemoria(f: File): Promise<File | null> {
+  const copia = await enMemoria(f)
+  if (!copia || copia.size <= 600 * 1024) return copia
+  try {
+    const img = await createImageBitmap(copia)
+    const escala = Math.min(1, 800 / Math.max(img.width, img.height))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(img.width * escala)
+    canvas.height = Math.round(img.height * escala)
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height)
+    img.close()
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/png"))
+    return blob && blob.size < copia.size ? new File([blob], "logo.png", { type: "image/png" }) : copia
+  } catch {
+    return copia
+  }
+}
+
 function sugerir(nombre: string): string {
   return nombre.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, "y")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").replace(/-{2,}/g, "-").slice(0, 30).replace(/-+$/, "")
@@ -98,22 +128,26 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
     return () => { vivo = false; clearInterval(iv) }
   }, [fase])
 
-  function elegirLogo(f: File | null) {
+  async function elegirLogo(f: File | null) {
     setError("")
     if (logoPreview) URL.revokeObjectURL(logoPreview)
     if (!f) { setLogo(null); setLogoPreview(null); return }
-    if (f.size > LOGO_MAX) { setError("El logo pesa más de 5 MB."); setLogo(null); setLogoPreview(null); return }
     if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { setError("El logo debe ser PNG, JPG o WebP."); setLogo(null); setLogoPreview(null); return }
-    setLogo(f)
-    setLogoPreview(URL.createObjectURL(f))
+    const copia = await logoEnMemoria(f)
+    if (!copia) { setError("No pudimos leer esa imagen. Elígela de nuevo o prueba con otra (PNG o JPG)."); setLogo(null); setLogoPreview(null); return }
+    if (copia.size > LOGO_MAX) { setError("El logo pesa más de 5 MB."); setLogo(null); setLogoPreview(null); return }
+    setLogo(copia)
+    setLogoPreview(URL.createObjectURL(copia))
   }
 
-  function elegirClientes(f: File | null) {
+  async function elegirClientes(f: File | null) {
     setError("")
     if (!f) { setClientes(null); return }
     if (f.size > CLIENTES_MAX) { setError("El archivo de clientes pesa más de 10 MB."); return }
     if (!/\.(xlsx|csv)$/i.test(f.name)) { setError("Sube un Excel (.xlsx) o CSV (.csv)."); return }
-    setClientes(f)
+    const copia = await enMemoria(f)
+    if (!copia) { setError("No pudimos leer ese archivo. Elígelo de nuevo."); setClientes(null); return }
+    setClientes(copia)
   }
 
   function validarPaso1(): string {
@@ -158,7 +192,9 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
       if (!d.id) { setFase({ tipo: "recibido" }); return }
       setFase({ tipo: "preparando", id: d.id, token: d.token, nombre: form.nombre })
     } catch {
-      setError("No pudimos conectar con el servidor. Revisa tu internet e intenta de nuevo.")
+      setError(logo || clientes
+        ? "No pudimos enviar tus datos. Vuelve al paso 2, elige el logo de nuevo (o quítalo) e intenta otra vez."
+        : "No pudimos conectar con el servidor. Revisa tu internet e intenta de nuevo.")
     } finally {
       setEnviando(false)
     }
@@ -307,7 +343,7 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
                         <p className="text-xs text-gray-400 mt-1">PNG, JPG o WebP hasta 5 MB. Aparece en tu sistema y en la máquina de pago.</p>
                       </div>
                     </div>
-                    <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => elegirLogo(e.target.files?.[0] ?? null)} />
+                    <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => { void elegirLogo(e.target.files?.[0] ?? null) }} />
                   </div>
 
                   {/* Menú */}
@@ -338,7 +374,7 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
                     </div>
                     <p className="text-xs text-gray-400 mt-1.5">.xlsx o .csv, hasta 10 MB.</p>
                     <input ref={clientesRef} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="hidden"
-                      onChange={e => elegirClientes(e.target.files?.[0] ?? null)} />
+                      onChange={e => { void elegirClientes(e.target.files?.[0] ?? null) }} />
                   </div>
                 </>
               )}
