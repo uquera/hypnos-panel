@@ -172,8 +172,8 @@ claims `{ soporte: true, por: <nombre del operador>, iss: "panel.hypnosapps.com"
 - Una licencia vencida o suspendida también bloquea al soporte (va a `/suspendido`): es lo esperado.
 
 **Estado (nov-2026):** POS (todos los locales LISTO), PodoClinic, Bisodent, Centro Bambú, Quick Stop, Centro Hiperbárico
-(`oxigenocentro.com`) y Karen Ramos. Sin acceso: Sunorte (sitio estático, sin login), Mupar GPS (Traccar: usar sus tokens
-de sesión) y Doña Any (MANUAL).
+(`oxigenocentro.com`) y Karen Ramos. Sin acceso: Sunorte (sitio estático, sin login), Mupar GPS (Traccar: no se requiere,
+decisión del dueño, nov-2026) y Doña Any (MANUAL).
 
 ---
 
