@@ -133,6 +133,30 @@ NEXT_PUBLIC_GOBERNANZA_CONTACTO=contacto@hypnosapps.com
 - `apiUrl`: URL base del cliente
 - `masterKey`: misma que `GOBERNANZA_MASTER_KEY` del cliente
 
+### 7. Acceso de soporte de Hypnos ("Entrar como admin")
+El admin de Hypnos debe poder entrar como administrador a **todo** sistema que gobierna el panel, sin contraseñas
+compartidas. El panel firma un token y el cliente abre la sesión de un usuario de soporte oculto.
+
+**Token (lo arma el panel):** JWT HS256 firmado con la `masterKey` del cliente (= su `GOBERNANZA_MASTER_KEY`),
+claims `{ soporte: true, por: <nombre del operador>, iss: "panel.hypnosapps.com", aud, iat, exp: iat+120, jti }`.
+- `aud`: `"hypnos-pos-acceso"` en Hypnos POS (reutiliza su `/auto-login`); `"hypnos-soporte"` en el resto de las apps.
+- El botón vive en la ficha del cliente del panel, solo para rol ADMIN, como `<form method="post" target="_blank">`
+  (POST: un link externo no lo dispara). La ruta deja registro con `logActividad` (`accion: "SOPORTE_ENTRADA"`,
+  en POS `POS_SOPORTE_ENTRADA`) y redirige con 303.
+
+**En el cliente (obligatorio):**
+- Endpoint `GET /api/gobernanza/soporte?token=` (en POS: `/auto-login`). Verifica firma, `aud` y vencimiento (`maxTokenAge: "3m"`)
+  y que el `jti` no se haya usado (un `Map` en memoria basta: un proceso por app). El claim `soporte` **solo** vale con la
+  master key, nunca con otro secreto (p. ej. `SHARED_AUTH_SECRET` de un SSO).
+- Hace upsert del usuario `soporte@hypnosapps.com`, nombre `"Hypnos (soporte)"`, rol máximo de la app (ADMIN),
+  `active: true`, **sin contraseña**; abre la sesión normal de la app y redirige al panel de admin. `console.info` de la entrada.
+- El usuario de soporte **no aparece** en listas de usuarios/personal/profesionales ni en conteos (filtro `email: { not: SOPORTE_EMAIL }`),
+  no se puede editar ni borrar (404), nadie puede invitar ni cambiarse a ese correo, y "¿Olvidaste tu contraseña?" y
+  `/api/gobernanza/clave` lo ignoran (nunca tiene contraseña).
+- Referencia: `src/lib/soporte.ts` + `src/app/api/auto-login/route.ts` de pos-saas (`dona-any-pos-fudo-ux`, commit 5142699);
+  lado panel: `src/lib/pos/acceso.ts` (`urlSoporte`) + `src/app/api/pos-admin/cuentas/[id]/soporte/route.ts`.
+- Instalaciones manuales que no comparten la master key con el panel (p. ej. Doña Any) quedan fuera hasta registrarlas.
+
 ---
 
 ## Estándar obligatorio: Correos automáticos en apps cliente
