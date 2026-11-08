@@ -7,7 +7,7 @@ import { toUSD } from "@/lib/monedas"
 import Link from "next/link"
 import {
   ArrowLeft, CalendarClock, Mail, Wallet, Activity as ActivityIcon,
-  Wifi, WifiOff, HelpCircle, History,
+  Wifi, WifiOff, HelpCircle, History, ShieldCheck,
 } from "lucide-react"
 import SyncLicenciaForm from "./SyncLicenciaForm"
 import EditClienteForm from "./EditClienteForm"
@@ -90,6 +90,14 @@ export default async function EditarClientePage({ params }: Props) {
           </div>
           <p className="text-sm text-gray-500 mt-0.5">{cliente.dominio}</p>
         </div>
+        {isAdmin && (
+          <form action={`/api/clientes/${cliente.id}/soporte`} method="post" target="_blank">
+            <button type="submit" title="Entra al sistema del cliente como Hypnos (soporte), con permisos de administrador"
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-gray-700">
+              <ShieldCheck size={13} /> Entrar como admin
+            </button>
+          </form>
+        )}
         <a
           href={urlSitio(cliente.dominio)}
           target="_blank"
