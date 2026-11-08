@@ -157,6 +157,24 @@ claims `{ soporte: true, por: <nombre del operador>, iss: "panel.hypnosapps.com"
   lado panel: `src/lib/pos/acceso.ts` (`urlSoporte`) + `src/app/api/pos-admin/cuentas/[id]/soporte/route.ts`.
 - Instalaciones manuales que no comparten la master key con el panel (p. ej. Doña Any) quedan fuera hasta registrarlas.
 
+**Cómo aplicarlo (kit en el VPS: \`/root/soporte-kit\`):**
+- Apps NextAuth v5 (template de agendas): \`python3 /root/soporte-kit/aplicar.py <raíz de la app> /root/soporte-kit\`.
+  Respalda \`auth.ts\` y \`forgot-password\` en \`/root/backups-soporte/\`, copia \`lib/soporte.ts\` y la ruta, agrega el proveedor
+  \`Credentials({ id: "soporte" })\` en \`auth.ts\` y bloquea el reset. Si el callback \`jwt\` solo guarda el rol con
+  \`provider === "credentials"\` (Quick Stop), le suma \`"soporte"\`. Luego \`npm run build\` + \`pm2 restart\`.
+- La ruta redirige a \`/admin\`: cámbialo si el admin vive en otra parte (Hiperbárico: \`/profesional\`).
+- **Apps de un solo dueño** cuyo panel exige una ficha propia (Hiperbárico pide \`Profesional\`): \`authorizeSoporte\` devuelve
+  la cuenta de la dueña en vez de crear el usuario oculto (como "Abrir mi sistema" del POS).
+- **Sesión propia sin NextAuth** (Karen Ramos, cookie \`karengi_session\` con jose): misma verificación del kit; la ruta crea el
+  usuario y firma la cookie de la app. Si \`passwordHash\` es obligatorio, se guarda el hash de una clave aleatoria.
+- El panel sondea \`<base>/api/gobernanza/soporte\` sin token: solo si responde **401** muestra la entrada (404 o una
+  redirección = no lo tiene). La base sale del \`apiUrl\` del cliente: si la app cambió de dominio, actualízalo en el panel.
+- Una licencia vencida o suspendida también bloquea al soporte (va a \`/suspendido\`): es lo esperado.
+
+**Estado (nov-2026):** POS (todos los locales LISTO), PodoClinic, Bisodent, Centro Bambú, Quick Stop, Centro Hiperbárico
+(\`oxigenocentro.com\`) y Karen Ramos. Sin acceso: Sunorte (sitio estático, sin login), Mupar GPS (Traccar: usar sus tokens
+de sesión) y Doña Any (MANUAL).
+
 ---
 
 ## Estándar obligatorio: Correos automáticos en apps cliente
