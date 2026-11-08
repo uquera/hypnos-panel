@@ -20,11 +20,12 @@ export function conAcceso(c: CuentaAcceso | null | undefined): c is CuentaAcceso
   return !!c && c.estadoAlta === "LISTO" && !!c.cliente?.masterKey && /^https:\/\//.test(c.posUrl)
 }
 
-function firmar(masterKey: string, email: string): string {
+// claims: { posEmail } para "Abrir mi sistema" o { soporte: true, por } para la entrada de soporte de Hypnos
+function firmar(masterKey: string, claims: Record<string, unknown>): string {
   const ahora = Math.floor(Date.now() / 1000)
   const head = b64(JSON.stringify({ alg: "HS256", typ: "JWT" }))
   const body = b64(JSON.stringify({
-    posEmail: email.trim().toLowerCase(), aud: AUDIENCIA, iss: "panel.hypnosapps.com",
+    ...claims, aud: AUDIENCIA, iss: "panel.hypnosapps.com",
     iat: ahora, exp: ahora + 120, jti: crypto.randomBytes(16).toString("hex"),
   }))
   const firma = crypto.createHmac("sha256", masterKey.trim()).update(`${head}.${body}`).digest("base64url")
@@ -38,7 +39,17 @@ export function urlAbrirSistema(c: CuentaAcceso, email: string, ir?: string | nu
   // ir: pantalla del sistema a abrir (solo rutas internas, p. ej. /configuracion/impresoras)
   const destino = ir && /^\/[a-z0-9/_-]*$/i.test(ir) && !ir.startsWith("//") ? ir : ""
   if (!conAcceso(c)) return destino ? `${base(c)}${destino}` : c.posUrl
-  return `${base(c)}/auto-login?token=${encodeURIComponent(firmar(c.cliente.masterKey, email))}${destino ? `&next=${encodeURIComponent(destino)}` : ""}`
+  return `${base(c)}/auto-login?token=${encodeURIComponent(firmar(c.cliente.masterKey, { posEmail: email.trim().toLowerCase() }))}${destino ? `&next=${encodeURIComponent(destino)}` : ""}`
+}
+
+/**
+ * Entrada de soporte del admin de Hypnos: abre el sistema como el usuario oculto
+ * "Hypnos (soporte)" (ADMIN, sin contraseña), que el POS crea al canjear el token.
+ * Solo locales con acceso (alta automática); null si no aplica.
+ */
+export function urlSoporte(c: CuentaAcceso, por: string): string | null {
+  if (!conAcceso(c)) return null
+  return `${base(c)}/auto-login?token=${encodeURIComponent(firmar(c.cliente.masterKey, { soporte: true, por: por.slice(0, 80) }))}`
 }
 
 /** Manda el hash al POS para que la contraseña del portal sirva también en el sistema. Nunca lanza. */

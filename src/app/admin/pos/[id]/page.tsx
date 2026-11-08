@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { ArrowLeft, Braces, ExternalLink } from "lucide-react"
+import { ArrowLeft, Braces, ExternalLink, ShieldCheck } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { urlLogo } from "@/lib/pos/logo"
@@ -78,6 +78,14 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
               className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50">
               <ExternalLink size={13} /> Abrir sistema
             </a>
+            {!cuenta.eliminadaAt && cuenta.estadoAlta === "LISTO" && (
+              <form action={`/api/pos-admin/cuentas/${cuenta.id}/soporte`} method="post" target="_blank">
+                <button type="submit" title="Entra al sistema del local como Hypnos (soporte), con permisos de administrador"
+                  className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-gray-700">
+                  <ShieldCheck size={13} /> Entrar como admin
+                </button>
+              </form>
+            )}
             <a href={`/api/pos-app/config?code=${cuenta.codigo}`} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50">
               <Braces size={13} /> Config de la app
