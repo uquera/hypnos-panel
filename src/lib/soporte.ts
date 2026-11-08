@@ -32,7 +32,7 @@ function firmar(masterKey: string, por: string): string {
 
 /**
  * URL de un uso para entrar como admin, o el motivo por el que no se puede.
- * Antes de firmar consulta si el sistema tiene el canje (sin token responde 401; sin la ruta, 404).
+ * Antes de firmar consulta si el sistema tiene el canje (sin token responde 401).
  */
 export async function urlSoporteCliente(c: ClienteSoporte, por: string): Promise<{ url: string } | { error: string }> {
   const pos = c.posCuentas.find((p) => !p.eliminadaAt && p.estadoAlta === "LISTO")
@@ -44,7 +44,8 @@ export async function urlSoporteCliente(c: ClienteSoporte, por: string): Promise
   if (!base) return { error: "Este sistema no usa la ruta estándar de gobernanza: el acceso de soporte no está disponible." }
   try {
     const r = await fetch(`${base}/api/gobernanza/soporte`, { redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(8000) })
-    if (r.status === 404) return { error: "Este sistema todavía no tiene el acceso de soporte (punto 7 del estándar de gobernanza)." }
+    // el canje responde 401 sin token; 404, una redirección u otra cosa = no lo tiene
+    if (r.status !== 401) return { error: "Este sistema todavía no tiene el acceso de soporte (punto 7 del estándar de gobernanza)." }
   } catch {
     return { error: "El sistema no responde. Revisa que esté en línea." }
   }
