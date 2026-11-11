@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { ScanBarcode, Wallet, PackageSearch, NotebookPen, BarChart3, Scale, Truck, CreditCard, Check, MessageCircle } from "lucide-react"
+import { ScanBarcode, Wallet, PackageSearch, NotebookPen, BarChart3, Scale, Truck, CreditCard, Check, MessageCircle, Play } from "lucide-react"
 import { precioMensual, diasPrueba, formatoCLP } from "@/lib/pos/config"
 import AlmacenForm from "./AlmacenForm"
 
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic"
 
 const WA = "https://wa.me/56933688302?text=" + encodeURIComponent("Hola, tengo un almacén y quiero conocer el sistema de caja de Hypnos")
+const DEMO = "https://demo-almacen.hypnosapps.com"
 const PUESTA_EN_MARCHA = 100_000
 
 const DOLORES = [
@@ -103,8 +104,9 @@ export default function AlmacenesPage() {
           <p className="mt-4 max-w-lg text-lg text-stone-600">Escanea, cobra y sabe cuánto vendiste hoy. Controla el stock y los fiados sin cuadernos ni planillas.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a href="#probar" className={cta}>Probar gratis {dias} días</a>
-            <a href={WA} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-[#ffffff] px-5 text-base font-semibold text-stone-800"><MessageCircle size={18} className="text-emerald-600" /> Hablar por WhatsApp</a>
+            <a href={DEMO} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-[#ffffff] px-5 text-base font-semibold text-stone-800"><Play size={18} className="text-[#f26522]" /> Ver la demo ahora</a>
           </div>
+          <p className="mt-2 text-sm text-stone-500">La demo se abre al tiro, sin registrarte: un almacén de ejemplo para vender, recibir mercadería y anotar fiados.</p>
           <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-stone-600">
             {["Sin tarjeta", "Listo en 2 minutos", "Funciona en el celular que ya tienes"].map(t => <li key={t} className="flex items-center gap-1.5"><Check size={15} className="text-emerald-600" /> {t}</li>)}
           </ul>
@@ -188,6 +190,7 @@ export default function AlmacenesPage() {
             <ul className="mt-5 space-y-2 text-stone-200">
               {[`${dias} días gratis, sin tarjeta`, "Tu sistema queda en tu propia dirección web", "Si no te sirve, no pagas nada"].map(t => <li key={t} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-emerald-400" /> {t}</li>)}
             </ul>
+            <p className="mt-6 text-sm text-stone-300">¿Prefieres mirar primero? <a href={DEMO} target="_blank" rel="noopener noreferrer" className="font-semibold text-white underline">Abre la demo sin registrarte</a>.</p>
           </div>
           <AlmacenForm dias={dias} precio={precio} />
         </div>
