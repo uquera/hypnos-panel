@@ -76,13 +76,11 @@ function Acciones({ f }: { f: FilaTablero }) {
       {f.estadoAlta === "LISTO" || f.manual
         ? <a href={f.posUrl} target="_blank" rel="noreferrer" className={btn} title="Abrir sistema"><ExternalLink size={15} /></a>
         : null}
+      {/* Un ingreso necesita comprobante y custodio: se registra en la ficha, no aquí */}
       {f.tieneLicencia && f.estado !== "INSTALANDO" && f.estado !== "ERROR" && (
         <button type="button" className={btn} title={`Registrar pago (${clp(f.precio)})`} disabled={!!loading}
-          onClick={() => {
-            const m = prompt(`Monto recibido de ${f.nombre} (CLP). Extiende 1 mes y avisa al dueño:`, String(f.precio))
-            if (m && Number(m.replace(/[^\d]/g, "")) > 0) run("pago", { accion: "pago-manual", monto: m }, "Pago registrado")
-          }}>
-          {loading === "pago" ? <Loader2 size={15} className="animate-spin" /> : <Banknote size={15} />}
+          onClick={() => router.push(`/admin/pos/${f.id}?pago=1`)}>
+          <Banknote size={15} />
         </button>
       )}
       {f.tieneLicencia && f.estadoAlta !== "ERROR" && (

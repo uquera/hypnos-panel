@@ -34,12 +34,14 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
   ])
   if (!cuenta) notFound()
 
-  const [usuarios, comprobantes, pagos] = await Promise.all([
+  const [usuarios, comprobantes, pagos, integrantes] = await Promise.all([
     prisma.posUsuario.findMany({ where: { cuentaId: id }, orderBy: [{ rol: "asc" }, { createdAt: "asc" }] }),
     prisma.posComprobante.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" } }),
     cuenta.clienteId
       ? prisma.pago.findMany({ where: { clienteId: cuenta.clienteId }, orderBy: { fechaPago: "desc" }, include: { registradoPor: { select: { nombre: true } } } })
       : Promise.resolve([]),
+    // Posibles custodios del ingreso: los integrantes activos del panel
+    prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
   ])
 
   const fila = filaTablero(cuenta)
@@ -100,6 +102,8 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
         precioGeneral={precioMensual()}
         tieneDueno={!!dueno}
         clienteId={cuenta.clienteId}
+        integrantes={integrantes}
+        yoId={session.user.id ?? ""}
       />
 
       <section className="space-y-3">
