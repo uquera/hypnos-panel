@@ -83,6 +83,11 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
   Credenciales `TUU_ONLINE_ACCOUNT_ID`, `TUU_ONLINE_SECRET`, `TUU_ONLINE_ENV` (test|prod) solo en el `.env` del VPS;
   sin ellas no aparece el botón y quedan el link fijo y el comprobante. Log: `[tuu-licencia]` (sin firma ni secretos).
   El link de pago de cada restaurante se ve en su ficha (`/admin/pos/<id>#pago-online`).
+  El ingreso queda a nombre del **dueño del panel** (`POS_OPERADOR_EMAIL`, por defecto el `OWNER_EMAIL`):
+  el dinero entra a la cuenta de TUU, que es suya. Se busca por correo a propósito — con "el primer ADMIN
+  creado" bastaba desactivar esa cuenta para que todo pago ya cobrado cayera en `ERROR`.
+  No lleva archivo de comprobante (el respaldo es la transacción): se guarda `comprobanteNota = "respaldo TUU · <ref>"`,
+  que se ve en Ingresos y en la auditoría en vez de "sin comprobante".
 - Precio: `POS_PRECIO_MENSUAL` (20000) o `PosCuenta.precioMensual`; `POS_DATOS_TRANSFERENCIA` (multilínea, `\n`);
   `POS_DIAS_GRACIA` (3).
 - Cron diario `GET /api/cron/pos-cobros` (header `x-cron-secret: $CRON_SECRET`, `?dry=1` para simular):

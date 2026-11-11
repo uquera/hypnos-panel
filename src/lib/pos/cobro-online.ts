@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto"
 import { prisma } from "@/lib/prisma"
+import { OWNER_EMAIL } from "@/lib/auth"
 import { createTuuPayment, telefonoCl, tuuOnlineConfig, type TuuOnlineConfig } from "@/lib/tuu-online"
 import { ErrorPos } from "./usuarios"
 import { correoCobroDe, precioDe, registrarPagoPos } from "./cobro"
@@ -116,11 +117,25 @@ export async function crearCobroOnline(p: { cuentaId: string; meses: number; ori
 
 // ─── 2. Callback de TUU ───────────────────────────────────────────────────────
 
-/** Operador con el que quedan registrados los pagos en línea (Pago.registradoPorId exige un usuario del panel). */
+/**
+ * Usuario del panel con el que queda registrado un pago en línea.
+ *
+ * `Pago.registradoPorId` exige un usuario y, sin reparto de custodia, el ingreso queda a su
+ * nombre. Eso es lo correcto aquí: el cobro entra a la cuenta de TUU, que es del dueño de
+ * Hypnos. Se busca por correo —no por "el primer ADMIN creado"—, porque ese orden cambia
+ * solo (se desactiva una cuenta, se crea otra antes) y dejaría los pagos ya cobrados por
+ * TUU en estado ERROR. Se puede fijar otro con POS_OPERADOR_EMAIL.
+ */
 async function operadorSistema() {
-  const u = await prisma.user.findFirst({ where: { role: "ADMIN", activo: true }, orderBy: { createdAt: "asc" }, select: { id: true } })
-  if (!u) throw new Error("No hay un usuario ADMIN activo para registrar el pago")
-  return { id: u.id, nombre: "Pago en línea TUU" }
+  const correo = (process.env.POS_OPERADOR_EMAIL || OWNER_EMAIL).trim().toLowerCase()
+  const dueno = await prisma.user.findUnique({ where: { email: correo }, select: { id: true, nombre: true, activo: true } })
+  if (dueno?.activo) return { id: dueno.id, nombre: dueno.nombre }
+
+  // Respaldo: TUU ya cobró, así que antes de perder el pago se registra con cualquier ADMIN
+  const otro = await prisma.user.findFirst({ where: { role: "ADMIN", activo: true }, orderBy: { createdAt: "asc" }, select: { id: true, nombre: true } })
+  if (!otro) throw new Error(`No hay usuario para registrar el pago (${correo} no existe o está inactivo, y no queda ningún ADMIN activo)`)
+  console.warn("[tuu-licencia] operador de respaldo", { esperado: correo, usado: otro.nombre })
+  return { id: otro.id, nombre: otro.nombre }
 }
 
 export type ResultadoCallback =
@@ -176,6 +191,9 @@ export async function procesarCallbackTuu(f: Record<string, string>, cfg: TuuOnl
       monto: cobro.monto,
       meses: cobro.meses,
       notas: `Hypnos POS · pago en línea TUU ${referencia} · ${cobro.meses === 1 ? "1 mes" : `${cobro.meses} meses`}`,
+      // No hay archivo que adjuntar: el respaldo es la transacción de TUU. Se deja escrito
+      // para que el ingreso no se vea como uno cargado a mano y sin documento.
+      comprobanteNota: `respaldo TUU · ${referencia}`,
       operador: await operadorSistema(),
       avisar: true, // un solo correo de comprobante al dueño (este callback gana una sola vez)
     })
