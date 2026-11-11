@@ -29,7 +29,8 @@ export default async function PosCuentasPage() {
     getLinksPago(),
   ])
   const filas = cuentas.map(filaTablero)
-  const vivas = filas.filter(f => !f.eliminada)
+  // Los archivados salen del tablero y de los totales (ver PosTablero)
+  const vivas = filas.filter(f => !f.eliminada && !f.archivada)
 
   // Resumen
   const mesActual = claveDiaChile(new Date()).slice(0, 7)

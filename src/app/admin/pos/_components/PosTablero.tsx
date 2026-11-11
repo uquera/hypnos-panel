@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ExternalLink, Search, Store, MessageCircle, Loader2, RotateCcw, PauseCircle, PlayCircle, Banknote, FileClock } from "lucide-react"
+import { ExternalLink, Search, Store, MessageCircle, Loader2, RotateCcw, PauseCircle, PlayCircle, Banknote, FileClock, Archive, ArchiveRestore } from "lucide-react"
 import type { FilaTablero } from "@/lib/pos/tablero"
 import { accionPos } from "./accionPos"
 
@@ -20,6 +20,9 @@ const FILTROS: { id: string; label: string; estados: string[] }[] = [
   { id: "manual",     label: "Manual",      estados: ["MANUAL"] },
   { id: "eliminadas", label: "Eliminadas",  estados: ["ELIMINADA"] },
 ]
+
+// "archivados" no filtra por estado: es una bandeja aparte, fuera del tablero
+const FILTRO_ARCHIVADOS = "archivados"
 
 export const COLOR_ESTADO: Record<string, string> = {
   AL_DIA:     "bg-green-100 text-green-700",
@@ -71,6 +74,19 @@ function Acciones({ f }: { f: FilaTablero }) {
   }
   const btn = "inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
   if (f.eliminada) return null
+
+  // Archivada: solo se ofrece devolverla al tablero
+  if (f.archivada) {
+    return (
+      <div className="flex items-center gap-0.5 justify-end">
+        <button type="button" className={btn} title="Devolver al tablero" disabled={!!loading}
+          onClick={() => run("arch", { accion: "desarchivar" }, `${f.nombre} vuelve al tablero`)}>
+          {loading === "arch" ? <Loader2 size={15} className="animate-spin" /> : <ArchiveRestore size={15} />}
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-0.5 justify-end">
       {f.estadoAlta === "LISTO" || f.manual
@@ -83,6 +99,10 @@ function Acciones({ f }: { f: FilaTablero }) {
           <Banknote size={15} />
         </button>
       )}
+      <button type="button" className={btn} title="Archivar (sacar del tablero)" disabled={!!loading}
+        onClick={() => run("arch", { accion: "archivar" }, `${f.nombre} archivado`)}>
+        {loading === "arch" ? <Loader2 size={15} className="animate-spin" /> : <Archive size={15} />}
+      </button>
       {f.tieneLicencia && f.estadoAlta !== "ERROR" && (
         f.suspendida
           ? <button type="button" className={btn} title="Reactivar" disabled={!!loading} onClick={() => run("sus", { accion: "reactivar" }, "Reactivado")}>
@@ -108,17 +128,24 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
 
   const conteo = useMemo(() => {
     const m: Record<string, number> = {}
+    const enTablero = filas.filter(f => !f.archivada)
     for (const F of FILTROS) {
-      m[F.id] = F.id === "todos" ? filas.filter(f => !f.eliminada).length : filas.filter(f => F.estados.includes(f.estado)).length
+      m[F.id] = F.id === "todos" ? enTablero.filter(f => !f.eliminada).length : enTablero.filter(f => F.estados.includes(f.estado)).length
     }
+    m[FILTRO_ARCHIVADOS] = filas.filter(f => f.archivada).length
     return m
   }, [filas])
 
   const lista = useMemo(() => {
-    const F = FILTROS.find(x => x.id === filtro)!
     const t = q.trim().toLowerCase()
-    return filas
-      .filter(f => F.id === "todos" ? !f.eliminada : F.estados.includes(f.estado))
+    const base = filtro === FILTRO_ARCHIVADOS
+      ? filas.filter(f => f.archivada)
+      : (() => {
+          const F = FILTROS.find(x => x.id === filtro)!
+          // Los archivados no estorban en ninguna vista: tienen la suya
+          return filas.filter(f => !f.archivada).filter(f => F.id === "todos" ? !f.eliminada : F.estados.includes(f.estado))
+        })()
+    return base
       .filter(f => !t || [f.nombre, f.codigo, f.posUrl, f.dueno ?? "", f.email ?? "", f.whatsapp].some(v => v.toLowerCase().includes(t)))
   }, [q, filtro, filas])
 
@@ -131,7 +158,18 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
             {F.label} <span className="opacity-60">{conteo[F.id]}</span>
           </button>
         ))}
+        {(conteo[FILTRO_ARCHIVADOS] > 0 || filtro === FILTRO_ARCHIVADOS) && (
+          <button type="button" onClick={() => setFiltro(FILTRO_ARCHIVADOS)}
+            className={`px-3 h-8 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${filtro === FILTRO_ARCHIVADOS ? "bg-gray-900 text-white" : "bg-white border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50"}`}>
+            <Archive size={12} /> Archivados <span className="opacity-60">{conteo[FILTRO_ARCHIVADOS]}</span>
+          </button>
+        )}
       </div>
+      {filtro === FILTRO_ARCHIVADOS && (
+        <p className="text-xs text-gray-500">
+          Fuera del tablero y de los totales de arriba. Su licencia y su sistema siguen tal cual: archivar solo limpia la lista.
+        </p>
+      )}
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por restaurante, código, dueño, correo o WhatsApp"

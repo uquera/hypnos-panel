@@ -246,6 +246,7 @@ model PosCuenta {
   terminosAt         DateTime?                           // aceptación de términos en el registro público
   precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
   eliminadaAt        DateTime?                           // eliminada (instancia respaldada y fuera de línea); se conserva el historial
+  archivadaAt        DateTime?                           // fuera del tablero para no estorbar (suspendidos, impagos); no cambia licencia ni instancia
   // Onboarding (registro / crear restaurante): se pasa a hypnos-pos-tenant create.
   // Archivos en POS_ONBOARDING_DIR/<cuentaId>/ (por defecto uploads/pos-onboarding), fuera de public.
   menuUrl            String       @default("")           // menú online a importar (Fudo u otro)

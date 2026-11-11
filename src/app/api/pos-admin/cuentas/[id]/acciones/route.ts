@@ -21,6 +21,7 @@ import { leerResultadoAlta, validarMenuUrl } from "@/lib/pos/onboarding"
 //   suspender | reactivar
 //   extender-prueba    dias (7|14|…) o fecha (YYYY-MM-DD)
 //   pasar-pagado       quita enPrueba
+//   archivar | desarchivar  saca la cuenta del tablero (o la devuelve) sin tocar licencia ni instancia
 //   reenviar           correo de bienvenida (si está instalado) + invitación al portal
 //   reintentar         vuelve a lanzar la instalación (estado ERROR o estancada)
 //   verificar          hypnos-pos-tenant status
@@ -133,6 +134,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       case "pasar-pagado": {
         const r = await cambiarLicenciaPos(id, { enPrueba: false }, operador)
         return NextResponse.json({ ok: true, ...r })
+      }
+
+      case "archivar":
+      case "desarchivar": {
+        // Solo limpia el tablero: la licencia, la instancia y los cobros siguen igual.
+        const archivar = accion === "archivar"
+        if (archivar === !!cuenta.archivadaAt) {
+          throw new ErrorPos(archivar ? "Ya estaba archivada." : "No estaba archivada.")
+        }
+        await prisma.posCuenta.update({ where: { id }, data: { archivadaAt: archivar ? new Date() : null } })
+        await log(archivar ? "archivó la cuenta (fuera del tablero)" : "la devolvió al tablero",
+                  archivar ? "POS_CUENTA_ARCHIVADA" : "POS_CUENTA_DESARCHIVADA")
+        return NextResponse.json({ ok: true, archivada: archivar })
       }
 
       case "reenviar": {
