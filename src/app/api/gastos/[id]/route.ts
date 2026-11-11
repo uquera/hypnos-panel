@@ -66,7 +66,7 @@ export async function PATCH(
     if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Archivo supera 10 MB" }, { status: 400 })
 
     const buf     = Buffer.from(await file.arrayBuffer())
-    const revisto = await revisarComprobante(buf, file.name, { concepto, monto, moneda, fecha: new Date(fecha) }, id)
+    const revisto = await revisarComprobante(buf, file.name, { concepto, monto, moneda, fecha: new Date(fecha) }, { gastoId: id })
 
     if (revisto.veredicto === "invalido")
       return NextResponse.json({ error: revisto.motivo }, { status: 400 })
@@ -96,7 +96,7 @@ export async function PATCH(
     // sello al día para que en la lista se vea si sigue calzando.
     try {
       const buf     = await fs.readFile(path.join(UPLOAD_DIR, gasto.comprobante))
-      const revisto = await revisarComprobante(buf, gasto.comprobante, { concepto, monto, moneda, fecha: new Date(fecha) }, id)
+      const revisto = await revisarComprobante(buf, gasto.comprobante, { concepto, monto, moneda, fecha: new Date(fecha) }, { gastoId: id })
       comprobanteOk   = revisto.limpio
       comprobanteNota = revisto.limpio ? revisto.nota : `tras editar · ${revisto.nota}`
       comprobanteHash = revisto.hash

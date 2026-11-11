@@ -107,6 +107,8 @@ export default async function PagosPage() {
     periodoFin:      p.periodoFin?.toISOString()    ?? null,
     fechaPago:       p.fechaPago.toISOString(),
     comprobante:     p.comprobante,
+    comprobanteOk:   p.comprobanteOk,
+    comprobanteNota: p.comprobanteNota,
     notas:           p.notas,
     registradoPor:   p.registradoPor.nombre,
     registradoPorId: p.registradoPorId,

@@ -6,18 +6,20 @@ import { adminPos, jsonError, manejar, operadorDe } from "@/lib/pos/api"
 import { ErrorPos } from "@/lib/pos/usuarios"
 import { registrarPagoPos, precioDe } from "@/lib/pos/cobro"
 import { finDelDiaChile } from "@/lib/pos/fechas"
-import { tipoReal, COMPROBANTE_MAX_BYTES } from "@/lib/pos/comprobantes"
+import { COMPROBANTE_MAX_BYTES } from "@/lib/pos/comprobantes"
+import { revisarComprobante, mensajeComprobante } from "@/lib/comprobantes-guard"
 import { prisma } from "@/lib/prisma"
 
 // POST /api/pos-admin/cuentas/:id/pago — registra el cobro mensual de un restaurante
 // como un ingreso del estándar de Hypnos (solo ADMIN). Multipart, porque lleva archivo:
 //   monto, meses, fechaPago (YYYY-MM-DD), notas
-//   comprobante  archivo (JPG/PNG/WebP/PDF, ≤8 MB) — se guarda en uploads/comprobantes
+//   comprobante  archivo (JPG/PNG/WebP/PDF, ≤8 MB) — revisado como el de un gasto y
+//                guardado en uploads/comprobantes; 422 = dudoso, se reintenta con
+//                confirmarComprobante=1
 //   custodias    JSON [{userId, monto}] — debe sumar el monto; vacío = custodio el operador
 // Extiende la licencia y la sincroniza con la instancia (lo hace registrarPagoPos).
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
-const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" } as const
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await adminPos()
@@ -26,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   return manejar(async () => {
     const operador = await operadorDe(session)
-    const cuenta = await prisma.posCuenta.findUnique({ where: { id }, select: { id: true, eliminadaAt: true, precioMensual: true } })
+    const cuenta = await prisma.posCuenta.findUnique({ where: { id }, select: { id: true, nombre: true, eliminadaAt: true, precioMensual: true } })
     if (!cuenta) throw new ErrorPos("Cuenta no encontrada.", 404)
     if (cuenta.eliminadaAt) throw new ErrorPos("La cuenta está eliminada.")
 
@@ -47,15 +49,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       try { custodias = JSON.parse(custodiasRaw) } catch { throw new ErrorPos("Reparto de custodia no válido.") }
     }
 
-    // Comprobante: se exige tipo real por los primeros bytes, no por el nombre ni el Content-Type
-    let comprobante: string | null = null
+    // Comprobante: tipo real por los primeros bytes (no por el nombre ni el Content-Type)
+    // y la misma revisión que los gastos — que se lea como comprobante de pago y que
+    // no esté ya adjunto en otro movimiento. Lo dudoso se puede confirmar a mano.
+    let comprobante:     string | null  = null
+    let comprobanteOk:   boolean | null = null
+    let comprobanteNota: string | null  = null
+    let comprobanteHash: string | null  = null
     const archivo = fd.get("comprobante")
     if (archivo instanceof File && archivo.size > 0) {
       if (archivo.size > COMPROBANTE_MAX_BYTES) throw new ErrorPos("El comprobante pesa más de 8 MB.")
-      const buf  = Buffer.from(await archivo.arrayBuffer())
-      const mime = tipoReal(buf)
-      if (!mime) throw new ErrorPos("El comprobante debe ser una imagen (JPG, PNG, WebP) o un PDF.")
-      comprobante = `${randomUUID()}.${EXT[mime]}`
+      const buf = Buffer.from(await archivo.arrayBuffer())
+
+      const revisto = await revisarComprobante(buf, archivo.name, {
+        concepto: cuenta.nombre, monto, moneda: "CLP", fecha: fecha ?? new Date(), ambito: "ingreso",
+      })
+      if (revisto.veredicto === "invalido") throw new ErrorPos(revisto.motivo ?? "El archivo no es un documento.")
+      if (!revisto.limpio && fd.get("confirmarComprobante") !== "1") {
+        return NextResponse.json(
+          { error: mensajeComprobante(revisto), comprobante: { ...revisto, hash: undefined } },
+          { status: 422 },
+        )
+      }
+
+      comprobante     = `${randomUUID()}.${revisto.tipo}`
+      comprobanteOk   = revisto.limpio
+      comprobanteNota = revisto.limpio ? revisto.nota : `confirmado a mano · ${revisto.nota}`
+      comprobanteHash = revisto.hash
       await fs.mkdir(UPLOAD_DIR, { recursive: true })
       await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buf)
     }
@@ -64,7 +84,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const r = await registrarPagoPos({
         cuentaId: id, monto, meses, fechaPago: fecha ?? new Date(),
         notas: String(fd.get("notas") ?? "").trim().slice(0, 300) || "Hypnos POS · pago registrado por Hypnos",
-        comprobante, custodias, operador,
+        comprobante, comprobanteOk, comprobanteNota, comprobanteHash, custodias, operador,
       })
       return NextResponse.json({
         ok: true, hasta: r.hasta.toISOString(), pagoId: r.pago.id,

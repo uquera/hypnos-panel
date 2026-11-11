@@ -5,10 +5,10 @@ import { NextResponse } from "next/server"
 import path from "path"
 import fs from "fs/promises"
 import { randomUUID } from "crypto"
+import { revisarComprobante, mensajeComprobante } from "@/lib/comprobantes-guard"
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
 const CONCEPTOS_VALIDOS = ["LICENCIA", "MARKETING", "DESARROLLO"]
 
 // PATCH /api/pagos/[id] — editar pago (solo ADMIN)
@@ -22,7 +22,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Solo administradores pueden editar ingresos" }, { status: 403 })
 
   const { id } = await params
-  const pago = await prisma.pago.findUnique({ where: { id } })
+  const pago = await prisma.pago.findUnique({ where: { id }, include: { cliente: { select: { nombre: true } } } })
   if (!pago) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 })
 
   const formData        = await req.formData()
@@ -61,19 +61,37 @@ export async function PATCH(
   if (concepto !== "LICENCIA" && !conceptoDetalle?.trim())
     return NextResponse.json({ error: "El detalle del servicio es obligatorio" }, { status: 400 })
 
-  let comprobante = pago.comprobante
+  // Reemplazar el comprobante pasa por la misma revisión que al registrarlo
+  let comprobante     = pago.comprobante
+  let comprobanteOk   = pago.comprobanteOk
+  let comprobanteNota = pago.comprobanteNota
+  let comprobanteHash = pago.comprobanteHash
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "El archivo supera el tamaño máximo de 10 MB" }, { status: 400 })
-    if (!ALLOWED_TYPES.includes(file.type))
-      return NextResponse.json({ error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" }, { status: 400 })
+
+    const buf     = Buffer.from(await file.arrayBuffer())
+    const revisto = await revisarComprobante(buf, file.name, {
+      concepto: conceptoDetalle?.trim() || pago.cliente.nombre, monto, moneda, fecha: new Date(fechaPago), ambito: "ingreso",
+    }, { pagoId: id })
+    if (revisto.veredicto === "invalido")
+      return NextResponse.json({ error: revisto.motivo }, { status: 400 })
+    if (!revisto.limpio && formData.get("confirmarComprobante") !== "1") {
+      return NextResponse.json(
+        { error: mensajeComprobante(revisto), comprobante: { ...revisto, hash: undefined } },
+        { status: 422 },
+      )
+    }
+
     if (pago.comprobante) {
       try { await fs.unlink(path.join(UPLOAD_DIR, pago.comprobante)) } catch { /* ignorar */ }
     }
-    const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg")
-    comprobante = `${randomUUID()}${ext}`
+    comprobante     = `${randomUUID()}${revisto.tipo === "pdf" ? ".pdf" : `.${revisto.tipo}`}`
+    comprobanteOk   = revisto.limpio
+    comprobanteNota = revisto.limpio ? revisto.nota : `confirmado a mano · ${revisto.nota}`
+    comprobanteHash = revisto.hash
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
+    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buf)
   }
 
   const updated = await prisma.$transaction(async tx => {
@@ -89,6 +107,9 @@ export async function PATCH(
         fechaPago:     new Date(fechaPago),
         notas:         notas || null,
         comprobante,
+        comprobanteOk,
+        comprobanteNota,
+        comprobanteHash,
       },
       include: {
         registradoPor: { select: { nombre: true } },

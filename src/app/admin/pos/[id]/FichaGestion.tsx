@@ -8,7 +8,8 @@ import {
   Save, Loader2, CalendarPlus, BadgeCheck, Banknote, PauseCircle, PlayCircle, Mail, RotateCcw, Trash2, Activity, Shield, Paperclip,
 } from "lucide-react"
 import type { FilaTablero } from "@/lib/pos/tablero"
-import { accionPos, postForm } from "../_components/accionPos"
+import { ModalComprobante, type AvisoComprobante } from "../../_components/ComprobanteAviso"
+import { accionPos, postFormDetallado } from "../_components/accionPos"
 
 interface Datos {
   nombre: string; dueno: string; email: string; whatsapp: string; notas: string; vence: string; precioMensual: string
@@ -35,6 +36,7 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
   const [panel, setPanel] = useState<"" | "pago" | "prueba" | "eliminar">(abrirPago ? "pago" : "")
   const [pago, setPago] = useState({ monto: String(fila.precio), meses: "1", fechaPago: hoyChile(), notas: "" })
   const [comprobante, setComprobante] = useState<File | null>(null)
+  const [malComprobante, setMalComprobante] = useState<{ fd: FormData; aviso: AvisoComprobante } | null>(null)
   const [custodias, setCustodias] = useState<Record<string, string>>({})
   const [fechaPrueba, setFechaPrueba] = useState("")
   const [confirmar, setConfirmar] = useState("")
@@ -97,11 +99,21 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
     fd.append("notas", pago.notas)
     if (reparto.length > 0) fd.append("custodias", JSON.stringify(reparto))
     if (comprobante) fd.append("comprobante", comprobante)
+    await enviarPago(fd)
+  }
 
+  // 422 = el comprobante no convence: se explica qué falta y se puede insistir.
+  async function enviarPago(fd: FormData) {
     setLoading("pago")
-    const d = await postForm(`/api/pos-admin/cuentas/${fila.id}/pago`, fd)
+    const r = await postFormDetallado(`/api/pos-admin/cuentas/${fila.id}/pago`, fd, [422])
     setLoading("")
-    if (!d) return
+    if (!r) return
+    if (r.status === 422 && r.data.comprobante) {
+      setMalComprobante({ fd, aviso: r.data.comprobante as AvisoComprobante })
+      return
+    }
+    if (!r.ok) return
+    setMalComprobante(null)
     toast.success("Ingreso registrado; licencia extendida")
     setPanel("")
     setComprobante(null)
@@ -323,6 +335,20 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
                 onClick={() => run("pf", { accion: "extender-prueba", fecha: fechaPrueba }, "Prueba extendida", () => setPanel(""))}>Hasta esa fecha</button>
             </div>
           </div>
+        )}
+
+        {malComprobante && (
+          <ModalComprobante
+            aviso={malComprobante.aviso}
+            ambito="ingreso"
+            submitting={loading === "pago"}
+            onOtro={() => { setMalComprobante(null); setComprobante(null) }}
+            onIgual={() => {
+              const fd = malComprobante.fd
+              fd.set("confirmarComprobante", "1")
+              enviarPago(fd)
+            }}
+          />
         )}
 
         {panel === "eliminar" && (

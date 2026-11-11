@@ -8,6 +8,7 @@ import {
   Sparkles, Code2, Receipt, Search,
 } from "lucide-react"
 import { toast } from "sonner"
+import { ModalComprobante, SelloComprobante, type AvisoComprobante } from "../_components/ComprobanteAviso"
 
 // ─── Verticales ───────────────────────────────────────────────────────────────
 
@@ -70,6 +71,8 @@ interface PagoItem {
   periodoFin: string | null
   fechaPago: string
   comprobante: string | null
+  comprobanteOk: boolean | null
+  comprobanteNota: string | null
   notas: string | null
   registradoPor: string
   registradoPorId: string
@@ -401,6 +404,7 @@ function ModalRegistrarPago({
   const [file, setFile]            = useState<File | null>(null)
   const [submitting, setSub]       = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [malComprobante, setMalComprobante] = useState<{ fd: FormData; aviso: AvisoComprobante } | null>(null)
   const [busqCliente, setBusq]     = useState("")
   const [dropOpen, setDropOpen]    = useState(false)
   const fileRef                    = useRef<HTMLInputElement>(null)
@@ -444,30 +448,54 @@ function ModalRegistrarPago({
     const splitCustodias = Object.entries(custodias)
       .map(([userId, m]) => ({ userId, monto: parseFloat(m) || 0 }))
       .filter(c => c.monto > 0)
+
+    const fd = new FormData()
+    fd.append("monto",           form.monto)
+    fd.append("moneda",          form.moneda)
+    fd.append("concepto",        form.concepto)
+    fd.append("conceptoDetalle", form.conceptoDetalle)
+    fd.append("periodoInicio",   form.periodoInicio)
+    fd.append("periodoFin",      form.periodoFin)
+    fd.append("fechaPago",       form.fechaPago)
+    fd.append("notas",           form.notas)
+    fd.append("custodias",       JSON.stringify(splitCustodias))
+    if (file) fd.append("comprobante", file)
+    await enviarIngreso(fd)
+  }
+
+  // 422 = el comprobante no convence: se muestra qué falta y, si el operador
+  // insiste, se reenvía lo mismo marcado como confirmado a mano.
+  async function enviarIngreso(fd: FormData) {
     setSub(true)
     try {
-      const fd = new FormData()
-      fd.append("monto",           form.monto)
-      fd.append("moneda",          form.moneda)
-      fd.append("concepto",        form.concepto)
-      fd.append("conceptoDetalle", form.conceptoDetalle)
-      fd.append("periodoInicio",   form.periodoInicio)
-      fd.append("periodoFin",      form.periodoFin)
-      fd.append("fechaPago",       form.fechaPago)
-      fd.append("notas",           form.notas)
-      fd.append("custodias",       JSON.stringify(splitCustodias))
-      if (file) fd.append("comprobante", file)
-
       const res = await fetch(`/api/clientes/${form.clienteId}/pagos`, { method: "POST", body: fd })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
-      const { syncedRemote } = await res.json()
-      toast.success(syncedRemote ? "Ingreso registrado y sincronizado" : "Ingreso registrado")
+      const d   = await res.json().catch(() => ({}))
+      if (res.status === 422 && d.comprobante) {
+        setMalComprobante({ fd, aviso: d.comprobante as AvisoComprobante })
+        return
+      }
+      if (!res.ok) throw new Error(d.error)
+      setMalComprobante(null)
+      toast.success(d.syncedRemote ? "Ingreso registrado y sincronizado" : "Ingreso registrado")
       onSuccess()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al registrar el pago")
     } finally {
       setSub(false)
     }
+  }
+
+  function registrarSinVerificar() {
+    if (!malComprobante) return
+    const fd = malComprobante.fd
+    fd.set("confirmarComprobante", "1")
+    enviarIngreso(fd)
+  }
+
+  function otroComprobante() {
+    setMalComprobante(null)
+    setFile(null)
+    if (fileRef.current) fileRef.current.value = ""
   }
 
   return (
@@ -671,6 +699,16 @@ function ModalRegistrarPago({
           </div>
         </div>
       )}
+
+      {malComprobante && (
+        <ModalComprobante
+          aviso={malComprobante.aviso}
+          ambito="ingreso"
+          submitting={submitting}
+          onOtro={otroComprobante}
+          onIgual={registrarSinVerificar}
+        />
+      )}
     </div>
   )
 }
@@ -708,6 +746,7 @@ function ModalEditarPago({
   })
   const [file, setFile]      = useState<File | null>(null)
   const [submitting, setSub] = useState(false)
+  const [malComprobante, setMalComprobante] = useState<{ fd: FormData; aviso: AvisoComprobante } | null>(null)
   const fileRef              = useRef<HTMLInputElement>(null)
 
   function setField(key: string, val: string) { setForm(f => ({ ...f, [key]: val })) }
@@ -725,22 +764,32 @@ function ModalEditarPago({
         toast.error("El reparto de custodia no cuadra con el monto"); return
       }
     }
+    const fd = new FormData()
+    fd.append("concepto",        form.concepto)
+    fd.append("conceptoDetalle", form.conceptoDetalle)
+    fd.append("monto",           form.monto)
+    fd.append("moneda",          form.moneda)
+    fd.append("periodoInicio",   form.periodoInicio)
+    fd.append("periodoFin",      form.periodoFin)
+    fd.append("fechaPago",       form.fechaPago)
+    fd.append("notas",           form.notas)
+    fd.append("custodias",       JSON.stringify(splitCustodias))
+    if (file) fd.append("comprobante", file)
+    await guardarIngreso(fd)
+  }
+
+  // 422 = el comprobante nuevo no convence (ver alta)
+  async function guardarIngreso(fd: FormData) {
     setSub(true)
     try {
-      const fd = new FormData()
-      fd.append("concepto",        form.concepto)
-      fd.append("conceptoDetalle", form.conceptoDetalle)
-      fd.append("monto",           form.monto)
-      fd.append("moneda",          form.moneda)
-      fd.append("periodoInicio",   form.periodoInicio)
-      fd.append("periodoFin",      form.periodoFin)
-      fd.append("fechaPago",       form.fechaPago)
-      fd.append("notas",           form.notas)
-      fd.append("custodias",       JSON.stringify(splitCustodias))
-      if (file) fd.append("comprobante", file)
-
       const res = await fetch(`/api/pagos/${pago.id}`, { method: "PATCH", body: fd })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      const d   = await res.json().catch(() => ({}))
+      if (res.status === 422 && d.comprobante) {
+        setMalComprobante({ fd, aviso: d.comprobante as AvisoComprobante })
+        return
+      }
+      if (!res.ok) throw new Error(d.error)
+      setMalComprobante(null)
       toast.success("Ingreso actualizado")
       onSuccess()
     } catch (err: unknown) {
@@ -748,6 +797,19 @@ function ModalEditarPago({
     } finally {
       setSub(false)
     }
+  }
+
+  function guardarSinVerificar() {
+    if (!malComprobante) return
+    const fd = malComprobante.fd
+    fd.set("confirmarComprobante", "1")
+    guardarIngreso(fd)
+  }
+
+  function otroComprobante() {
+    setMalComprobante(null)
+    setFile(null)
+    if (fileRef.current) fileRef.current.value = ""
   }
 
   return (
@@ -867,6 +929,16 @@ function ModalEditarPago({
           </div>
         </form>
       </div>
+
+      {malComprobante && (
+        <ModalComprobante
+          aviso={malComprobante.aviso}
+          ambito="ingreso"
+          submitting={submitting}
+          onOtro={otroComprobante}
+          onIgual={guardarSinVerificar}
+        />
+      )}
     </div>
   )
 }
@@ -1124,6 +1196,7 @@ export default function PagosClient({
                         <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-1.5">
                           <FileText size={12} /> Ver comprobante
+                          <SelloComprobante ok={p.comprobanteOk} nota={p.comprobanteNota} />
                         </a>
                       )}
                     </div>
@@ -1334,6 +1407,7 @@ export default function PagosClient({
                         <a href={`/api/pagos/${p.id}/comprobante`} target="_blank" rel="noopener noreferrer"
                           className="text-xs text-indigo-600 flex items-center gap-1">
                           <FileText size={11} /> Comp.
+                          <SelloComprobante ok={p.comprobanteOk} nota={p.comprobanteNota} size={13} />
                         </a>
                       )}
                       {isAdmin && (

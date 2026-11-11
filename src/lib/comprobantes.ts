@@ -262,8 +262,13 @@ export function folioEtiquetado(texto: string): string | null {
 
 export function revisarTexto(
   texto: string,
-  ctx: { concepto: string; monto: number; moneda: string; fecha: Date },
+  // ambito solo cambia cómo se le nombran las señales al usuario: en un gasto el
+  // documento viene del proveedor; en un ingreso, del cliente que nos pagó.
+  ctx: { concepto: string; monto: number; moneda: string; fecha: Date; ambito?: "gasto" | "ingreso" },
 ): RevisionTexto {
+  const esIngreso = ctx.ambito === "ingreso"
+  const queEs     = esIngreso ? "ingreso" : "gasto"
+  const dequien   = esIngreso ? "cliente" : "proveedor"
   const limpio = texto.replace(/\s+/g, " ").trim()
   const exigido = puntajeExigido(limpio.length)
   if (limpio.length < MIN_CARACTERES) {
@@ -275,7 +280,7 @@ export function revisarTexto(
   const faltan:  string[] = []
 
   const dinero = montoComoDinero(limpio, ctx.monto)
-  if (dinero) senales.push({ clave: "monto", label: "el monto del gasto", peso: 3, evidencia: dinero })
+  if (dinero) senales.push({ clave: "monto", label: `el monto del ${queEs}`, peso: 3, evidencia: dinero })
   else faltan.push(`el monto (${ctx.moneda} ${ctx.monto})`)
 
   const linea = lineaDeImporte(limpio)
@@ -289,11 +294,11 @@ export function revisarTexto(
 
   const claves = tokensClave(ctx.concepto).filter(t => t.length >= 4)
   const prov   = claves.find(t => norm.includes(t))
-  if (prov) senales.push({ clave: "proveedor", label: "el nombre del proveedor", peso: 1, evidencia: prov })
-  else if (claves.length > 0) faltan.push(`el nombre del proveedor (${claves[0]})`)
+  if (prov) senales.push({ clave: "proveedor", label: `el nombre del ${dequien}`, peso: 1, evidencia: prov })
+  else if (claves.length > 0) faltan.push(`el nombre del ${dequien} (${claves[0]})`)
 
   if (fechaCercana(limpio, ctx.fecha)) senales.push({ clave: "fecha", label: "una fecha del período", peso: 1 })
-  else faltan.push("una fecha cercana a la del gasto")
+  else faltan.push(`una fecha cercana a la del ${queEs}`)
 
   const folio = folioEtiquetado(limpio)
   if (folio) senales.push({ clave: "folio", label: "un número de operación", peso: 1, evidencia: folio })

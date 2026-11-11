@@ -17,13 +17,17 @@ import {
   type RevisionTexto, type Senal, type TipoArchivo,
 } from "@/lib/comprobantes"
 
-export interface GastoConMismoArchivo {
+export interface RegistroConMismoArchivo {
+  tipo:     "gasto" | "ingreso"
   id:       string
   concepto: string
   monto:    number
   moneda:   string
   fecha:    string
 }
+
+/** @deprecated nombre anterior, cuando solo se revisaban gastos */
+export type GastoConMismoArchivo = RegistroConMismoArchivo
 
 export type VeredictoComprobante = "ok" | "debil" | "ilegible" | "recorte" | "invalido"
 
@@ -36,7 +40,7 @@ export interface ResultadoComprobante {
   motor:     MotorTexto
   tipo:      TipoArchivo | null
   hash:      string
-  repetido:  GastoConMismoArchivo | null
+  repetido:  RegistroConMismoArchivo | null
   /** Resumen corto que se guarda en el gasto y se muestra en la lista. */
   nota:      string
   /** true cuando el comprobante se puede dar por verificado sin preguntar. */
@@ -56,13 +60,13 @@ function motivoDeTexto(rev: RevisionTexto, motor: MotorTexto, tipo: TipoArchivo)
 export async function revisarComprobante(
   buf: Buffer,
   nombreOriginal: string,
-  ctx: { concepto: string; monto: number; moneda: string; fecha: Date },
-  excluirGastoId?: string,
+  ctx: { concepto: string; monto: number; moneda: string; fecha: Date; ambito?: "gasto" | "ingreso" },
+  excluir: { gastoId?: string; pagoId?: string } = {},
 ): Promise<ResultadoComprobante> {
   const hash = createHash("sha256").update(buf).digest("hex")
   const base = {
     faltan: [] as string[], senales: [] as Senal[], motor: "error" as MotorTexto,
-    hash, repetido: null as GastoConMismoArchivo | null,
+    hash, repetido: null as RegistroConMismoArchivo | null,
   }
 
   const archivo = revisarArchivo(buf, nombreOriginal)
@@ -70,15 +74,24 @@ export async function revisarComprobante(
     return { ...base, veredicto: "invalido", motivo: archivo.invalido, tipo: archivo.tipo, nota: "archivo inválido", limpio: false }
   }
 
-  // El mismo archivo ya adjunto a otro gasto: casi siempre es el comprobante
-  // de un mes reciclado para justificar otro.
-  const otro = await prisma.gasto.findFirst({
-    where: { comprobanteHash: hash, ...(excluirGastoId ? { id: { not: excluirGastoId } } : {}) },
-    select: { id: true, concepto: true, monto: true, moneda: true, fecha: true },
-    orderBy: { fecha: "desc" },
-  })
-  const repetido: GastoConMismoArchivo | null = otro
-    ? { id: otro.id, concepto: otro.concepto, monto: otro.monto, moneda: otro.moneda, fecha: otro.fecha.toISOString() }
+  // El mismo archivo ya adjunto a otro movimiento: casi siempre es el comprobante
+  // de un mes reciclado para justificar otro. Se busca en gastos y en ingresos,
+  // porque reusarlo de un lado al otro es igual de sospechoso.
+  const [otroGasto, otroPago] = await Promise.all([
+    prisma.gasto.findFirst({
+      where: { comprobanteHash: hash, ...(excluir.gastoId ? { id: { not: excluir.gastoId } } : {}) },
+      select: { id: true, concepto: true, monto: true, moneda: true, fecha: true },
+      orderBy: { fecha: "desc" },
+    }),
+    prisma.pago.findFirst({
+      where: { comprobanteHash: hash, ...(excluir.pagoId ? { id: { not: excluir.pagoId } } : {}) },
+      select: { id: true, monto: true, moneda: true, fechaPago: true, cliente: { select: { nombre: true } } },
+      orderBy: { fechaPago: "desc" },
+    }),
+  ])
+  const repetido: RegistroConMismoArchivo | null =
+    otroGasto ? { tipo: "gasto", id: otroGasto.id, concepto: otroGasto.concepto, monto: otroGasto.monto, moneda: otroGasto.moneda, fecha: otroGasto.fecha.toISOString() }
+    : otroPago ? { tipo: "ingreso", id: otroPago.id, concepto: otroPago.cliente.nombre, monto: otroPago.monto, moneda: otroPago.moneda, fecha: otroPago.fechaPago.toISOString() }
     : null
 
   if (archivo.recorte) {
@@ -94,7 +107,7 @@ export async function revisarComprobante(
     return {
       ...base, motor, tipo: archivo.tipo, repetido, senales: rev.senales, faltan: rev.faltan,
       veredicto: rev.veredicto === "ok" ? "ok" : rev.veredicto,
-      motivo: `Este mismo archivo ya está adjunto en "${repetido.concepto}" del ${fecha} (${repetido.moneda} ${repetido.monto}).`,
+      motivo: `Este mismo archivo ya está adjunto en el ${repetido.tipo} "${repetido.concepto}" del ${fecha} (${repetido.moneda} ${repetido.monto}).`,
       nota: `archivo repetido · ${resumen}`,
       limpio: false,
     }

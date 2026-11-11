@@ -76,6 +76,9 @@ export function correoCobroDe(c: { cliente: { emailContacto: string | null } | n
 export async function registrarPagoPos(p: {
   cuentaId: string; monto: number; meses?: number; fechaPago?: Date; notas?: string | null
   comprobante?: string | null           // archivo en uploads/comprobantes (visible en Ingresos)
+  comprobanteOk?: boolean | null        // resultado del validador (null = no evaluado)
+  comprobanteNota?: string | null
+  comprobanteHash?: string | null
   custodias?: { userId: string; monto: number }[]
   operador: Operador
   avisar?: boolean
@@ -103,6 +106,9 @@ export async function registrarPagoPos(p: {
         clienteId: cliente.id, concepto: "LICENCIA", monto: p.monto, moneda: "CLP",
         periodoInicio: inicio, periodoFin: fin, fechaPago,
         comprobante: p.comprobante ?? null,
+        comprobanteOk:   p.comprobanteOk ?? null,
+        comprobanteNota: p.comprobanteNota ?? null,
+        comprobanteHash: p.comprobanteHash ?? null,
         notas: p.notas ?? `Hypnos POS · ${meses} mes${meses > 1 ? "es" : ""}`,
         registradoPorId: p.operador.id,
       },
@@ -132,7 +138,7 @@ export async function registrarPagoPos(p: {
   await logActividad({
     usuarioId: p.operador.id, usuarioNombre: p.operador.nombre, clienteId: cliente.id, clienteNombre: cliente.nombre,
     accion: "PAGO_REGISTRADO",
-    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)}${p.comprobante ? " · con comprobante" : " · sin comprobante"} · Custodio: ${custodioLabel} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
+    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)}${p.comprobante ? (p.comprobanteOk === false ? ` · comprobante sin verificar (${p.comprobanteNota})` : " · con comprobante") : " · sin comprobante"} · Custodio: ${custodioLabel} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
   })
 
   const to = correoCobroDe(cuenta)
