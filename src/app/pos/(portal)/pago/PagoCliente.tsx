@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import BotonesPagoOnline, { type PlanBoton } from "../../_components/BotonesPagoOnline"
 import { Check, Copy, CreditCard, ExternalLink, FileUp, Loader2, ShieldCheck, Clock, XCircle, CheckCircle2 } from "lucide-react"
 
 interface Props {
@@ -12,6 +13,9 @@ interface Props {
   datos: string | null
   /** Pago con tarjeta (links TUU del plan): mensualidad y, si hay, varios meses; vacío = solo transferencia. */
   opciones: { meses: number; url: string; montoTxt: string; ahorroTxt: string | null }[]
+  /** Pago en línea TUU con renovación automática; vacío = no configurado (quedan los links fijos). */
+  planesOnline: PlanBoton[]
+  error: string | null
   contacto: string
   sinPlan: boolean
   pagos: { id: string; fecha: string; monto: string; periodo: string }[]
@@ -27,8 +31,9 @@ const TONOS = {
 const MAX = 8 * 1024 * 1024
 const card = "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
 
-export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, contacto, sinPlan, pagos, comprobantes }: Props) {
-  const linkTarjeta = opciones.length > 0
+export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, planesOnline, error, contacto, sinPlan, pagos, comprobantes }: Props) {
+  const online = planesOnline.length > 0
+  const linkTarjeta = online || opciones.length > 0
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [copiado, setCopiado] = useState(false)
@@ -93,6 +98,8 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, 
         {pendiente && <p className="text-sm mt-2 inline-flex items-center gap-1.5 font-medium"><Clock size={14} /> Tienes un comprobante en revisión.</p>}
       </div>
 
+      {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
+
       {sinPlan ? (
         <div className={card}><p className="text-sm text-gray-600">Tu cuenta aún no tiene un plan asociado. Escríbenos a {contacto}.</p></div>
       ) : (
@@ -110,7 +117,20 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, 
                 </button>
               )}
             </div>
-            {linkTarjeta && (
+            {online ? (
+              <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-sm font-semibold text-gray-900">Paga con tarjeta o Webpay</p>
+                <p className="mt-0.5 mb-3 text-sm text-gray-600">
+                  Pago seguro con TUU. Tu plan se renueva <b>solo</b> apenas se confirma el pago: no necesitas subir comprobante.
+                </p>
+                <BotonesPagoOnline planes={planesOnline} />
+                {opciones.find(o => o.meses === 1) && (
+                  <p className="mt-3 text-xs text-gray-500">
+                    ¿Problemas con el botón? <a className="underline" href={opciones.find(o => o.meses === 1)!.url} target="_blank" rel="noopener noreferrer">Paga con este link</a> y sube el comprobante aquí abajo.
+                  </p>
+                )}
+              </div>
+            ) : opciones.length > 0 && (
               <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
                 <p className="text-sm font-semibold text-gray-900">Paga con tarjeta o Webpay</p>
                 <p className="mt-0.5 text-sm text-gray-600">

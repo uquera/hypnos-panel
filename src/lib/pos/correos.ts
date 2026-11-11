@@ -7,18 +7,29 @@ import type { ResultadoAlta } from "./onboarding"
 // Correos de negocio de Hypnos POS: bienvenida, cobro, comprobantes y avisos a Hypnos.
 // Todos salen desde "Hypnos POS" <no-reply@hypnosapps.com> con Reply-To contacto@ (email.ts).
 
-/** Monto, botón "Pagar con tarjeta" (link TUU de ese monto, si hay) y datos de transferencia. */
-async function bloqueTransferencia(monto: number): Promise<string> {
+/**
+ * Monto, botón de pago y datos de transferencia. Con linkOnline (pago en línea TUU con renovación
+ * automática) ese es el botón principal y el link fijo de TUU queda como respaldo.
+ */
+async function bloqueTransferencia(monto: number, linkOnline?: string | null): Promise<string> {
   const datos = datosTransferencia()
   const cuerpo = datos
     ? multilinea(datos)
     : `Solicita los datos de transferencia a <a href="mailto:${CORREO_CONTACTO}">${CORREO_CONTACTO}</a>.`
+  const boton = (url: string, texto: string) =>
+    `<a href="${esc(url)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">${texto}</a>`
   const opciones = await opcionesPago(monto)
   const mes = opciones.find(o => o.meses === 1)
+  if (linkOnline) {
+    const respaldo = mes ? `<br><span style="color:#6b7280;font-size:12px;">¿Problemas con el botón? <a href="${esc(mes.url)}" style="color:#6b7280;">Paga con este link</a> y sube el comprobante en tu portal.</span>` : ""
+    return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${boton(linkOnline, "Pagar ahora con tarjeta o Webpay")}`
+      + `<br><span style="color:#6b7280;font-size:12px;">Tu plan se renueva solo apenas se confirma el pago. También puedes pagar el año con descuento.</span>`
+      + `${respaldo}<br><br><strong>O transfiere a:</strong><br>${cuerpo}`
+  }
   const largos = opciones.filter(o => o.meses > 1)
     .map(o => `<a href="${esc(o.url)}" style="color:#4f46e5;font-weight:600;">o paga ${o.meses === 12 ? "el año" : `${o.meses} meses`} por ${esc(formatoCLP(o.monto))}${o.monto < monto * o.meses ? ` (ahorras ${esc(formatoCLP(monto * o.meses - o.monto))})` : ""}</a>`)
   const tarjeta = mes
-    ? `<a href="${esc(mes.url)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">Pagar con tarjeta o Webpay</a>`
+    ? boton(mes.url, "Pagar con tarjeta o Webpay")
       + (largos.length ? `<br>${largos.join("<br>")}` : "")
       + `<br><span style="color:#6b7280;font-size:12px;">Escribe el nombre de tu local en el formulario y luego sube el comprobante en tu portal.</span><br><br><strong>O transfiere a:</strong><br>`
     : ""
@@ -68,7 +79,7 @@ export async function correoBienvenida(d: {
 }
 
 /** Aviso de prueba que termina (3 o 1 día). */
-export async function correoPruebaTermina(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; monto: number }) {
+export async function correoPruebaTermina(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; monto: number; linkOnline?: string | null }) {
   const cuando = d.dias <= 1 ? "mañana" : `en ${d.dias} días`
   await enviarCorreoPos({
     to: d.to,
@@ -78,14 +89,14 @@ export async function correoPruebaTermina(d: { to: string; restaurante: string; 
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       `Tu prueba gratis de Hypnos POS termina el <strong>${esc(fechaLarga(d.vence))}</strong>. Para seguir usando el sistema sin interrupciones, transfiere la mensualidad y sube el comprobante en tu portal:`,
     ],
-    bloque: await bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto, d.linkOnline),
     boton: { texto: "Subir comprobante", link: d.linkPago },
     color: "#f26522",
   })
 }
 
 /** Cobro (5 días antes) o recordatorio (día del vencimiento). */
-export async function correoCobro(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; enPrueba: boolean; monto: number }) {
+export async function correoCobro(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; enPrueba: boolean; monto: number; linkOnline?: string | null }) {
   const hoy = d.dias <= 0
   const que = d.enPrueba ? "prueba" : "plan"
   // el aviso puede salir después del vencimiento (cron atrasado): entonces dice "venció"
@@ -102,12 +113,12 @@ export async function correoCobro(d: { to: string; restaurante: string; dias: nu
         ? `Tu ${d.enPrueba ? "prueba gratis" : "plan"} de Hypnos POS ${vencioYa ? `venció el <strong>${esc(fechaLarga(d.vence))}</strong>` : "vence <strong>hoy</strong>"}. Si ya pagaste, sube el comprobante para que lo confirmemos. Si no recibimos el pago, el sistema se suspenderá en unos días.`
         : `Tu plan de Hypnos POS vence el <strong>${esc(fechaLarga(d.vence))}</strong> (en ${d.dias} días). Puedes pagar por transferencia y subir el comprobante en tu portal:`,
     ],
-    bloque: await bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto, d.linkOnline),
     boton: { texto: "Subir comprobante", link: d.linkPago },
   })
 }
 
-export async function correoSuspension(d: { to: string; restaurante: string; linkPago: string; monto: number }) {
+export async function correoSuspension(d: { to: string; restaurante: string; linkPago: string; monto: number; linkOnline?: string | null }) {
   await enviarCorreoPos({
     to: d.to,
     subject: `Tu sistema ${d.restaurante} fue suspendido — Hypnos POS`,
@@ -116,7 +127,7 @@ export async function correoSuspension(d: { to: string; restaurante: string; lin
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       `No recibimos el pago de tu plan de Hypnos POS, así que el sistema quedó <strong>suspendido</strong>. Tus datos están guardados: apenas confirmemos la transferencia, se reactiva.`,
     ],
-    bloque: await bloqueTransferencia(d.monto),
+    bloque: await bloqueTransferencia(d.monto, d.linkOnline),
     boton: { texto: "Subir comprobante", link: d.linkPago },
     color: "#b91c1c",
   })
@@ -193,6 +204,19 @@ export async function avisoHypnosErrorAlta(d: { restaurante: string; codigo: str
       `Revisa el log en la ficha y usa «Reintentar instalación».`,
     ],
     boton: { texto: "Ver ficha", link: d.linkFicha },
+    color: "#b91c1c",
+  })
+}
+
+export async function avisoHypnosPagoOnline(d: { restaurante: string; referencia: string; monto: number; problema: string }) {
+  await enviarCorreoPos({
+    to: correoAvisosHypnos(),
+    subject: `Pago en línea por revisar: ${d.restaurante}`,
+    titulo: "Pago en línea TUU por revisar",
+    parrafos: [
+      `<strong>${esc(d.restaurante)}</strong> · referencia <code>${esc(d.referencia)}</code> · ${esc(formatoCLP(d.monto))}`,
+      esc(d.problema),
+    ],
     color: "#b91c1c",
   })
 }
