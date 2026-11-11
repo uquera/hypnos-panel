@@ -14,6 +14,36 @@ export function postForm(url: string, fd: FormData) {
   return enviar(url, { method: "POST", body: fd })
 }
 
+export interface RespuestaDetallada {
+  ok:     boolean
+  status: number
+  data:   Record<string, unknown>
+}
+
+/**
+ * Como postForm, pero devuelve el cuerpo aunque el servidor rechace, para los
+ * estados que el formulario sabe manejar por su cuenta (p. ej. 422 del
+ * validador de comprobantes, que se resuelve con una ventana, no con un toast).
+ */
+export async function postFormDetallado(
+  url: string, fd: FormData, silencioso: number[] = [],
+): Promise<RespuestaDetallada | null> {
+  try {
+    const r = await fetch(url, { method: "POST", body: fd })
+    const d = await r.json().catch(() => ({})) as Record<string, unknown>
+    if (!r.ok && !silencioso.includes(r.status)) {
+      toast.error((d as { error?: string }).error ?? "No se pudo completar la acción.")
+    }
+    if (r.ok && d.syncedRemote === false) {
+      toast.warning(`Guardado en el panel, pero no se sincronizó con la instancia${d.syncError ? `: ${d.syncError}` : ""}`)
+    }
+    return { ok: r.ok, status: r.status, data: d }
+  } catch {
+    toast.error("Error de red")
+    return null
+  }
+}
+
 async function enviar(url: string, init: RequestInit): Promise<Record<string, unknown> | null> {
   try {
     const r = await fetch(url, init)

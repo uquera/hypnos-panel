@@ -6,10 +6,10 @@ import path from "path"
 import fs from "fs/promises"
 import { randomUUID } from "crypto"
 import { postPagoRemoto } from "@/lib/gobernanza-remota"
+import { revisarComprobante, mensajeComprobante } from "@/lib/comprobantes-guard"
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "comprobantes")
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
 const CONCEPTOS_VALIDOS = ["LICENCIA", "MARKETING", "DESARROLLO"]
 
 export async function GET(
@@ -93,16 +93,37 @@ export async function POST(
     return NextResponse.json({ error: "El detalle del servicio es obligatorio" }, { status: 400 })
   }
 
-  let comprobante: string | null = null
+  // Revisión del comprobante: que sea un documento, que se lea como comprobante
+  // de pago y que no esté ya adjunto en otro movimiento. Solo un archivo que no
+  // es documento se rechaza sin salida; lo demás se puede confirmar a mano.
+  let comprobante:     string | null  = null
+  let comprobanteOk:   boolean | null = null
+  let comprobanteNota: string | null  = null
+  let comprobanteHash: string | null  = null
   if (file && file.size > 0) {
     if (file.size > MAX_FILE_SIZE)
       return NextResponse.json({ error: "El archivo supera el tamaño máximo de 10 MB" }, { status: 400 })
-    if (!ALLOWED_TYPES.includes(file.type))
-      return NextResponse.json({ error: "Tipo no permitido. Use PDF, JPEG, PNG o WebP" }, { status: 400 })
-    const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg")
-    comprobante = `${randomUUID()}${ext}`
+
+    const buf     = Buffer.from(await file.arrayBuffer())
+    const revisto = await revisarComprobante(buf, file.name, {
+      concepto: conceptoDetalle?.trim() || cliente.nombre, monto, moneda, fecha: new Date(fechaPago), ambito: "ingreso",
+    })
+    if (revisto.veredicto === "invalido")
+      return NextResponse.json({ error: revisto.motivo }, { status: 400 })
+    if (!revisto.limpio && formData.get("confirmarComprobante") !== "1") {
+      return NextResponse.json(
+        { error: mensajeComprobante(revisto), comprobante: { ...revisto, hash: undefined } },
+        { status: 422 },
+      )
+    }
+
+    const ext = revisto.tipo === "pdf" ? ".pdf" : `.${revisto.tipo}`
+    comprobante     = `${randomUUID()}${ext}`
+    comprobanteOk   = revisto.limpio
+    comprobanteNota = revisto.limpio ? revisto.nota : `confirmado a mano · ${revisto.nota}`
+    comprobanteHash = revisto.hash
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), Buffer.from(await file.arrayBuffer()))
+    await fs.writeFile(path.join(UPLOAD_DIR, comprobante), buf)
   }
 
   const pago = await prisma.$transaction(async tx => {
@@ -117,6 +138,9 @@ export async function POST(
         periodoFin:    concepto === "LICENCIA" && periodoFin    ? new Date(periodoFin)    : null,
         fechaPago:     new Date(fechaPago),
         comprobante,
+        comprobanteOk,
+        comprobanteNota,
+        comprobanteHash,
         notas,
         registradoPorId,
       },
@@ -162,7 +186,7 @@ export async function POST(
     accion:        "PAGO_REGISTRADO",
     detalle: `[${etiquetaConcepto}] ${new Intl.NumberFormat("es-CL", {
       style: "currency", currency: moneda, maximumFractionDigits: moneda === "CLP" ? 0 : 2,
-    }).format(monto)} · ${detallePeriodo} · Custodio: ${custodioLabel} · Registró: ${session.user.name ?? "Usuario"}`,
+    }).format(monto)} · ${detallePeriodo} · Custodio: ${custodioLabel} · Registró: ${session.user.name ?? "Usuario"}${comprobanteOk === false ? ` · comprobante sin verificar (${comprobanteNota})` : ""}`,
   })
 
   // Sincronizar al cliente remoto solo para pagos de licencia

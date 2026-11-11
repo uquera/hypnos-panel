@@ -47,6 +47,7 @@ export function filaTablero(c: CuentaTablero) {
     origen: c.origen,
     createdAt: c.createdAt.toISOString(),
     eliminada: !!c.eliminadaAt,
+    archivada: !!c.archivadaAt,
   }
 }
 

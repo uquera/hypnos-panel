@@ -70,6 +70,9 @@ model Pago {
   periodoFin      DateTime?                        // solo LICENCIA
   fechaPago       DateTime  @default(now())
   comprobante     String?                          // nombre del archivo en uploads/comprobantes/
+  comprobanteOk   Boolean?                         // null = no evaluado (carga anterior al validador)
+  comprobanteNota String?                          // "verificado · monto, fecha" / "débil · falta…"
+  comprobanteHash String?                          // sha256: detecta el mismo comprobante reusado
   notas           String?
   registradoPorId String
   registradoPor   User           @relation("PagosRegistrados", fields: [registradoPorId], references: [id])
@@ -78,6 +81,7 @@ model Pago {
   custodias       PagoCustodia[]                   // split de custodia entre varios usuarios
   createdAt       DateTime       @default(now())
 
+  @@index([comprobanteHash])
   @@map("pagos")
 }
 
@@ -238,9 +242,11 @@ model PosCuenta {
   enPrueba           Boolean      @default(false)        // prueba gratis (14 días) aún sin primer pago
   whatsapp           String       @default("")           // WhatsApp del dueño (registro / ficha)
   origen             String       @default("ADMIN")      // ADMIN | REGISTRO (formulario público /pos/registro)
+  tipo               String       @default("RESTAURANTE") // RESTAURANTE | ALMACEN (minimarket: se instala con --tipo almacen)
   terminosAt         DateTime?                           // aceptación de términos en el registro público
   precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
   eliminadaAt        DateTime?                           // eliminada (instancia respaldada y fuera de línea); se conserva el historial
+  archivadaAt        DateTime?                           // fuera del tablero para no estorbar (suspendidos, impagos); no cambia licencia ni instancia
   // Onboarding (registro / crear restaurante): se pasa a hypnos-pos-tenant create.
   // Archivos en POS_ONBOARDING_DIR/<cuentaId>/ (por defecto uploads/pos-onboarding), fuera de public.
   menuUrl            String       @default("")           // menú online a importar (Fudo u otro)

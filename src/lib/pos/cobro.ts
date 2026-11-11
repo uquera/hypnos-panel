@@ -68,10 +68,18 @@ export function correoCobroDe(c: { cliente: { emailContacto: string | null } | n
 /**
  * Registra un pago mensual: Pago (LICENCIA, CLP) con período max(vencimiento, hoy) → +N meses,
  * extiende el vencimiento, quita suspensión y prueba, sincroniza con la instancia y avisa al dueño.
+ *
+ * Es un ingreso del estándar de Hypnos: puede llevar comprobante (archivo ya guardado en
+ * uploads/comprobantes) y custodia del dinero. Sin custodias explícitas el custodio es
+ * quien lo registra, igual que en el resto de Ingresos (custodioId null = registradoPor).
  */
 export async function registrarPagoPos(p: {
   cuentaId: string; monto: number; meses?: number; fechaPago?: Date; notas?: string | null
   comprobante?: string | null           // archivo en uploads/comprobantes (visible en Ingresos)
+  comprobanteOk?: boolean | null        // resultado del validador (null = no evaluado)
+  comprobanteNota?: string | null
+  comprobanteHash?: string | null
+  custodias?: { userId: string; monto: number }[]
   operador: Operador
   avisar?: boolean
 }) {
@@ -79,24 +87,45 @@ export async function registrarPagoPos(p: {
   if (!(p.monto > 0)) throw new ErrorPos("El monto debe ser mayor a 0.")
   const meses = Math.min(Math.max(Math.round(p.meses ?? 1), 1), 12)
 
+  const custodias = (p.custodias ?? []).filter(c => c.monto > 0)
+  if (custodias.length > 0) {
+    const suma = custodias.reduce((s, c) => s + c.monto, 0)
+    if (Math.abs(suma - p.monto) > 0.5) throw new ErrorPos("El reparto de custodia no cuadra con el monto del pago.")
+    const existentes = await prisma.user.count({ where: { id: { in: custodias.map(c => c.userId) } } })
+    if (existentes !== custodias.length) throw new ErrorPos("Custodia con usuario inexistente.")
+  }
+
   const ahora  = new Date()
   const inicio = cliente.fechaVencimiento > ahora ? cliente.fechaVencimiento : ahora
   const fin    = sumarMeses(inicio, meses)
   const fechaPago = p.fechaPago ?? ahora
 
-  const [pago] = await prisma.$transaction([
-    prisma.pago.create({
+  const pago = await prisma.$transaction(async tx => {
+    const creado = await tx.pago.create({
       data: {
         clienteId: cliente.id, concepto: "LICENCIA", monto: p.monto, moneda: "CLP",
         periodoInicio: inicio, periodoFin: fin, fechaPago,
         comprobante: p.comprobante ?? null,
+        comprobanteOk:   p.comprobanteOk ?? null,
+        comprobanteNota: p.comprobanteNota ?? null,
+        comprobanteHash: p.comprobanteHash ?? null,
         notas: p.notas ?? `Hypnos POS · ${meses} mes${meses > 1 ? "es" : ""}`,
         registradoPorId: p.operador.id,
       },
-    }),
-    prisma.cliente.update({ where: { id: cliente.id }, data: { fechaVencimiento: fin, suspendida: false } }),
-    prisma.posCuenta.update({ where: { id: cuenta.id }, data: { enPrueba: false } }),
-  ])
+    })
+    if (custodias.length > 0) {
+      await tx.pagoCustodia.createMany({ data: custodias.map(c => ({ pagoId: creado.id, userId: c.userId, monto: c.monto })) })
+    }
+    await tx.cliente.update({ where: { id: cliente.id }, data: { fechaVencimiento: fin, suspendida: false } })
+    await tx.posCuenta.update({ where: { id: cuenta.id }, data: { enPrueba: false } })
+    return creado
+  })
+
+  // Nombres de los custodios para la auditoría (sin custodias = quien registró)
+  const custodioLabel = custodias.length > 0
+    ? (await prisma.user.findMany({ where: { id: { in: custodias.map(c => c.userId) } }, select: { nombre: true } }))
+        .map(u => u.nombre).join(" + ")
+    : p.operador.nombre
 
   const [lic] = await Promise.all([
     patchLicenciaRemota(cliente, { fechaVencimiento: fin.toISOString(), suspendida: false, enPrueba: false }),
@@ -109,7 +138,7 @@ export async function registrarPagoPos(p: {
   await logActividad({
     usuarioId: p.operador.id, usuarioNombre: p.operador.nombre, clienteId: cliente.id, clienteNombre: cliente.nombre,
     accion: "PAGO_REGISTRADO",
-    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
+    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)}${p.comprobante ? (p.comprobanteOk === false ? ` · comprobante sin verificar (${p.comprobanteNota})` : " · con comprobante") : " · sin comprobante"} · Custodio: ${custodioLabel} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
   })
 
   const to = correoCobroDe(cuenta)

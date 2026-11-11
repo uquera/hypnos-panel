@@ -35,12 +35,14 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
   ])
   if (!cuenta) notFound()
 
-  const [usuarios, comprobantes, pagos, cobrosOnline] = await Promise.all([
+  const [usuarios, comprobantes, pagos, integrantes, cobrosOnline] = await Promise.all([
     prisma.posUsuario.findMany({ where: { cuentaId: id }, orderBy: [{ rol: "asc" }, { createdAt: "asc" }] }),
     prisma.posComprobante.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" } }),
     cuenta.clienteId
       ? prisma.pago.findMany({ where: { clienteId: cuenta.clienteId }, orderBy: { fechaPago: "desc" }, include: { registradoPor: { select: { nombre: true } } } })
       : Promise.resolve([]),
+    // Posibles custodios del ingreso: los integrantes activos del panel
+    prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
     prisma.posCobroOnline.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
   ])
   // link de pago en línea (TUU) para enviar por WhatsApp/correo: renueva solo con el callback
@@ -104,6 +106,8 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
         precioGeneral={precioMensual()}
         tieneDueno={!!dueno}
         clienteId={cuenta.clienteId}
+        integrantes={integrantes}
+        yoId={session.user.id ?? ""}
       />
 
       <section className="space-y-3">

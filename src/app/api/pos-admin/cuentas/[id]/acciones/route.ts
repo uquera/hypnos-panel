@@ -6,7 +6,7 @@ import { basePublica } from "@/lib/pos/servidor"
 import { ErrorPos, enviarInvitacion } from "@/lib/pos/usuarios"
 import { EMAIL_RE } from "@/lib/pos/validacion"
 import { lanzarAlta, eliminarInstancia, estadoInstancia, ALTA_ESTANCADA_MS } from "@/lib/pos/alta"
-import { cambiarLicenciaPos, registrarPagoPos, precioDe } from "@/lib/pos/cobro"
+import { cambiarLicenciaPos } from "@/lib/pos/cobro"
 import { correoBienvenida } from "@/lib/pos/correos"
 import { finDelDiaChile } from "@/lib/pos/fechas"
 import { precioMensual } from "@/lib/pos/config"
@@ -15,11 +15,13 @@ import { leerResultadoAlta, validarMenuUrl } from "@/lib/pos/onboarding"
 // POST /api/pos-admin/cuentas/:id/acciones — acciones de Hypnos sobre un restaurante (solo ADMIN).
 // { accion, ...datos }:
 //   guardar            nombre, dueno, email, whatsapp, notas, vence (YYYY-MM-DD), precioMensual ("" = precio general),
-//                      menuUrl, mesas, direccion, horario
+//                      menuUrl, mesas, direccion, horario. vence solo se aplica si venceOriginal
+//                      sigue coincidiendo con la base (si no, otro cambio lo movió: no se pisa).
+// El cobro mensual va por POST /api/pos-admin/cuentas/:id/pago (multipart: comprobante y custodia).
 //   suspender | reactivar
 //   extender-prueba    dias (7|14|…) o fecha (YYYY-MM-DD)
 //   pasar-pagado       quita enPrueba
-//   pago-manual        monto, meses, fechaPago (YYYY-MM-DD), notas
+//   archivar | desarchivar  saca la cuenta del tablero (o la devuelve) sin tocar licencia ni instancia
 //   reenviar           correo de bienvenida (si está instalado) + invitación al portal
 //   reintentar         vuelve a lanzar la instalación (estado ERROR o estancada)
 //   verificar          hypnos-pos-tenant status
@@ -91,15 +93,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ])
 
         let sync: { syncedRemote: boolean; syncError?: string } | null = null
+        let venceIgnorado = false
         if (cuenta.cliente && body.vence) {
           const vence = finDelDiaChile(String(body.vence))
           if (!vence) throw new ErrorPos("Fecha de vencimiento no válida.")
-          if (Math.abs(vence.getTime() - cuenta.cliente.fechaVencimiento.getTime()) > 60_000) {
+          // La pantalla manda la fecha que tenía al cargarse. Si ya no es la de la base,
+          // algo la movió entremedio (un pago, el cron, otro operador): no se pisa.
+          const original = body.venceOriginal ? finDelDiaChile(String(body.venceOriginal)) : null
+          if (original && Math.abs(original.getTime() - cuenta.cliente.fechaVencimiento.getTime()) > 60_000) {
+            venceIgnorado = true
+          } else if (Math.abs(vence.getTime() - cuenta.cliente.fechaVencimiento.getTime()) > 60_000) {
             sync = await cambiarLicenciaPos(id, { fechaVencimiento: vence }, operador)
           }
         }
         await log("editó datos")
-        return NextResponse.json({ ok: true, ...(sync ?? {}) })
+        return NextResponse.json({ ok: true, ...(sync ?? {}), venceIgnorado })
       }
 
       case "suspender":
@@ -128,16 +136,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         return NextResponse.json({ ok: true, ...r })
       }
 
-      case "pago-manual": {
-        const monto = Number(String(body.monto ?? "").replace(/[^\d]/g, "")) || precioDe(cuenta)
-        const fecha = body.fechaPago ? finDelDiaChile(String(body.fechaPago)) : null
-        const r = await registrarPagoPos({
-          cuentaId: id, monto, meses: Number(body.meses) || 1,
-          fechaPago: fecha && fecha.getTime() <= Date.now() + 86_400_000 ? fecha : new Date(),
-          notas: String(body.notas ?? "").trim().slice(0, 300) || "Hypnos POS · pago manual",
-          operador,
-        })
-        return NextResponse.json({ ok: true, hasta: r.hasta.toISOString(), syncedRemote: r.syncedRemote, syncError: r.syncError })
+      case "archivar":
+      case "desarchivar": {
+        // Solo limpia el tablero: la licencia, la instancia y los cobros siguen igual.
+        const archivar = accion === "archivar"
+        if (archivar === !!cuenta.archivadaAt) {
+          throw new ErrorPos(archivar ? "Ya estaba archivada." : "No estaba archivada.")
+        }
+        await prisma.posCuenta.update({ where: { id }, data: { archivadaAt: archivar ? new Date() : null } })
+        await log(archivar ? "archivó la cuenta (fuera del tablero)" : "la devolvió al tablero",
+                  archivar ? "POS_CUENTA_ARCHIVADA" : "POS_CUENTA_DESARCHIVADA")
+        return NextResponse.json({ ok: true, archivada: archivar })
       }
 
       case "reenviar": {
