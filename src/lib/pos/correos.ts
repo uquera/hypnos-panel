@@ -28,7 +28,7 @@ async function bloqueTransferencia(monto: number): Promise<string> {
 /** Al terminar la instalación: el sistema está listo. */
 export async function correoBienvenida(d: {
   to: string; dueno: string; restaurante: string; url: string; enPrueba: boolean; vence: Date; linkPago: string; monto: number
-  mesas?: number; menuUrl?: string; resultado?: ResultadoAlta
+  mesas?: number; menuUrl?: string; resultado?: ResultadoAlta; almacen?: boolean
 }) {
   // Lo que quedó listo según el resultado de la instalación
   const listo: string[] = []
@@ -41,11 +41,22 @@ export async function correoBienvenida(d: {
   else if (cli && !cli.ok) listo.push(`No pudimos importar tu archivo de clientes; lo revisamos contigo.`)
   if (d.mesas) listo.push(`Dejamos creadas <strong>${d.mesas} mesas</strong>.`)
 
-  const pasos = [
+  let pasos = [
     `<strong>Crea tu contraseña</strong> con el enlace que te llega en otro correo: es una sola, para tu sistema y tu portal (si no lo ves, revisa spam o usa «¿Olvidaste tu contraseña?» con este correo).`,
     `<strong>Conecta tu impresora</strong> de comandas y boletas desde Configuración.`,
     `<strong>Comparte tu tienda</strong> online con tus clientes para recibir pedidos.`,
   ]
+
+  if (d.almacen) {
+    listo.length = 0
+    listo.push("Cargamos <strong>productos de ejemplo</strong> (pan, bebidas, abarrotes) para que pruebes la caja de inmediato.")
+    listo.push("La <strong>caja rápida</strong> funciona con la cámara del celular o con un lector de códigos de barras.")
+    pasos = [
+      pasos[0],
+      "<strong>Abre la caja y haz una venta de prueba</strong>: escanea un producto, cobra y mira el vuelto.",
+      "<strong>Carga tus productos</strong>: escaneándolos en «Recibir mercancía» o subiendo un Excel. Si prefieres, lo hacemos por ti con la puesta en marcha asistida.",
+    ]
+  }
 
   await enviarCorreoPos({
     to: d.to,

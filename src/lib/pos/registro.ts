@@ -52,6 +52,8 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
   origen:   "REGISTRO" | "ADMIN"
   ip?:      string
   onboarding?: Onboarding   // logo, menú, mesas, dirección, horario, clientes (ya validados)
+  tipo?:    "RESTAURANTE" | "ALMACEN"   // ALMACEN: minimarket (registro de /almacenes)
+  cajas?:   number          // cajas que usará (el plan se cobra por caja)
 }) {
   const errCodigo = await errorCodigoDisponible(d.codigo)
   if (errCodigo) throw new ErrorPos(errCodigo, 409)
@@ -67,6 +69,7 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
     `Dueño: ${d.dueno}`,
     o.origen === "REGISTRO" ? `Registro público ${fechaCorta(ahora)}${o.ip ? ` · IP ${o.ip}` : ""}` : `Creado desde el panel ${fechaCorta(ahora)}`,
     o.enPrueba ? `Prueba gratis hasta ${fechaCorta(vence)}` : "",
+    o.tipo === "ALMACEN" ? `Almacén / minimarket · ${o.cajas ?? 1} caja(s)` : "",
   ].filter(Boolean).join("\n")
 
   let cuentaId: string
@@ -93,6 +96,8 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
           enPrueba: o.enPrueba,
           whatsapp: d.whatsapp,
           origen: o.origen,
+          tipo: o.tipo ?? "RESTAURANTE",
+          ...(o.tipo === "ALMACEN" ? { mesas: 0 } : {}),
           terminosAt: o.origen === "REGISTRO" ? ahora : null,
           ...(o.onboarding ? {
             menuUrl: o.onboarding.menuUrl, mesas: o.onboarding.mesas,

@@ -144,6 +144,7 @@ export async function lanzarAlta(cuentaId: string): Promise<void> {
     "--master-key", cliente.masterKey,
     "--vence", cliente.fechaVencimiento.toISOString(),
     ...(cuenta.enPrueba ? ["--prueba"] : []),
+    ...(cuenta.tipo === "ALMACEN" ? ["--tipo", "almacen"] : []),
     // Onboarding (flags opcionales del contrato ampliado)
     ...(logo ? ["--logo", logo] : []),
     ...(cuenta.menuUrl ? ["--menu-url", cuenta.menuUrl] : ["--ejemplo"]),
@@ -289,7 +290,7 @@ async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
       to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url,
       enPrueba: cuenta.enPrueba, vence: cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${base}/pos/pago`,
       monto: cuenta.precioMensual ?? precioMensual(),
-      mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: resultadoAlta,
+      mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: resultadoAlta, almacen: cuenta.tipo === "ALMACEN",
     })
   } catch (e) {
     console.error("[pos-alta] bienvenida:", e)
