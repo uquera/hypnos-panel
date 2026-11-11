@@ -71,6 +71,23 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
   (`uploads/pos-comprobantes`, `POS_COMPROBANTES_DIR`); Hypnos aprueba/rechaza en `/admin/pos`. Aprobar crea un `Pago`
   LICENCIA en CLP (período max(vencimiento, hoy) → +N meses), extiende la licencia, quita prueba/suspensión y hace
   PATCH `{fechaVencimiento, suspendida:false, enPrueba:false}` + POST pagos a la instancia (`src/lib/gobernanza-remota.ts`).
+- **Pago en línea con renovación automática (TUU/Webpay, `src/lib/tuu-online.ts`, `src/lib/pos/cobro-online.ts`):**
+  `POST /api/pos-pago/iniciar` (formulario: sesión del dueño, o `c`+`t` del link `/pos/pagar?c=<cuentaId>&t=<hmac>`)
+  calcula el monto en el servidor (mes = precio; año = link anual configurado o 10 mensualidades), crea
+  `PosCobroOnline` PENDIENTE con referencia `HP-<YYYYMMDD>-<aleatorio>` y redirige a TUU (URLs desde `APP_URL`
+  → `POS_PUBLIC_URL` → `AUTH_URL`, nunca Host). El callback `POST /api/pos-pago/tuu-callback` (público) verifica
+  la firma HMAC en tiempo constante (inválida = 400, válida = siempre 200), valida cuenta/CLP/monto y ambiente,
+  marca PAGADO con `updateMany where estado PENDIENTE|FALLIDO` (idempotente) y aplica `registrarPagoPos`
+  (max(vencimiento, hoy) + meses, Pago LICENCIA, sin suspensión/prueba, PATCH + POST a la instancia, un correo).
+  `/pos/pago-resultado?ref=` solo lee la base. Pagado pero no aplicado = estado `ERROR` + aviso a `POS_AVISOS_EMAIL`.
+  Credenciales `TUU_ONLINE_ACCOUNT_ID`, `TUU_ONLINE_SECRET`, `TUU_ONLINE_ENV` (test|prod) solo en el `.env` del VPS;
+  sin ellas no aparece el botón y quedan el link fijo y el comprobante. Log: `[tuu-licencia]` (sin firma ni secretos).
+  El link de pago de cada restaurante se ve en su ficha (`/admin/pos/<id>#pago-online`).
+  El ingreso queda a nombre del **dueño del panel** (`POS_OPERADOR_EMAIL`, por defecto el `OWNER_EMAIL`):
+  el dinero entra a la cuenta de TUU, que es suya. Se busca por correo a propósito — con "el primer ADMIN
+  creado" bastaba desactivar esa cuenta para que todo pago ya cobrado cayera en `ERROR`.
+  No lleva archivo de comprobante (el respaldo es la transacción): se guarda `comprobanteNota = "respaldo TUU · <ref>"`,
+  que se ve en Ingresos y en la auditoría en vez de "sin comprobante".
 - Precio: `POS_PRECIO_MENSUAL` (20000) o `PosCuenta.precioMensual`; `POS_DATOS_TRANSFERENCIA` (multilínea, `\n`);
   `POS_DIAS_GRACIA` (3).
 - Cron diario `GET /api/cron/pos-cobros` (header `x-cron-secret: $CRON_SECRET`, `?dry=1` para simular):

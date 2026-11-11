@@ -259,6 +259,7 @@ model PosCuenta {
   usuarios           PosUsuario[]
   comprobantes       PosComprobante[]
   avisos             PosAviso[]
+  cobrosOnline       PosCobroOnline[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -288,6 +289,34 @@ model PosComprobante {
   @@index([estado])
   @@index([cuentaId])
   @@map("pos_comprobantes")
+}
+
+// Cobros en línea de la licencia con TUU (Webpay). Cada intento de pago tiene una referencia
+// única (x_reference) y el monto lo calcula el servidor. El callback firmado de TUU es la única
+// prueba de pago: marca PAGADO con escritura condicional (idempotente) y renueva la licencia.
+// estado: PENDIENTE | PAGADO | FALLIDO | ERROR (pagado en TUU pero no se pudo aplicar: revisar)
+model PosCobroOnline {
+  id         String    @id @default(cuid())
+  referencia String    @unique                       // HP-<YYYYMMDD vencimiento>-<aleatorio>
+  cuentaId   String
+  cuenta     PosCuenta @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  periodo    String                                  // vencimiento (YYYY-MM-DD, Chile) al crear el cobro
+  meses      Int
+  monto      Int                                     // CLP, calculado en el servidor
+  estado     String    @default("PENDIENTE")
+  origen     String    @default("PORTAL")            // PORTAL | LINK (correo / link enviado por Hypnos)
+  ambiente   String    @default("prod")              // TUU_ONLINE_ENV al crear: test | prod
+  resultado  String?                                 // último x_result recibido
+  detalle    String?                                 // error al aplicar o motivo del rechazo (sin secretos)
+  pagoId     String?                                 // Pago (LICENCIA) creado al aplicar
+  hasta      DateTime?                               // nuevo vencimiento aplicado
+  pagadoAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([cuentaId])
+  @@index([estado])
+  @@map("pos_cobros_online")
 }
 
 // Avisos automáticos del cron de cobro (para no repetirlos).

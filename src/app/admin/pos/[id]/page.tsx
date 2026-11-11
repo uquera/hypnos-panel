@@ -18,6 +18,7 @@ import FichaGestion from "./FichaGestion"
 import LogInstalacion from "./LogInstalacion"
 import { EstadoBadge } from "../_components/PosTablero"
 import ComprobantesBandeja from "../_components/ComprobantesBandeja"
+import { linkPagoOnline } from "@/lib/pos/cobro-online"
 
 export const metadata = { title: "Restaurante — Hypnos POS" }
 export const dynamic = "force-dynamic"
@@ -34,7 +35,7 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
   ])
   if (!cuenta) notFound()
 
-  const [usuarios, comprobantes, pagos, integrantes] = await Promise.all([
+  const [usuarios, comprobantes, pagos, integrantes, cobrosOnline] = await Promise.all([
     prisma.posUsuario.findMany({ where: { cuentaId: id }, orderBy: [{ rol: "asc" }, { createdAt: "asc" }] }),
     prisma.posComprobante.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" } }),
     cuenta.clienteId
@@ -42,7 +43,10 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
       : Promise.resolve([]),
     // Posibles custodios del ingreso: los integrantes activos del panel
     prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
+    prisma.posCobroOnline.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
   ])
+  // link de pago en línea (TUU) para enviar por WhatsApp/correo: renueva solo con el callback
+  const linkOnline = cuenta.clienteId && !cuenta.eliminadaAt ? linkPagoOnline(cuenta.id) : null
 
   const fila = filaTablero(cuenta)
   const resultado = leerResultadoAlta(cuenta.resultadoAlta)
@@ -149,6 +153,36 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </section>
+
+      {(linkOnline || cobrosOnline.length > 0) && (
+        <section id="pago-online" className="space-y-3">
+          <h2 className="text-base font-bold text-gray-900">Pago en línea (TUU)</h2>
+          <div className={`${card} p-4 space-y-3 text-sm`}>
+            {linkOnline && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Link de pago del restaurante</p>
+                <p className="mt-1 font-mono text-xs break-all bg-gray-50 border border-gray-100 rounded-lg p-2 select-all">{linkOnline}</p>
+                <p className="mt-1 text-xs text-gray-400">Envíalo por WhatsApp: el dueño elige mes o año, paga con Webpay y la licencia se renueva sola.</p>
+              </div>
+            )}
+            {cobrosOnline.length > 0 && (
+              <ul className="divide-y divide-gray-50">
+                {cobrosOnline.map(c => (
+                  <li key={c.id} className="py-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-gray-500">{c.referencia}{c.ambiente === "test" ? " · prueba" : ""}</span>
+                    <span className="text-gray-700">{formatoCLP(c.monto)} · {c.meses === 1 ? "1 mes" : `${c.meses} meses`}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.estado === "PAGADO" ? "bg-green-50 text-green-700" : c.estado === "ERROR" ? "bg-red-50 text-red-700" : c.estado === "FALLIDO" ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-700"}`}>
+                      {c.estado === "PAGADO" ? `Pagado${c.hasta ? ` · hasta ${fechaCorta(c.hasta)}` : ""}` : c.estado === "ERROR" ? "Pagado, sin aplicar" : c.estado === "FALLIDO" ? "Fallido" : "Pendiente"}
+                    </span>
+                    <span className="text-xs text-gray-400">{fechaCorta(c.createdAt)}</span>
+                    {c.detalle && <p className="w-full text-xs text-red-600">{c.detalle}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
 
       <section id="comprobantes" className="space-y-3">
         <h2 className="text-base font-bold text-gray-900">Comprobantes</h2>

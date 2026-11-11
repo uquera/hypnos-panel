@@ -138,7 +138,7 @@ export async function registrarPagoPos(p: {
   await logActividad({
     usuarioId: p.operador.id, usuarioNombre: p.operador.nombre, clienteId: cliente.id, clienteNombre: cliente.nombre,
     accion: "PAGO_REGISTRADO",
-    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)}${p.comprobante ? (p.comprobanteOk === false ? ` · comprobante sin verificar (${p.comprobanteNota})` : " · con comprobante") : " · sin comprobante"} · Custodio: ${custodioLabel} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
+    detalle: `[Hypnos POS] CLP $${p.monto.toLocaleString("es-CL")} · hasta ${fechaLarga(fin)}${p.comprobante ? (p.comprobanteOk === false ? ` · comprobante sin verificar (${p.comprobanteNota})` : " · con comprobante") : (p.comprobanteNota ? ` · ${p.comprobanteNota}` : " · sin comprobante")} · Custodio: ${custodioLabel} · Registró: ${p.operador.nombre}${lic.ok ? "" : " · sin sincronizar"}`,
   })
 
   const to = correoCobroDe(cuenta)

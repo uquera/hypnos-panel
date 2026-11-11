@@ -6,12 +6,16 @@ import { datosTransferencia, formatoCLP, CORREO_CONTACTO, diasGracia } from "@/l
 import { fechaLarga, fechaCorta } from "@/lib/pos/fechas"
 import PagoCliente from "./PagoCliente"
 import { opcionesPago } from "@/lib/pos/links-pago"
+import { tuuOnlineEnabled } from "@/lib/tuu-online"
+import { planesOnline } from "@/lib/pos/cobro-online"
+import { planesBoton } from "../../_components/BotonesPagoOnline"
 
 export const metadata = { title: "Pago — Hypnos POS" }
 export const dynamic = "force-dynamic"
 
 // Pago mensual: estado del plan, pago con tarjeta (link TUU del monto) o transferencia, y subida del comprobante.
-export default async function PosPagoPage() {
+export default async function PosPagoPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams
   const yo = await requireSesionPos("/pos/pago")
   if (yo.rol !== "DUENO") redirect("/pos/inicio")
 
@@ -33,6 +37,9 @@ export default async function PosPagoPage() {
     meses: o.meses, url: o.url, montoTxt: formatoCLP(o.monto),
     ahorroTxt: o.monto < monto * o.meses ? formatoCLP(monto * o.meses - o.monto) : null,
   }))
+
+  // pago en línea TUU (renovación automática por callback); sin configurar, quedan los links fijos
+  const planes = tuuOnlineEnabled() && cuenta.cliente ? planesBoton(monto, await planesOnline(monto), formatoCLP) : []
 
   let titulo = ETIQUETA_ESTADO[estado]
   let detalle = ""
@@ -57,6 +64,8 @@ export default async function PosPagoPage() {
         montoTxt={formatoCLP(monto)}
         datos={datos}
         opciones={opciones}
+        planesOnline={planes}
+        error={error ? error.slice(0, 200) : null}
         contacto={CORREO_CONTACTO}
         sinPlan={!cuenta.cliente}
         pagos={(cuenta.cliente?.pagos ?? []).map(p => ({

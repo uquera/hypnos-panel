@@ -1199,6 +1199,9 @@ export default function PagosClient({
                           <SelloComprobante ok={p.comprobanteOk} nota={p.comprobanteNota} />
                         </a>
                       )}
+                      {!p.comprobante && p.comprobanteNota && (
+                        <span className="mt-1.5 block text-xs text-gray-400">{p.comprobanteNota}</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1409,6 +1412,9 @@ export default function PagosClient({
                           <FileText size={11} /> Comp.
                           <SelloComprobante ok={p.comprobanteOk} nota={p.comprobanteNota} size={13} />
                         </a>
+                      )}
+                      {!p.comprobante && p.comprobanteNota && (
+                        <span className="text-xs text-gray-400" title={p.comprobanteNota}>TUU</span>
                       )}
                       {isAdmin && (
                         <>

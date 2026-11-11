@@ -7,6 +7,7 @@ import { diasGracia } from "@/lib/pos/config"
 import { claveDiaChile, diasHastaChile } from "@/lib/pos/fechas"
 import { correoCobroDe, precioDe } from "@/lib/pos/cobro"
 import { correoCobro, correoPruebaTermina } from "@/lib/pos/correos"
+import { linkPagoOnline } from "@/lib/pos/cobro-online"
 
 // GET /api/cron/pos-cobros — cobro diario de Hypnos POS. Protegido por CRON_SECRET (igual que /api/cron/alertas).
 // Crontab del VPS (09:00 hora de Chile):
@@ -60,6 +61,8 @@ export async function GET(req: NextRequest) {
 
     const to = correoCobroDe(c)
     const monto = precioDe(c)
+    // botón de pago en línea (renueva solo con el callback de TUU); sin TUU en línea, null → link fijo + transferencia
+    const linkOnline = linkPagoOnline(c.id)
     try {
       if (tipo === "SUSPENSION") {
         await prisma.cliente.update({ where: { id: cliente.id }, data: { suspendida: true } })
@@ -71,9 +74,9 @@ export async function GET(req: NextRequest) {
         res.suspendidas++
       } else if (to) {
         if (c.enPrueba && dias > 0) {
-          await correoPruebaTermina({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, monto })
+          await correoPruebaTermina({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, monto, linkOnline })
         } else {
-          await correoCobro({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, enPrueba: c.enPrueba, monto })
+          await correoCobro({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, enPrueba: c.enPrueba, monto, linkOnline })
         }
         res.enviados++
       }
