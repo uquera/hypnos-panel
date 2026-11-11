@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { OWNER_EMAIL } from "@/lib/auth"
-import { createTuuPayment, telefonoCl, tuuOnlineConfig, type TuuOnlineConfig } from "@/lib/tuu-online"
+import { camposIntento, telefonoCl, tuuOnlineConfig, type TuuOnlineConfig } from "@/lib/tuu-online"
 import { ErrorPos } from "./usuarios"
 import { correoCobroDe, precioDe, registrarPagoPos } from "./cobro"
 import { opcionesPago } from "./links-pago"
@@ -10,7 +10,8 @@ import { formatoCLP } from "./config"
 import { avisoHypnosPagoOnline } from "./correos"
 
 // Cobro en línea de la licencia de Hypnos POS con TUU (Webpay):
-//   1. crearCobroOnline: monto calculado en el servidor + PosCobroOnline PENDIENTE con referencia única → URL de TUU.
+//   1. crearCobroOnline: monto calculado en el servidor + PosCobroOnline PENDIENTE con referencia única →
+//      campos firmados que el NAVEGADOR del cliente envía a TUU (ver camposIntento).
 //   2. procesarCallbackTuu: el callback firmado de TUU (única prueba de pago) marca PAGADO con escritura
 //      condicional (idempotente ante reintentos) y renueva con registrarPagoPos: max(vencimiento, hoy) + meses,
 //      Pago LICENCIA con su período, sin suspensión ni prueba, PATCH + POST a la instancia y un correo al dueño.
@@ -71,7 +72,7 @@ function nuevaReferencia(periodo: string) {
   return `HP-${periodo.replace(/-/g, "")}-${randomBytes(5).toString("hex").toUpperCase()}`
 }
 
-export async function crearCobroOnline(p: { cuentaId: string; meses: number; origen: "PORTAL" | "LINK" }): Promise<{ url: string; referencia: string }> {
+export async function crearCobroOnline(p: { cuentaId: string; meses: number; origen: "PORTAL" | "LINK" }): Promise<{ endpoint: string; campos: Record<string, string>; referencia: string }> {
   const cfg = tuuOnlineConfig()
   if (!cfg) throw new ErrorPos("El pago en línea no está disponible. Paga por transferencia y sube el comprobante.", 409)
 
@@ -96,7 +97,8 @@ export async function crearCobroOnline(p: { cuentaId: string; meses: number; ori
     data: { referencia, cuentaId: cuenta.id, periodo, meses, monto, origen: p.origen, ambiente: cfg.env },
   })
 
-  const intento = await createTuuPayment(cfg, {
+  void cobro
+  const campos = camposIntento(cfg, {
     amount: monto,
     reference: referencia,
     description: `Hypnos POS ${cuenta.nombre} ${meses === 1 ? "1 mes" : `${meses} meses`}`,
@@ -108,11 +110,8 @@ export async function crearCobroOnline(p: { cuentaId: string; meses: number; ori
     completePath: rutaResultado(referencia),
     cancelPath: `${rutaResultado(referencia)}&cancelado=1`,
   })
-  if (!intento.ok) {
-    await prisma.posCobroOnline.updateMany({ where: { id: cobro.id, estado: "PENDIENTE" }, data: { estado: "FALLIDO", detalle: "No se pudo crear el intento en TUU" } })
-    throw new ErrorPos(intento.error, 502)
-  }
-  return { url: intento.url, referencia }
+  console.info("[tuu-licencia] intento creado", { referencia, monto, env: cfg.env })
+  return { endpoint: cfg.endpoint, campos, referencia }
 }
 
 // ─── 2. Callback de TUU ───────────────────────────────────────────────────────

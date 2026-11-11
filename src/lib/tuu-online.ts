@@ -92,12 +92,18 @@ export type TuuIntentInput = {
 }
 
 /**
- * Crea el intento de pago en TUU y devuelve la URL a la que se redirige al cliente.
- * Con X-REDIRECT: false TUU responde 200 con la URL en texto plano.
+ * Campos firmados del intento de pago.
+ *
+ * El POST lo hace el NAVEGADOR del cliente, no el servidor: el endpoint de TUU responde
+ * siempre 302 a su página de pago (ignora `X-REDIRECT: false`) y esa página valida la
+ * cuenta contra la sesión de quien hizo la petición. Si el POST sale del servidor, el
+ * cliente llega a la página sin sesión y ve "solicitud no válida".
+ * Comprobado el 11-nov-2026 contra el ambiente de pruebas: firma correcta, firma alterada,
+ * cuenta inventada y sin firma devuelven exactamente la misma redirección.
  */
-export async function createTuuPayment(cfg: TuuOnlineConfig, i: TuuIntentInput): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+export function camposIntento(cfg: TuuOnlineConfig, i: TuuIntentInput): Record<string, string> {
   const { first, last } = splitName(i.customerName)
-  const body: Record<string, string | number> = {
+  const campos: Record<string, string | number> = {
     x_account_id: cfg.accountId,
     x_amount: Math.round(i.amount),
     x_currency: "CLP",
@@ -112,33 +118,6 @@ export async function createTuuPayment(cfg: TuuOnlineConfig, i: TuuIntentInput):
     x_url_cancel: `${cfg.baseUrl}${i.cancelPath}`,
     x_url_complete: `${cfg.baseUrl}${i.completePath}`,
   }
-  body.x_signature = tuuSign(body, cfg.secret)
-
-  try {
-    const res = await fetch(cfg.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-REDIRECT": "false" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15_000),
-      cache: "no-store",
-    })
-    const text = (await res.text()).trim()
-    // la respuesta es la URL en texto plano; por si viniera en JSON, también se acepta { url }
-    let url = text.replace(/^"|"$/g, "")
-    if (url.startsWith("{")) {
-      try {
-        const j = JSON.parse(text) as Record<string, unknown>
-        url = String(j.url ?? j.payment_url ?? j.redirect_url ?? "")
-      } catch { url = "" }
-    }
-    if (!res.ok || !/^https:\/\/\S+$/.test(url)) {
-      console.error("[tuu-licencia] no se pudo crear el intento", { referencia: i.reference, status: res.status, body: text.slice(0, 300) })
-      return { ok: false, error: "No pudimos iniciar el pago en línea. Intenta de nuevo o paga por transferencia." }
-    }
-    console.info("[tuu-licencia] intento creado", { referencia: i.reference, monto: body.x_amount, env: cfg.env })
-    return { ok: true, url }
-  } catch (err) {
-    console.error("[tuu-licencia] error de red al crear el intento", { referencia: i.reference, error: err instanceof Error ? err.message : String(err) })
-    return { ok: false, error: "No pudimos conectar con Webpay. Intenta de nuevo en unos segundos." }
-  }
+  campos.x_signature = tuuSign(campos, cfg.secret)
+  return Object.fromEntries(Object.entries(campos).map(([k, v]) => [k, String(v)]))
 }

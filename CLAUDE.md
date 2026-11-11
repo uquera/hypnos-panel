@@ -83,6 +83,12 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
   Credenciales `TUU_ONLINE_ACCOUNT_ID`, `TUU_ONLINE_SECRET`, `TUU_ONLINE_ENV` (test|prod) solo en el `.env` del VPS;
   sin ellas no aparece el botón y quedan el link fijo y el comprobante. Log: `[tuu-licencia]` (sin firma ni secretos).
   El link de pago de cada restaurante se ve en su ficha (`/admin/pos/<id>#pago-online`).
+  **El POST a TUU lo hace el navegador del cliente**, no el servidor: `/api/pos-pago/iniciar` devuelve una
+  página puente con el formulario firmado y lo envía sola. El endpoint de TUU responde siempre 302 a su
+  página de pago (ignora `X-REDIRECT: false`) y esa página valida la cuenta contra la sesión de quien hizo
+  la petición; desde el servidor el cliente llegaba a "solicitud no válida". Comprobado el 11-nov-2026:
+  firma correcta, firma alterada, cuenta inventada y sin firma devuelven la misma redirección, así que el
+  302 **no** sirve para validar credenciales.
   El ingreso queda a nombre del **dueño del panel** (`POS_OPERADOR_EMAIL`, por defecto el `OWNER_EMAIL`):
   el dinero entra a la cuenta de TUU, que es suya. Se busca por correo a propósito — con "el primer ADMIN
   creado" bastaba desactivar esa cuenta para que todo pago ya cobrado cayera en `ERROR`.
