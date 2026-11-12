@@ -1,6 +1,7 @@
 import { getSesionPos } from "@/lib/pos/sesion"
 import { urlLogo } from "@/lib/pos/logo"
 import PortalNav from "./PortalNav"
+import { cadenaDe } from "@/lib/pos/cadena"
 
 // Portal de las sub-cuentas (/pos/marca, /pos/equipo). Sesión propia (cookie hypnos_pos);
 // cada página vuelve a pedir la sesión porque los layouts no se re-ejecutan al navegar.
@@ -9,6 +10,7 @@ export default async function PortalLayout({ children }: { children: React.React
   const usuario = await getSesionPos()
   if (!usuario) return <>{children}</>
   const { cuenta } = usuario
+  const cadena = await cadenaDe(usuario.email)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -22,7 +24,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <p className="text-sm font-bold text-gray-900 truncate leading-tight">{cuenta.nombre}</p>
             <p className="text-xs text-gray-400 leading-tight">Hypnos POS · código <span className="font-mono whitespace-nowrap">{cuenta.codigo}</span></p>
           </div>
-          <PortalNav nombre={usuario.nombre} esDueno={usuario.rol === "DUENO"} conSistema={cuenta.estadoAlta === "LISTO" || cuenta.estadoAlta === "MANUAL"} />
+          <PortalNav nombre={usuario.nombre} esDueno={usuario.rol === "DUENO"} conCadena={!!cadena} conSistema={cuenta.estadoAlta === "LISTO" || cuenta.estadoAlta === "MANUAL"} />
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>

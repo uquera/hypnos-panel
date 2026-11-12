@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Plus, Store } from "lucide-react"
+import { Network, Plus, Store } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { includeTablero, filaTablero } from "@/lib/pos/tablero"
@@ -65,6 +65,10 @@ export default async function PosCuentasPage() {
           <p className="text-sm text-gray-500 mt-0.5">Restaurantes, licencias, cobros y marca de la app</p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Link href="/admin/pos/cadenas" title="Dueños con varios locales: vista Mi cadena"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50">
+            <Network size={15} /> Cadenas
+          </Link>
           <Link href="/admin/pos/nueva" title="Cuenta de marca sin instalación (sistema propio)"
             className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50">
             <Plus size={15} /> Cuenta manual

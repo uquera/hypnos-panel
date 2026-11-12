@@ -233,6 +233,8 @@ model PosCuenta {
   activo             Boolean      @default(true)         // false = suspendida (la app y el portal la rechazan)
   clienteId          String?                             // vínculo opcional con el Cliente de la gobernanza
   cliente            Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  cadenaId           String?                             // locales de un mismo dueño: vista "Mi cadena" del portal
+  cadena             PosCadena?   @relation(fields: [cadenaId], references: [id], onDelete: SetNull)
   // Alta automática de la instancia (<codigo>.hypnosapps.com) con hypnos-pos-tenant.
   // Las cuentas creadas a mano (antes del alta automática, p. ej. donaany) quedan en MANUAL:
   // no se instalan ni se eliminan con el comando.
@@ -264,6 +266,20 @@ model PosCuenta {
   updatedAt          DateTime     @updatedAt
 
   @@map("pos_cuentas")
+}
+
+// Cadena: varios locales (PosCuenta, cada uno con su propio sistema) de un mismo dueño.
+// Los correos listados (usuarios del portal) ven "Mi cadena": ventas de todos los locales
+// sumadas, leídas de /api/gobernanza/resumen de cada local con su master key. Incluido, sin costo.
+model PosCadena {
+  id        String      @id @default(cuid())
+  nombre    String
+  correos   String      @default("")                // correos de los dueños, en minúsculas, separados por coma
+  cuentas   PosCuenta[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("pos_cadenas")
 }
 
 // Comprobantes de transferencia que sube el dueño en /pos/pago. Hypnos los revisa

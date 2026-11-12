@@ -1,12 +1,13 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { AlertTriangle, ArrowRight, ChefHat, CreditCard, ExternalLink, Loader2, Palette, Printer, Users, UtensilsCrossed } from "lucide-react"
+import { AlertTriangle, ArrowRight, ChefHat, Network, CreditCard, ExternalLink, Loader2, Palette, Printer, Users, UtensilsCrossed } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { requireSesionPos } from "@/lib/pos/sesion"
 import { estadoPos } from "@/lib/pos/cobro"
 import { fechaLarga } from "@/lib/pos/fechas"
 import { conAcceso } from "@/lib/pos/acceso"
 import CopiarLink from "./CopiarLink"
+import { cadenaDe } from "@/lib/pos/cadena"
 
 export const metadata = { title: "Inicio — Hypnos POS" }
 export const dynamic = "force-dynamic"
@@ -31,6 +32,7 @@ export default async function PosInicioPage() {
   })
   if (!cuenta) redirect("/pos/login")
 
+  const cadena = await cadenaDe(yo.email)
   const esDueno = yo.rol === "DUENO"
   const listo = cuenta.estadoAlta === "LISTO" || cuenta.estadoAlta === "MANUAL"
   const sso = conAcceso(cuenta)
@@ -50,6 +52,17 @@ export default async function PosInicioPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
+      {cadena && (
+        <Link href="/pos/cadena" className="flex items-center gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 hover:bg-orange-100/60 transition">
+          <span className="w-9 h-9 rounded-lg text-white flex items-center justify-center shrink-0" style={{ background: NARANJA }}><Network size={17} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-gray-900">Mi cadena · {cadena.nombre}</span>
+            <span className="block text-xs text-gray-600">Ventas de tus {cadena.cuentas.length} locales juntas, comparadas y en Excel.</span>
+          </span>
+          <ArrowRight size={16} className="text-orange-400 shrink-0" />
+        </Link>
+      )}
+
       {/* Entrada al sistema */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
         <p className="text-sm text-gray-500">Hola, {yo.nombre.split(" ")[0]} 👋</p>
