@@ -109,7 +109,7 @@ export default async function MiCadenaPage({ searchParams }: { searchParams: Pro
               <tr>
                 <th className={th}>Local</th><th className={`${th} text-right`}>Ventas</th><th className={`${th} text-right`}>Pedidos</th>
                 <th className={`${th} text-right`}>Ticket</th><th className={th}>vs anterior</th><th className={`${th} text-right`}>% de la cadena</th>
-                <th className={`${th} text-right`}>Gastos</th><th className={th}>Caja</th><th className={th}></th>
+                <th className={`${th} text-right`}>Gastos</th><th className={th}>Caja</th>
               </tr>
             </thead>
             <tbody>
@@ -117,7 +117,15 @@ export default async function MiCadenaPage({ searchParams }: { searchParams: Pro
                 const r = l.resumen
                 return (
                   <tr key={l.cuentaId} className="border-t border-gray-100">
-                    <td className={`${td} font-semibold text-gray-900`}><span className="inline-flex items-center gap-1.5"><Store size={14} className="text-gray-400" />{l.nombre}</span></td>
+                    <td className={`${td} font-semibold text-gray-900`}>
+                      <span className="inline-flex items-center gap-2">
+                        <Store size={14} className="text-gray-400" />{l.nombre}
+                        <a href={`/api/pos-portal/abrir?cuenta=${l.cuentaId}`} target="_blank" rel="noopener" title={`Entrar al sistema de ${l.nombre}`}
+                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg text-xs font-semibold text-white bg-[#f26522] hover:opacity-90">
+                          Entrar <ExternalLink size={11} />
+                        </a>
+                      </span>
+                    </td>
                     {r ? (
                       <>
                         <td className={`${td} text-right font-semibold`}>{clp(r.ventas)}</td>
@@ -135,12 +143,6 @@ export default async function MiCadenaPage({ searchParams }: { searchParams: Pro
                     ) : (
                       <td className={`${td} text-amber-700`} colSpan={7}><AlertTriangle size={13} className="inline mr-1" />{l.error}</td>
                     )}
-                    <td className={`${td} text-right`}>
-                      <a href={`/api/pos-portal/abrir?cuenta=${l.cuentaId}`} target="_blank" rel="noopener"
-                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold text-white bg-[#f26522] hover:opacity-90">
-                        Entrar <ExternalLink size={12} />
-                      </a>
-                    </td>
                   </tr>
                 )
               })}
@@ -152,7 +154,7 @@ export default async function MiCadenaPage({ searchParams }: { searchParams: Pro
                 <td className={td}><Variacion actual={total.ventas} anterior={total.anterior.ventas} /></td>
                 <td className={`${td} text-right`}>100%</td>
                 <td className={`${td} text-right`}>{clp(total.gastos)}</td>
-                <td className={td} colSpan={2}></td>
+                <td className={td}></td>
               </tr>
             </tbody>
           </table>

@@ -169,7 +169,7 @@ export async function resumenCadena(cadena: NonNullable<Awaited<ReturnType<typeo
 }
 
 export const MEDIO_LABEL: Record<string, string> = {
-  CASH: "Efectivo", CARD: "Tarjeta", TRANSFER: "Transferencia", QR: "QR", OTHER: "Otro",
+  CASH: "Efectivo", CARD: "Tarjeta", TRANSFER: "Transferencia", QR: "QR", OTHER: "Otro", ACCOUNT: "Cuenta corriente",
   UBER_EATS: "Uber Eats", RAPPI: "Rappi", PEDIDOSYA: "PedidosYa", AMIPASS: "amiPASS",
 }
 
