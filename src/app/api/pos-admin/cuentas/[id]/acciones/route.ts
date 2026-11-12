@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { adminPos, jsonError, manejar, operadorDe } from "@/lib/pos/api"
-import { basePublica } from "@/lib/pos/servidor"
+import { basePortal } from "@/lib/pos/servidor"
 import { ErrorPos, enviarInvitacion } from "@/lib/pos/usuarios"
 import { EMAIL_RE } from "@/lib/pos/validacion"
 import { lanzarAlta, eliminarInstancia, estadoInstancia, ALTA_ESTANCADA_MS } from "@/lib/pos/alta"
@@ -152,7 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       case "reenviar": {
         const dueno = cuenta.usuarios[0]
         if (!dueno) throw new ErrorPos("La cuenta no tiene dueño.")
-        const base = basePublica(req)
+        const base = basePortal(req)
         if (cuenta.estadoAlta === "LISTO" && cuenta.cliente) {
           await correoBienvenida({
             to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url: cuenta.posUrl,

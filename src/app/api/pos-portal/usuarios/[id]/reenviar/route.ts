@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { jsonError, manejar, mismoOrigen, portalPos } from "@/lib/pos/api"
 import { enviarInvitacion } from "@/lib/pos/usuarios"
-import { basePublica, excedeLimite } from "@/lib/pos/servidor"
+import { basePortal, excedeLimite } from "@/lib/pos/servidor"
 
 // POST /api/pos-portal/usuarios/:id/reenviar — el DUENO reenvía la invitación a un EDITOR suyo.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   return manejar(async () => {
     const editor = await prisma.posUsuario.findFirst({ where: { id, cuentaId: dueno.cuentaId, rol: "EDITOR" } })
     if (!editor) return jsonError("Usuario no encontrado.", 404)
-    const enviado = await enviarInvitacion(editor.id, dueno.nombre, basePublica(req))
+    const enviado = await enviarInvitacion(editor.id, dueno.nombre, basePortal(req))
     if (!enviado) return jsonError("No pudimos enviar el correo. Intenta de nuevo en unos minutos.", 502)
     return NextResponse.json({ ok: true })
   })

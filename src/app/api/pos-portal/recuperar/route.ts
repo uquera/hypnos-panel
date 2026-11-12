@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { crearToken } from "@/lib/pos/tokens"
 import { enviarRecuperacionPos } from "@/lib/pos/email"
 import { jsonError, mismoOrigen } from "@/lib/pos/api"
-import { basePublica, excedeLimite, ipDe } from "@/lib/pos/servidor"
+import { basePortal, excedeLimite, ipDe } from "@/lib/pos/servidor"
 import { EMAIL_RE } from "@/lib/pos/validacion"
 
 // POST /api/pos-portal/recuperar — enlace de 1 hora para elegir otra contraseña.
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   const usuario = await prisma.posUsuario.findUnique({ where: { email }, include: { cuenta: true } })
   if (usuario && usuario.activo && usuario.cuenta.activo) {
     const token = await crearToken(usuario.id, "RECUPERACION")
-    const link  = `${basePublica(req)}/pos/crear-contrasena?token=${encodeURIComponent(token)}`
+    const link  = `${basePortal(req)}/pos/crear-contrasena?token=${encodeURIComponent(token)}`
     try {
       await enviarRecuperacionPos({ nombre: usuario.nombre, email: usuario.email, link, cuenta: usuario.cuenta })
     } catch (err) {

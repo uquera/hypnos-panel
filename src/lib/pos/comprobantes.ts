@@ -4,7 +4,7 @@ import { randomUUID } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { ErrorPos } from "./usuarios"
-import { basePublica } from "./servidor"
+import { basePortal, basePublica } from "./servidor"
 import { registrarPagoPos, correoCobroDe, precioDe } from "./cobro"
 import { avisoHypnosComprobante, correoComprobanteRechazado } from "./correos"
 
@@ -145,7 +145,7 @@ export async function rechazarComprobante(id: string, motivo: string, operador: 
   })
   const to = cuenta ? correoCobroDe(cuenta) : null
   if (to) {
-    await correoComprobanteRechazado({ to, restaurante: comp.cuenta.nombre, motivo: m, linkPago: `${basePublica()}/pos/pago` })
+    await correoComprobanteRechazado({ to, restaurante: comp.cuenta.nombre, motivo: m, linkPago: `${basePortal()}/pos/pago` })
       .catch(e => console.error("[pos-comprobante] correo rechazo:", e))
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { adminPos, jsonError, manejar } from "@/lib/pos/api"
 import { enviarInvitacion } from "@/lib/pos/usuarios"
-import { basePublica } from "@/lib/pos/servidor"
+import { basePortal } from "@/lib/pos/servidor"
 
 // POST /api/pos-admin/usuarios/:id/reenviar — enlace nuevo de 7 días (anula el anterior).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
 
   return manejar(async () => {
-    const enviado = await enviarInvitacion(id, "Hypnos", basePublica(req))
+    const enviado = await enviarInvitacion(id, "Hypnos", basePortal(req))
     if (!enviado) return jsonError("No pudimos enviar el correo. Intenta de nuevo en unos minutos.", 502)
     return NextResponse.json({ ok: true })
   })

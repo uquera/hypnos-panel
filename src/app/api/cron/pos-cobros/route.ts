@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
 import { patchLicenciaRemota } from "@/lib/gobernanza-remota"
-import { basePublica } from "@/lib/pos/servidor"
+import { basePortal } from "@/lib/pos/servidor"
 import { diasGracia } from "@/lib/pos/config"
 import { claveDiaChile, diasHastaChile } from "@/lib/pos/fechas"
 import { correoCobroDe, precioDe } from "@/lib/pos/cobro"
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const dry    = req.nextUrl.searchParams.get("dry") === "1"
   const hoy    = new Date()
   const gracia = diasGracia()
-  const base   = basePublica()
+  const base   = basePortal()
   const linkPago = `${base}/pos/pago`
   const res = { revisadas: 0, enviados: 0, suspendidas: 0, omitidos: 0, errores: 0, detalle: [] as string[] }
 

@@ -2,7 +2,7 @@ import { spawn } from "child_process"
 import fs from "fs"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
-import { basePublica, dirLogos } from "./servidor"
+import { basePortal, basePublica, dirLogos } from "./servidor"
 import { rutaLogo, rutaClientes, type ResultadoAlta } from "./onboarding"
 import { enviarInvitacion } from "./usuarios"
 import { correoBienvenida, avisoHypnosErrorAlta } from "./correos"
@@ -288,7 +288,7 @@ async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
   try {
     await correoBienvenida({
       to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url,
-      enPrueba: cuenta.enPrueba, vence: cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${base}/pos/pago`,
+      enPrueba: cuenta.enPrueba, vence: cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${basePortal()}/pos/pago`,
       monto: cuenta.precioMensual ?? precioMensual(),
       mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: resultadoAlta, almacen: cuenta.tipo === "ALMACEN",
     })
@@ -297,7 +297,7 @@ async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
   }
   // Invitación al portal (pagos y marca) solo si aún no creó su contraseña
   if (!dueno.passwordHash) {
-    await enviarInvitacion(dueno.id, "Hypnos", base).catch(e => console.error("[pos-alta] invitación:", e))
+    await enviarInvitacion(dueno.id, "Hypnos", basePortal()).catch(e => console.error("[pos-alta] invitación:", e))
   }
 }
 

@@ -80,7 +80,7 @@ export async function correoBienvenida(d: {
         ? `Tu prueba gratis dura hasta el <strong>${esc(fechaLarga(d.vence))}</strong>. Después el plan cuesta ${esc(formatoCLP(d.monto))} al mes, por transferencia. Te avisaremos antes de que termine.`
         : `Tu plan está activo hasta el <strong>${esc(fechaLarga(d.vence))}</strong>.`,
       `<strong>Próximos pasos:</strong><br>${pasos.map((p, i) => `${i + 1}. ${p}`).join("<br>")}`,
-      `Tu portal de Hypnos POS (<a href="${d.linkPago.replace(/\/pago$/, "")}">panel.hypnosapps.com/pos</a>) es donde abres tu sistema, pagas tu plan y ves tu prueba gratis.`,
+      `Tu portal de Hypnos POS (<a href="${d.linkPago.replace(/\/pago$/, "")}">${esc(d.linkPago.replace(/\/pago$/, "").replace(/^https?:\/\//, ""))}</a>) es donde abres tu sistema, pagas tu plan y ves tu prueba gratis.`,
     ],
     bloque: `<strong>Lo que ya quedó listo</strong><br>${listo.map(l => `✓ ${l}`).join("<br>")}`,
     boton: { texto: "Abrir mi sistema", link: d.url },

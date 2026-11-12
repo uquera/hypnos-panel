@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { tokenEstadoValido } from "@/lib/pos/registro"
 import { urlAbrirSistema } from "@/lib/pos/acceso"
-import { basePublica } from "@/lib/pos/servidor"
+import { basePortal } from "@/lib/pos/servidor"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const id = url.searchParams.get("id") ?? ""
   const t  = url.searchParams.get("t") ?? ""
-  if (!id || !tokenEstadoValido(id, t)) return NextResponse.redirect(new URL("/pos/login", basePublica(req)), 303)
+  if (!id || !tokenEstadoValido(id, t)) return NextResponse.redirect(new URL("/pos/login", basePortal(req)), 303)
 
   const cuenta = await prisma.posCuenta.findUnique({
     where: { id },
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     },
   })
   if (!cuenta || cuenta.estadoAlta !== "LISTO" || !cuenta.activo || cuenta.eliminadaAt) {
-    return NextResponse.redirect(new URL("/pos/login", basePublica(req)), 303)
+    return NextResponse.redirect(new URL("/pos/login", basePortal(req)), 303)
   }
   const dueno = cuenta.usuarios[0]
   const reciente = !!cuenta.altaAt && Date.now() - cuenta.altaAt.getTime() < VENTANA_MS

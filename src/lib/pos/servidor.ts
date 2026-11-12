@@ -23,6 +23,16 @@ export function basePublica(req?: Request): string {
   return "https://panel.hypnosapps.com"
 }
 
+/**
+ * Base del portal de clientes (dueños): POS_PORTAL_URL (https://mi.hypnosapps.com) o, si falta,
+ * la del panel. Para enlaces que abre el dueño (invitaciones, pago, abrir sistema); los enlaces
+ * para Hypnos (fichas /admin) siguen con basePublica.
+ */
+export function basePortal(req?: Request): string {
+  const env = process.env.POS_PORTAL_URL?.trim()
+  return env ? env.replace(/\/$/, "") : basePublica(req)
+}
+
 export function ipDe(req: Request): string {
   return (
     req.headers.get("cf-connecting-ip") ??

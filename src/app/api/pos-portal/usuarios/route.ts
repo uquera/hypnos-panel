@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { jsonError, manejar, mismoOrigen, portalPos } from "@/lib/pos/api"
 import { invitarUsuario, leerInvitacion, usuarioPublico } from "@/lib/pos/usuarios"
-import { basePublica, excedeLimite } from "@/lib/pos/servidor"
+import { basePortal, excedeLimite } from "@/lib/pos/servidor"
 
 // POST /api/pos-portal/usuarios — el DUENO invita a un EDITOR de su propia cuenta.
 export async function POST(req: Request) {
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   return manejar(async () => {
     const datos = leerInvitacion({ ...(await req.json().catch(() => ({}))), rol: "EDITOR" }, ["EDITOR"])
-    const { usuario, enviado } = await invitarUsuario(dueno.cuentaId, datos, dueno.nombre, basePublica(req))
+    const { usuario, enviado } = await invitarUsuario(dueno.cuentaId, datos, dueno.nombre, basePortal(req))
     return NextResponse.json({ ok: true, enviado, usuario: usuarioPublico(usuario) }, { status: 201 })
   })
 }
