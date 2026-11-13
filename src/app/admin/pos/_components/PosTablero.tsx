@@ -1,10 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ExternalLink, Search, Store, MessageCircle, Loader2, RotateCcw, PauseCircle, PlayCircle, Banknote, FileClock, Archive, ArchiveRestore } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink, Search, Store, MessageCircle, Loader2, RotateCcw, PauseCircle, PlayCircle, Banknote, FileClock, Archive, ArchiveRestore } from "lucide-react"
 import type { FilaTablero } from "@/lib/pos/tablero"
 import { accionPos } from "./accionPos"
 
@@ -34,6 +34,53 @@ export const COLOR_ESTADO: Record<string, string> = {
   ERROR:      "bg-red-100 text-red-700",
   MANUAL:     "bg-gray-100 text-gray-600",
   ELIMINADA:  "bg-gray-200 text-gray-500",
+}
+
+// Orden de la tabla: se toca el nombre de la columna (otra vez = al revés). Se recuerda en este navegador.
+type Col = "nombre" | "dueno" | "estado" | "vence" | "pago" | "pendientes"
+type Orden = { col: Col; dir: 1 | -1 } | null
+const COLS: { id: Col; label: string }[] = [
+  { id: "vence", label: "Vencimiento" }, { id: "nombre", label: "Restaurante" }, { id: "dueno", label: "Dueño" },
+  { id: "estado", label: "Estado" }, { id: "pago", label: "Último pago" }, { id: "pendientes", label: "Comprobantes" },
+]
+// Estado: de lo más urgente a lo más tranquilo
+const PESO_ESTADO: Record<string, number> = { ERROR: 0, VENCIDO: 1, SUSPENDIDO: 2, POR_VENCER: 3, EN_PRUEBA: 4, INSTALANDO: 5, AL_DIA: 6, MANUAL: 7, ELIMINADA: 8 }
+const CLAVE_ORDEN = "pos-tablero-orden"
+
+function valorOrden(f: FilaTablero, col: Col): string | number | null {
+  switch (col) {
+    case "nombre":     return f.nombre.toLowerCase()
+    case "dueno":      return f.dueno?.toLowerCase() ?? null
+    case "estado":     return PESO_ESTADO[f.estado] ?? 9
+    case "vence":      return f.vence ? Date.parse(f.vence) : null
+    case "pago":       return f.ultimoPago ? Date.parse(f.ultimoPago.fecha) : null
+    case "pendientes": return f.pendientes
+  }
+}
+
+function ordenar(lista: FilaTablero[], o: Orden): FilaTablero[] {
+  if (!o) return lista
+  return [...lista].sort((a, b) => {
+    const x = valorOrden(a, o.col), y = valorOrden(b, o.col)
+    if (x === null && y === null) return 0
+    if (x === null) return 1            // sin dato, siempre al final
+    if (y === null) return -1
+    const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "es")
+    return c * o.dir
+  })
+}
+
+function ThOrden({ col, orden, onClick, className = "", children }: { col: Col; orden: Orden; onClick: (c: Col) => void; className?: string; children: React.ReactNode }) {
+  const activo = orden?.col === col
+  const Icono = !activo ? ArrowUpDown : orden!.dir === 1 ? ArrowUp : ArrowDown
+  return (
+    <th className={`py-3 font-semibold ${className}`} aria-sort={activo ? (orden!.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={() => onClick(col)} title="Ordenar"
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-gray-900 ${activo ? "text-gray-900" : ""}`}>
+        {children} <Icono size={12} className={activo ? "" : "opacity-40"} />
+      </button>
+    </th>
+  )
 }
 
 const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n)
@@ -125,6 +172,23 @@ function Acciones({ f }: { f: FilaTablero }) {
 export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
   const [q, setQ] = useState("")
   const [filtro, setFiltro] = useState("todos")
+  const [orden, setOrden] = useState<Orden>(null)
+
+  useEffect(() => {
+    try {
+      const o = JSON.parse(localStorage.getItem(CLAVE_ORDEN) ?? "null")
+      // se lee después de montar (el servidor no tiene localStorage): evita diferencias de hidratación
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (o && COLS.some(c => c.id === o.col) && (o.dir === 1 || o.dir === -1)) setOrden(o)
+    } catch { /* sin almacenamiento: orden por defecto */ }
+  }, [])
+
+  function guardar(o: Orden) {
+    setOrden(o)
+    try { if (o) localStorage.setItem(CLAVE_ORDEN, JSON.stringify(o)); else localStorage.removeItem(CLAVE_ORDEN) } catch { /* nada */ }
+  }
+  // 1er toque: ascendente (vence: lo que vence antes primero); 2º: al revés; 3º: sin orden
+  const tocar = (col: Col) => guardar(orden?.col !== col ? { col, dir: 1 } : orden.dir === 1 ? { col, dir: -1 } : null)
 
   const conteo = useMemo(() => {
     const m: Record<string, number> = {}
@@ -145,9 +209,9 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
           // Los archivados no estorban en ninguna vista: tienen la suya
           return filas.filter(f => !f.archivada).filter(f => F.id === "todos" ? !f.eliminada : F.estados.includes(f.estado))
         })()
-    return base
-      .filter(f => !t || [f.nombre, f.codigo, f.posUrl, f.dueno ?? "", f.email ?? "", f.whatsapp].some(v => v.toLowerCase().includes(t)))
-  }, [q, filtro, filas])
+    return ordenar(base
+      .filter(f => !t || [f.nombre, f.codigo, f.posUrl, f.dueno ?? "", f.email ?? "", f.whatsapp].some(v => v.toLowerCase().includes(t))), orden)
+  }, [q, filtro, filas, orden])
 
   return (
     <div className="space-y-4">
@@ -170,6 +234,18 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
           Fuera del tablero y de los totales de arriba. Su licencia y su sistema siguen tal cual: archivar solo limpia la lista.
         </p>
       )}
+      <div className="md:hidden flex items-center gap-2 text-sm">
+        <span className="text-gray-500">Ordenar por</span>
+        <select value={orden ? `${orden.col}:${orden.dir}` : ""} onChange={e => {
+            const [c, d] = e.target.value.split(":")
+            guardar(c ? { col: c as Col, dir: (Number(d) === -1 ? -1 : 1) } : null)
+          }}
+          className="flex-1 h-9 px-2.5 rounded-lg border border-gray-200 bg-white text-sm">
+          <option value="">Sin orden</option>
+          {COLS.map(c => <option key={c.id} value={`${c.id}:1`}>{c.label}{c.id === "vence" ? " (más próximo)" : ""}</option>)}
+          <option value="vence:-1">Vencimiento (más lejano)</option>
+        </select>
+      </div>
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por restaurante, código, dueño, correo o WhatsApp"
@@ -215,12 +291,12 @@ export default function PosTablero({ filas }: { filas: FilaTablero[] }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50 text-xs uppercase tracking-wide text-gray-500">
-                <th className="text-left px-4 py-3 font-semibold">Restaurante</th>
-                <th className="text-left px-3 py-3 font-semibold">Dueño</th>
-                <th className="text-left px-3 py-3 font-semibold">Estado</th>
-                <th className="text-left px-3 py-3 font-semibold">Vence</th>
-                <th className="hidden xl:table-cell text-left px-3 py-3 font-semibold">Último pago</th>
-                <th className="text-center px-3 py-3 font-semibold" title="Comprobantes pendientes"><FileClock size={14} className="inline" /></th>
+                <ThOrden col="nombre" orden={orden} onClick={tocar} className="text-left px-4">Restaurante</ThOrden>
+                <ThOrden col="dueno" orden={orden} onClick={tocar} className="text-left px-3">Dueño</ThOrden>
+                <ThOrden col="estado" orden={orden} onClick={tocar} className="text-left px-3">Estado</ThOrden>
+                <ThOrden col="vence" orden={orden} onClick={tocar} className="text-left px-3">Vence</ThOrden>
+                <ThOrden col="pago" orden={orden} onClick={tocar} className="hidden xl:table-cell text-left px-3">Último pago</ThOrden>
+                <ThOrden col="pendientes" orden={orden} onClick={tocar} className="text-center px-3"><FileClock size={14} className="inline" aria-label="Comprobantes pendientes" /></ThOrden>
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
