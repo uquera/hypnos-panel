@@ -221,14 +221,15 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
           )}
       </section>
 
-      <LogInstalacion
+      {/* El registro de la instalación solo hace falta mientras instala o si falló */}
+      {cuenta.estadoAlta !== "LISTO" && cuenta.estadoAlta !== "MANUAL" && <LogInstalacion
         cuentaId={cuenta.id}
         estadoAlta={cuenta.estadoAlta}
         altaAt={cuenta.altaAt?.toISOString() ?? null}
         log={cuenta.altaLog ?? ""}
         estancada={fila.estancada}
         eliminada={fila.eliminada}
-      />
+      />}
 
       {!cuenta.eliminadaAt && (
         <>
