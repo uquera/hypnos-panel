@@ -4,11 +4,11 @@ import { auth } from "@/lib/auth"
 import { calcularEstado } from "@/lib/licencia-utils"
 import { urlSitio } from "@/lib/url-sitio"
 import { toUSD } from "@/lib/monedas"
-import { PlusCircle, ExternalLink, Edit2, Users, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
-import RenovarButton from "./_components/RenovarButton"
+import { PlusCircle, TrendingUp, Wallet, AlertTriangle, XCircle } from "lucide-react"
 import HealthMonitor from "./_components/HealthMonitor"
 import RankingClientes, { type RankingCliente, type TramoIngresos } from "./_components/RankingClientes"
 import RankingMeses, { type MesIngresos } from "./_components/RankingMeses"
+import ListaClientes, { type FilaCliente } from "./_components/ListaClientes"
 
 export const metadata = { title: "Clientes — Hypnos Panel" }
 export const dynamic = "force-dynamic"
@@ -68,6 +68,20 @@ export default async function AdminPage() {
   ])
 
   const clientes = clientesTodos.filter(c => c.activo)
+
+  // Filas de la lista. El estado y los días se calculan en el servidor: dependen de
+  // la hora actual y calcularlos también en el navegador daría distinto HTML.
+  const filasClientes: FilaCliente[] = clientes.map(c => {
+    const e = calcularEstado(c)
+    return {
+      id: c.id, nombre: c.nombre, dominio: c.dominio, plan: c.plan,
+      url: urlSitio(c.dominio),
+      vence: c.fechaVencimiento.toISOString(),
+      venceTxt: new Date(c.fechaVencimiento).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+      grupo: c.suspendida ? "SUSPENDIDA" : e.diasRestantes <= 0 ? "VENCIDA" : e.diasRestantes <= 7 ? "POR_VENCER" : "ACTIVA",
+      etiqueta: e.label, color: e.color, textColor: e.textColor, dias: e.diasRestantes,
+    }
+  })
 
   const esDelMes = (f: Date) => f >= primerDiaMes && f < primerDiaSigMes
 
@@ -236,145 +250,8 @@ export default async function AdminPage() {
         ultimoCheckOk: c.ultimoCheckOk,
       }))} />
 
-      {/* Lista de clientes */}
-      {clientes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-          <Users size={40} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No hay clientes registrados</p>
-          <p className="text-sm text-gray-400 mt-1">Agrega tu primer cliente con el botón de arriba</p>
-        </div>
-      ) : (
-        <>
-          {/* Cards — móvil (< sm) */}
-          <div className="sm:hidden space-y-3">
-            {clientes.map((c) => {
-              const estado = calcularEstado(c)
-              const fecha  = new Date(c.fechaVencimiento).toLocaleDateString("es-CL", {
-                day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
-              })
-              return (
-                <div
-                  key={c.id}
-                  className="relative bg-white rounded-xl border border-gray-100 shadow-sm p-4 transition-colors hover:border-indigo-200"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {/* Enlace estirado: la tarjeta entera abre la ficha sin anidar
-                          anchors, y los botones de abajo siguen siendo suyos. */}
-                      <Link
-                        href={`/admin/clientes/${c.id}`}
-                        className="font-semibold text-gray-900 truncate block after:absolute after:inset-0 after:content-['']"
-                      >
-                        {c.nombre}
-                      </Link>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">{c.dominio}</p>
-                    </div>
-                    <span className={`shrink-0 inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${estado.color} ${estado.textColor}`}>
-                      {estado.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="inline-flex px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold">
-                      {c.plan}
-                    </span>
-                    <span className="text-xs text-gray-500">{fecha}</span>
-                  </div>
-                  <div className="relative z-10 flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
-                    <RenovarButton clienteId={c.id} clienteNombre={c.nombre} />
-                    <Link
-                      href={`/admin/clientes/${c.id}`}
-                      className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
-                    >
-                      <Edit2 size={13} /> Editar
-                    </Link>
-                    <a
-                      href={urlSitio(c.dominio)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-9 px-3 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                      <ExternalLink size={15} />
-                    </a>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Tabla — tablet y desktop (>= sm) */}
-          <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="text-left px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wide">Cliente</th>
-                  <th className="text-left px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wide">Plan</th>
-                  <th className="text-left px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wide">Vencimiento</th>
-                  <th className="text-left px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wide">Estado</th>
-                  <th className="text-right px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wide">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {clientes.map((c) => {
-                  const estado = calcularEstado(c)
-                  const fecha  = new Date(c.fechaVencimiento).toLocaleDateString("es-CL", {
-                    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
-                  })
-                  return (
-                    <tr key={c.id} className="relative cursor-pointer hover:bg-gray-50/50 transition-colors">
-                      <td className="px-5 py-4">
-                        {/* Enlace estirado: cubre la fila entera con ::after, así
-                            toda la fila abre la ficha del cliente y su historial.
-                            Sigue siendo un <a> de verdad: teclado, ctrl+clic y
-                            botón central funcionan. Anidar anchors no es válido,
-                            por eso los botones de Acciones van sobre él (z-10). */}
-                        <Link
-                          href={`/admin/clientes/${c.id}`}
-                          className="font-semibold text-gray-900 hover:text-indigo-700 after:absolute after:inset-0 after:content-['']"
-                        >
-                          {c.nombre}
-                        </Link>
-                        <p className="text-xs text-gray-400 mt-0.5">{c.dominio}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold">
-                          {c.plan}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-gray-600">{fecha}</td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${estado.color} ${estado.textColor}`}>
-                          {estado.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="relative z-10 flex items-center justify-end gap-2">
-                          <a
-                            href={urlSitio(c.dominio)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                            title="Ver sitio"
-                          >
-                            <ExternalLink size={15} />
-                          </a>
-                          <RenovarButton clienteId={c.id} clienteNombre={c.nombre} />
-                          <Link
-                            href={`/admin/clientes/${c.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
-                          >
-                            <Edit2 size={12} />
-                            Editar
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      {/* Lista de clientes: filtro por estado y orden por columna (ListaClientes) */}
+      <ListaClientes clientes={filasClientes} />
 
       {/* Ranking de clientes por ingresos generados */}
       {ranking.length > 0 && <RankingClientes clientes={ranking} />}
