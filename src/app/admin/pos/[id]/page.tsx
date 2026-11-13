@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { ArrowLeft, Braces, ExternalLink, ShieldCheck } from "lucide-react"
+import { ArrowLeft, Braces, ExternalLink, ShieldCheck, UserRound } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { urlLogo } from "@/lib/pos/logo"
@@ -87,6 +87,14 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
                 <button type="submit" title="Entra al sistema del local como Hypnos (soporte), con permisos de administrador"
                   className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-gray-700">
                   <ShieldCheck size={13} /> Entrar como admin
+                </button>
+              </form>
+            )}
+            {!cuenta.eliminadaAt && dueno && (
+              <form action={`/api/pos-admin/cuentas/${cuenta.id}/portal`} method="post" target="_blank">
+                <button type="submit" title={`Abre mi.hypnosapps.com como ${dueno.email} (modo soporte, 4 horas)`}
+                  className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl text-xs font-semibold border border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100">
+                  <UserRound size={13} /> Ver portal como dueño
                 </button>
               </form>
             )}

@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, Download, ExternalLink, St
 import { requireSesionPos } from "@/lib/pos/sesion"
 import { cadenaDe, MEDIO_LABEL, rangoFechas, resumenCadena, RANGOS, variacion, type Rango } from "@/lib/pos/cadena"
 
-export const metadata = { title: "Mi cadena — Hypnos POS" }
+export const metadata = { title: "Mi cadena — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`

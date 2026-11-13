@@ -95,14 +95,17 @@ export function rangoFechas(rango: Rango, desdeDia?: string, hastaDia?: string, 
     const ok = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s)
     if (ok(desdeDia) && ok(hastaDia) && desdeDia! <= hastaDia!) { a = desdeDia!; b = sumarDias(hastaDia!, 1) }
   }
-  return { desde: inicioDiaChile(a), hasta: inicioDiaChile(b), desdeDia: a, hastaDia: sumarDias(b, -1) }
+  // Un período que incluye hoy termina "ahora": no cambia las ventas (no hay futuras), pero así el
+  // período anterior del mismo largo se compara a la misma hora (hoy vs ayer hasta esta hora).
+  const fin = inicioDiaChile(b)
+  return { desde: inicioDiaChile(a), hasta: fin > hoy ? hoy : fin, desdeDia: a, hastaDia: sumarDias(b, -1) }
 }
 
 // ── Lectura de los locales ──
 
 type CuentaCadena = NonNullable<Awaited<ReturnType<typeof cadenaDe>>>["cuentas"][number]
 
-async function leerLocal(c: CuentaCadena, desde: Date, hasta: Date): Promise<LocalCadena> {
+export async function leerLocal(c: CuentaCadena, desde: Date, hasta: Date): Promise<LocalCadena> {
   const base = { cuentaId: c.id, nombre: c.nombre, codigo: c.codigo, posUrl: c.posUrl }
   const key = c.cliente?.masterKey
   if (!key || !/^https:\/\//.test(c.posUrl)) return { ...base, ok: false, error: "Local sin conexión con el panel" }

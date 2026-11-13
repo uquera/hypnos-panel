@@ -29,7 +29,7 @@ export default function PosLoginForm({ destino = "/pos/inicio" }: { destino?: st
   }
 
   return (
-    <PosAuthCard titulo="Hypnos POS" subtitulo="Administra la marca de tu negocio"
+    <PosAuthCard titulo="Ingresa a tu cuenta" subtitulo="Con el correo de dueño o administrador de tus locales"
       pie={<span className="text-xs text-gray-400">¿Aún no tienes cuenta? <Link href="/pos/registro" className="text-gray-600 underline">Prueba gratis</Link></span>}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">

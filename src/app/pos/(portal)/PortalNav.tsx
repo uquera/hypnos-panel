@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { CreditCard, ExternalLink, Home, LogOut, Network, Palette, Users } from "lucide-react"
 
-export default function PortalNav({ nombre, esDueno, conSistema, conCadena = false }: { nombre: string; esDueno: boolean; conSistema: boolean; conCadena?: boolean }) {
+export default function PortalNav({ nombre, esDueno, conSistema, conCadena = false, soporte = false }: { nombre: string; esDueno: boolean; conSistema: boolean; conCadena?: boolean; soporte?: boolean }) {
   const pathname = usePathname()
   const items = [
     { href: "/pos/inicio", label: "Inicio", icon: Home },
@@ -18,6 +18,7 @@ export default function PortalNav({ nombre, esDueno, conSistema, conCadena = fal
 
   async function salir() {
     await fetch("/api/pos-portal/logout", { method: "POST" }).catch(() => null)
+    if (soporte) window.close()
     window.location.href = "/pos/login"
   }
 
@@ -28,14 +29,14 @@ export default function PortalNav({ nombre, esDueno, conSistema, conCadena = fal
         return (
           <Link key={i.href} href={i.href}
             className={["inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-9 rounded-lg text-sm font-medium transition-colors",
-              activo ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"].join(" ")}>
+              activo ? "bg-[#0b1220] text-white" : "text-gray-600 hover:bg-gray-100"].join(" ")}>
             <i.icon size={15} /> <span className="hidden sm:inline">{i.label}</span>
           </Link>
         )
       })}
       {conSistema && (
         <a href="/api/pos-portal/abrir" target="_blank" rel="noopener" title="Abrir mi sistema"
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-9 rounded-lg text-sm font-semibold text-white bg-[#f26522] hover:opacity-90 transition">
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-9 rounded-lg text-sm font-semibold text-[#0b1220] bg-[#d4a72c] hover:opacity-90 transition">
           <ExternalLink size={15} /> <span className="hidden sm:inline">Abrir sistema</span>
         </a>
       )}

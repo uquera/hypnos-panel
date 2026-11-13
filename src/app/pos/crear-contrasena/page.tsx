@@ -3,7 +3,7 @@ import { buscarTokenVigente } from "@/lib/pos/tokens"
 import PosAuthCard from "../_components/PosAuthCard"
 import CrearContrasenaForm from "./CrearContrasenaForm"
 
-export const metadata = { title: "Crear contraseña — Hypnos POS" }
+export const metadata = { title: "Crear contraseña — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 // Destino de los enlaces de invitación (7 días) y de recuperación (1 hora).

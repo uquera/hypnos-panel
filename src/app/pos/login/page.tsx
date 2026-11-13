@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { destinoPortal, getSesionPos } from "@/lib/pos/sesion"
 import PosLoginForm from "./PosLoginForm"
 
-export const metadata = { title: "Ingresar — Hypnos POS" }
+export const metadata = { title: "Ingresar — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 export default async function PosLoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {

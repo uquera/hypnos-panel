@@ -10,7 +10,7 @@ import { tuuOnlineEnabled } from "@/lib/tuu-online"
 import { planesOnline } from "@/lib/pos/cobro-online"
 import { planesBoton } from "../../_components/BotonesPagoOnline"
 
-export const metadata = { title: "Pago — Hypnos POS" }
+export const metadata = { title: "Pago — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 // Pago mensual: estado del plan, pago con tarjeta (link TUU del monto) o transferencia, y subida del comprobante.

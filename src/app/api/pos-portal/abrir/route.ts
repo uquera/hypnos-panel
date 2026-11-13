@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getSesionPos } from "@/lib/pos/sesion"
-import { urlAbrirSistema } from "@/lib/pos/acceso"
+import { urlAbrirSistema, urlSoporte } from "@/lib/pos/acceso"
 import { basePortal } from "@/lib/pos/servidor"
 import { cadenaDe } from "@/lib/pos/cadena"
 
@@ -27,5 +27,9 @@ export async function GET(req: Request) {
     select: { posUrl: true, estadoAlta: true, cliente: { select: { masterKey: true } } },
   })
   if (!cuenta?.posUrl) return NextResponse.redirect(new URL("/pos/inicio", basePortal(req)), 303)
-  return NextResponse.redirect(urlAbrirSistema(cuenta, yo.email, params.get("ir")), { status: 303, headers: { "Cache-Control": "no-store" } })
+  // Modo soporte: Hypnos entra como su usuario oculto "Hypnos (soporte)", no como el dueño
+  const url = yo.soporte
+    ? (urlSoporte(cuenta, yo.soporte.nombre) ?? cuenta.posUrl)
+    : urlAbrirSistema(cuenta, yo.email, params.get("ir"))
+  return NextResponse.redirect(url, { status: 303, headers: { "Cache-Control": "no-store" } })
 }

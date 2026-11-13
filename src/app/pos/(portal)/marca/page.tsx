@@ -4,7 +4,7 @@ import Link from "next/link"
 import { ArrowRight, ExternalLink } from "lucide-react"
 import PosMarcaForm from "@/app/_components/pos/PosMarcaForm"
 
-export const metadata = { title: "Marca — Hypnos POS" }
+export const metadata = { title: "Marca — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 export default async function PosMarcaPage() {

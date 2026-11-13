@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       archivo: fd.get("archivo") as File,
       montoDeclarado: Number(String(fd.get("monto") ?? "").replace(/[^\d]/g, "")),
       comentario: String(fd.get("comentario") ?? ""),
-      subidoPor: yo.email,
+      subidoPor: yo.soporte ? `Hypnos (soporte: ${yo.soporte.nombre})` : yo.email,
     })
     return NextResponse.json({ ok: true, id: comp.id }, { status: 201 })
   })

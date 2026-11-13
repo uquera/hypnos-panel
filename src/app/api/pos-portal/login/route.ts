@@ -31,6 +31,14 @@ export async function POST(req: Request) {
   if (!usuario || !usuario.passwordHash || !ok || !usuario.activo) {
     excedeLimite(claveEmail, 1_000, VENTANA)
     if (ip) excedeLimite(claveIp, 1_000, VENTANA)
+    // ¿Es alguien del equipo Hypnos con su clave del panel? (solo si la clave es correcta,
+    // para no revelar qué correos existen)
+    if (!usuario) {
+      const op = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true, activo: true } })
+      if (op?.activo && await bcrypt.compare(password, op.passwordHash)) {
+        return jsonError("Esta es tu cuenta del panel de Hypnos. Para ver el portal de un cliente, abre su ficha en panel.hypnosapps.com y usa «Ver portal como dueño».", 401)
+      }
+    }
     return jsonError("Correo o contraseña incorrectos.", 401)
   }
   if (!usuario.cuenta.activo) return jsonError("Esta cuenta está suspendida. Escribe a Hypnos.", 403)

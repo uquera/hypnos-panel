@@ -4,7 +4,7 @@ import { requireSesionPos } from "@/lib/pos/sesion"
 import { usuarioPublico } from "@/lib/pos/usuarios"
 import PosUsuarios from "@/app/_components/pos/PosUsuarios"
 
-export const metadata = { title: "Equipo — Hypnos POS" }
+export const metadata = { title: "Equipo — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 // Solo el DUENO: invita y desactiva a los EDITOR de su cuenta.
