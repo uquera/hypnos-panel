@@ -16,6 +16,8 @@ import PosUsuarios from "@/app/_components/pos/PosUsuarios"
 import EstadoCuentaButton from "./EstadoCuentaButton"
 import FichaGestion from "./FichaGestion"
 import LogInstalacion from "./LogInstalacion"
+import SuscripcionMp from "./SuscripcionMp"
+import { mpSuscripcionesListas } from "@/lib/pos/mp-suscripcion"
 import { EstadoBadge } from "../_components/PosTablero"
 import ComprobantesBandeja from "../_components/ComprobantesBandeja"
 import { linkPagoOnline } from "@/lib/pos/cobro-online"
@@ -35,7 +37,7 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
   ])
   if (!cuenta) notFound()
 
-  const [usuarios, comprobantes, pagos, integrantes, cobrosOnline] = await Promise.all([
+  const [usuarios, comprobantes, pagos, integrantes, cobrosOnline, suscripcion] = await Promise.all([
     prisma.posUsuario.findMany({ where: { cuentaId: id }, orderBy: [{ rol: "asc" }, { createdAt: "asc" }] }),
     prisma.posComprobante.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" } }),
     cuenta.clienteId
@@ -44,6 +46,7 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
     // Posibles custodios del ingreso: los integrantes activos del panel
     prisma.user.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
     prisma.posCobroOnline.findMany({ where: { cuentaId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
+    prisma.posSuscripcion.findFirst({ where: { cuentaId: id }, orderBy: { createdAt: "desc" }, include: { cobros: { orderBy: { createdAt: "desc" }, take: 12 } } }),
   ])
   // link de pago en línea (TUU) para enviar por WhatsApp/correo: renueva solo con el callback
   const linkOnline = cuenta.clienteId && !cuenta.eliminadaAt ? linkPagoOnline(cuenta.id) : null
@@ -117,6 +120,22 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
         integrantes={integrantes}
         yoId={session.user.id ?? ""}
       />
+
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-gray-900">Pago automático (Mercado Pago)</h2>
+        <div className={`${card} p-4`}>
+          <SuscripcionMp
+            cuentaId={cuenta.id}
+            disponible={mpSuscripcionesListas()}
+            emailDueno={dueno?.email ?? cuenta.cliente?.emailContacto ?? ""}
+            s={suscripcion ? {
+              estado: suscripcion.estado, monto: formatoCLP(suscripcion.monto), email: suscripcion.payerEmail, link: suscripcion.initPoint,
+              ultimoCobro: suscripcion.ultimoCobroAt ? fechaCorta(suscripcion.ultimoCobroAt) : null,
+              cobros: suscripcion.cobros.map(c => ({ fecha: fechaCorta(c.createdAt), monto: formatoCLP(c.monto), estado: c.estado })),
+            } : null}
+          />
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-bold text-gray-900">Entregado en el registro</h2>

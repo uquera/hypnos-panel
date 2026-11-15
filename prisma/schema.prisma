@@ -262,6 +262,7 @@ model PosCuenta {
   comprobantes       PosComprobante[]
   avisos             PosAviso[]
   cobrosOnline       PosCobroOnline[]
+  suscripciones      PosSuscripcion[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -348,6 +349,44 @@ model PosAviso {
 
   @@unique([cuentaId, tipo, periodo])
   @@map("pos_avisos")
+}
+
+// Cobro automático mensual con Suscripciones de Mercado Pago (preapproval) en la cuenta de Hypnos SpA.
+// El dueño autoriza su tarjeta una vez en Mercado Pago (link init_point) y Mercado Pago cobra solo cada mes.
+// estado (el de Mercado Pago): pending (falta autorizar) | authorized | paused | cancelled
+// Ver src/lib/pos/mp-suscripcion.ts.
+model PosSuscripcion {
+  id             String    @id @default(cuid())
+  cuentaId       String
+  cuenta         PosCuenta @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  mpId           String    @unique                    // id del preapproval en Mercado Pago
+  estado         String    @default("pending")
+  monto          Int                                  // CLP por mes
+  payerEmail     String    @default("")
+  initPoint      String    @default("")               // link para autorizar la tarjeta
+  ultimoCobroAt  DateTime?                            // último cobro aprobado registrado
+  creadoPor      String    @default("")               // correo del dueño o nombre del operador
+  cobros         PosSuscripcionCobro[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([cuentaId])
+  @@map("pos_suscripciones")
+}
+
+// Cada cuota cobrada por Mercado Pago (pago autorizado). mpPaymentId único = un cobro se registra una sola vez,
+// aunque lleguen el webhook y la revisión diaria a la vez.
+model PosSuscripcionCobro {
+  id             String         @id @default(cuid())
+  suscripcionId  String
+  suscripcion    PosSuscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Cascade)
+  mpPaymentId    String         @unique
+  monto          Float
+  estado         String                               // approved | rejected | …
+  pagoId         String?                              // Pago LICENCIA creado (solo approved)
+  createdAt      DateTime       @default(now())
+
+  @@map("pos_suscripcion_cobros")
 }
 
 // Sub-cuentas del negocio. passwordHash null = invitado que aún no crea su contraseña.

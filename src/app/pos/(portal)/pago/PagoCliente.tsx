@@ -18,6 +18,8 @@ interface Props {
   error: string | null
   contacto: string
   sinPlan: boolean
+  /** Pago automático mensual con Mercado Pago; null = no disponible en este servidor. */
+  automatico: { estado: string | null; email: string; initPoint: string | null; ultimoCobro: string | null } | null
   pagos: { id: string; fecha: string; monto: string; periodo: string }[]
   comprobantes: { id: string; fecha: string; monto: string; estado: string; motivo: string | null }[]
 }
@@ -31,7 +33,7 @@ const TONOS = {
 const MAX = 8 * 1024 * 1024
 const card = "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
 
-export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, planesOnline, error, contacto, sinPlan, pagos, comprobantes }: Props) {
+export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, planesOnline, error, contacto, sinPlan, automatico, pagos, comprobantes }: Props) {
   const online = planesOnline.length > 0
   const linkTarjeta = online || opciones.length > 0
   const router = useRouter()
@@ -104,6 +106,7 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, 
         <div className={card}><p className="text-sm text-gray-600">Tu cuenta aún no tiene un plan asociado. Escríbenos a {contacto}.</p></div>
       ) : (
         <>
+          {automatico && <PagoAutomatico a={automatico} montoTxt={montoTxt} />}
           <div className={card}>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -221,6 +224,90 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, 
               </ul>
             </>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Pago automático mensual con Mercado Pago (Suscripciones): el dueño autoriza su tarjeta una vez
+ * en Mercado Pago y cada mes se cobra y se registra solo. Sin estado = ofrecerlo.
+ */
+function PagoAutomatico({ a, montoTxt }: { a: NonNullable<Props["automatico"]>; montoTxt: string }) {
+  const router = useRouter()
+  const [email, setEmail] = useState(a.email)
+  const [ocupado, setOcupado] = useState(false)
+
+  async function activar() {
+    setOcupado(true)
+    try {
+      const r = await fetch("/api/pos-portal/suscripcion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.url) { toast.error(d.error ?? "No pudimos activar el pago automático."); return }
+      window.location.href = d.url
+    } catch {
+      toast.error("Error de red. Intenta de nuevo.")
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  async function cancelar() {
+    if (!window.confirm("¿Cancelar el pago automático? Desde el próximo mes tendrás que pagar a mano.")) return
+    setOcupado(true)
+    try {
+      const r = await fetch("/api/pos-portal/suscripcion", { method: "DELETE" })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { toast.error(d.error ?? "No pudimos cancelarlo."); return }
+      toast.success("Pago automático cancelado.")
+      router.refresh()
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  if (a.estado === "authorized" || a.estado === "paused") {
+    return (
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
+        <p className="inline-flex items-center gap-2 text-base font-bold text-sky-900"><CheckCircle2 size={18} /> Pago automático activo</p>
+        <p className="mt-1 text-sm text-sky-900/90">
+          Mercado Pago cobra {montoTxt} cada mes a la tarjeta de <b>{a.email}</b> y tu plan se renueva solo.
+          {a.ultimoCobro ? ` Último cobro: ${a.ultimoCobro}.` : " El primer cobro se ve aquí en unos minutos."}
+          {a.estado === "paused" ? " (En pausa en Mercado Pago.)" : ""}
+        </p>
+        <button type="button" onClick={cancelar} disabled={ocupado} className="mt-3 text-sm font-semibold text-sky-800 underline disabled:opacity-50">
+          Cancelar pago automático
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-sky-300 bg-white p-5 shadow-sm">
+      <p className="inline-flex items-center gap-2 text-base font-bold text-gray-900"><ShieldCheck size={18} className="text-sky-600" /> Paga automático cada mes con Mercado Pago</p>
+      <p className="mt-1 text-sm text-gray-600">
+        Autorizas tu tarjeta una sola vez (crédito, débito o prepago) y Mercado Pago cobra {montoTxt} cada mes. Tu plan se renueva solo:
+        sin transferencias ni comprobantes. Puedes cancelarlo cuando quieras.
+      </p>
+      {a.estado === "pending" && a.initPoint ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a href={a.initPoint} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#009ee3] px-5 py-2 text-sm font-bold text-white hover:bg-[#0089c7]">
+            <CreditCard size={16} /> Terminar de autorizar en Mercado Pago <ExternalLink size={14} className="opacity-80" />
+          </a>
+          <span className="text-xs text-gray-500">Para <b>{a.email}</b> · <button type="button" onClick={cancelar} disabled={ocupado} className="underline">empezar de nuevo</button></span>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="flex-1 min-w-56 text-xs font-semibold text-gray-500">
+            Correo de tu cuenta de Mercado Pago
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+              className="mt-1 block w-full rounded-xl border border-gray-200 px-3 h-11 text-sm text-gray-900 focus:border-sky-400 focus:outline-none" />
+          </label>
+          <button type="button" onClick={activar} disabled={ocupado || !email.includes("@")}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#009ee3] px-5 py-2 text-sm font-bold text-white hover:bg-[#0089c7] disabled:opacity-50">
+            {ocupado ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Activar pago automático
+          </button>
         </div>
       )}
     </div>

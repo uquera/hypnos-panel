@@ -9,15 +9,24 @@ import { opcionesPago } from "@/lib/pos/links-pago"
 import { tuuOnlineEnabled } from "@/lib/tuu-online"
 import { planesOnline } from "@/lib/pos/cobro-online"
 import { planesBoton } from "../../_components/BotonesPagoOnline"
+import { mpSuscripcionesListas, sincronizarSuscripcion, suscripcionVigente } from "@/lib/pos/mp-suscripcion"
 
 export const metadata = { title: "Pago — Mi Hypnos" }
 export const dynamic = "force-dynamic"
 
 // Pago mensual: estado del plan, pago con tarjeta (link TUU del monto) o transferencia, y subida del comprobante.
-export default async function PosPagoPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams
+export default async function PosPagoPage({ searchParams }: { searchParams: Promise<{ error?: string; mp?: string }> }) {
+  const { error, mp: vueltaMp } = await searchParams
   const yo = await requireSesionPos("/pos/pago")
   if (yo.rol !== "DUENO") redirect("/pos/inicio")
+
+  // Pago automático (Mercado Pago): al volver de autorizar la tarjeta, o si sigue pendiente, se
+  // relee en Mercado Pago para mostrar el estado real (y registrar la primera cuota si ya llegó).
+  let sus = mpSuscripcionesListas() ? await suscripcionVigente(yo.cuentaId) : null
+  if (sus && (vueltaMp === "volver" || sus.estado === "pending")) {
+    await sincronizarSuscripcion(sus.mpId).catch(e => console.error("[pos/pago] sincronizar suscripción:", e))
+    sus = await suscripcionVigente(yo.cuentaId)
+  }
 
   const cuenta = await prisma.posCuenta.findUnique({
     where: { id: yo.cuentaId },
@@ -68,6 +77,12 @@ export default async function PosPagoPage({ searchParams }: { searchParams: Prom
         error={error ? error.slice(0, 200) : null}
         contacto={CORREO_CONTACTO}
         sinPlan={!cuenta.cliente}
+        automatico={mpSuscripcionesListas() ? {
+          estado: sus?.estado ?? null,
+          email: sus?.payerEmail || yo.email,
+          initPoint: sus?.estado === "pending" ? sus.initPoint : null,
+          ultimoCobro: sus?.ultimoCobroAt ? fechaLarga(sus.ultimoCobroAt) : null,
+        } : null}
         pagos={(cuenta.cliente?.pagos ?? []).map(p => ({
           id: p.id, fecha: fechaCorta(p.fechaPago), monto: formatoCLP(p.monto),
           periodo: p.periodoInicio && p.periodoFin ? `${fechaCorta(p.periodoInicio)} → ${fechaCorta(p.periodoFin)}` : "",

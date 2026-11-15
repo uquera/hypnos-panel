@@ -8,6 +8,7 @@ import { claveDiaChile, diasHastaChile } from "@/lib/pos/fechas"
 import { correoCobroDe, precioDe } from "@/lib/pos/cobro"
 import { correoCobro, correoPruebaTermina } from "@/lib/pos/correos"
 import { linkPagoOnline } from "@/lib/pos/cobro-online"
+import { sincronizarSuscripciones } from "@/lib/pos/mp-suscripcion"
 
 // GET /api/cron/pos-cobros — cobro diario de Hypnos POS. Protegido por CRON_SECRET (igual que /api/cron/alertas).
 // Crontab del VPS (09:00 hora de Chile):
@@ -40,6 +41,13 @@ export async function GET(req: NextRequest) {
   const linkPago = `${base}/pos/pago`
   const res = { revisadas: 0, enviados: 0, suspendidas: 0, omitidos: 0, errores: 0, detalle: [] as string[] }
 
+  // Primero los cobros automáticos de Mercado Pago (por si el webhook no llegó): así nadie con la
+  // cuota ya cobrada recibe aviso ni queda suspendido.
+  const suscripciones = dry ? null : await sincronizarSuscripciones().catch(e => { console.error("[cron/pos-cobros] suscripciones:", e); return null })
+  const conPagoAutomatico = new Set(
+    (await prisma.posSuscripcion.findMany({ where: { estado: "authorized" }, select: { cuentaId: true } })).map(s => s.cuentaId),
+  )
+
   const cuentas = await prisma.posCuenta.findMany({
     where: { estadoAlta: "LISTO", eliminadaAt: null, clienteId: { not: null }, cliente: { activo: true, suspendida: false } },
     include: { cliente: true, usuarios: { where: { rol: "DUENO" }, orderBy: { createdAt: "asc" }, take: 1 } },
@@ -51,6 +59,8 @@ export async function GET(req: NextRequest) {
     const dias = diasHastaChile(cliente.fechaVencimiento, hoy)
     const tipo = avisoQueToca(dias, gracia)
     if (!tipo) { res.omitidos++; continue }
+    // con pago automático no se pide pagar: Mercado Pago cobra solo (si falla, avisa el rechazo y, vencida la gracia, se suspende igual)
+    if (tipo === "POR_VENCER" && conPagoAutomatico.has(c.id)) { res.omitidos++; continue }
 
     const periodo = claveDiaChile(cliente.fechaVencimiento)
     const ya = await prisma.posAviso.findUnique({ where: { cuentaId_tipo_periodo: { cuentaId: c.id, tipo, periodo } } })
@@ -88,6 +98,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  console.log(`[cron/pos-cobros] ${JSON.stringify({ ...res, detalle: undefined })}`)
-  return NextResponse.json({ ok: true, fecha: hoy.toISOString(), dry, ...res })
+  console.log(`[cron/pos-cobros] ${JSON.stringify({ ...res, detalle: undefined, suscripciones })}`)
+  return NextResponse.json({ ok: true, fecha: hoy.toISOString(), dry, ...res, suscripciones })
 }
