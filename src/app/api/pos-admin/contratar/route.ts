@@ -5,6 +5,7 @@ import { ErrorPos } from "@/lib/pos/usuarios"
 import { logActividad } from "@/lib/actividad"
 import { guardarCatalogo, marcarPedidoPagado, normalizarCupon, sincronizarPedido } from "@/lib/pos/contratar"
 import type { Catalogo } from "@/lib/pos/contratar-calculo"
+import { ESTADOS_SOLICITUD } from "@/lib/pos/solicitudes"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic"
 // { accion: "cupon-borrar", id } · { accion: "pedido", id, despacho?, seriales?, marcha?, notasAdmin? }
 // { accion: "revisar", id } (relee Mercado Pago) · { accion: "pagado", id, soloAdicionales } (transferencia)
 // { accion: "cancelar", id }
+// { accion: "solicitud", id, estado?, notas? } (máquinas, /pos/maquina) · { accion: "partner", id, estado?, notas? } (/pos/contadores)
 
 const DESPACHO = ["", "POR_DESPACHAR", "DESPACHADA", "ENTREGADA"]
 const MARCHA = ["", "POR_AGENDAR", "AGENDADA", "HECHA"]
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
           mensualCaja: n(c.mensualCaja, 1000, 1_000_000), anualCaja: n(c.anualCaja, 1000, 10_000_000),
           marcha: n(c.marcha, 0, 5_000_000), point: n(c.point, 1000, 1_000_000),
           cuotas: n(c.cuotas, 1, 12), cuotasSinInteres: !!c.cuotasSinInteres, pointActiva: !!c.pointActiva,
-          maxCajas: n(c.maxCajas, 1, 50),
+          maxCajas: n(c.maxCajas, 1, 50), diasPrueba: n(c.diasPrueba, 1, 90),
         }
         await guardarCatalogo(cat)
         await logActividad({ usuarioId: operador.id, usuarioNombre: operador.nombre, accion: "POS_CONFIG", detalle: `[Hypnos POS] Precios de contratación: ${JSON.stringify(cat)}` })
@@ -86,6 +88,19 @@ export async function POST(req: Request) {
         const r = await prisma.posPedido.updateMany({ where: { id: String(b.id), estado: { in: ["PENDIENTE", "ERROR"] } }, data: { estado: "CANCELADO" } })
         if (r.count === 0) throw new ErrorPos("Solo se cancelan pedidos pendientes.")
         return NextResponse.json({ ok: true })
+      }
+      case "solicitud":
+      case "partner": {
+        const data: { estado?: string; notas?: string } = {}
+        if (typeof b.estado === "string") {
+          if (!(ESTADOS_SOLICITUD as readonly string[]).includes(b.estado)) throw new ErrorPos("Estado no válido.")
+          data.estado = b.estado
+        }
+        if (typeof b.notas === "string") data.notas = b.notas.slice(0, 1000)
+        const r = b.accion === "solicitud"
+          ? await prisma.posSolicitudMaquina.update({ where: { id: String(b.id) }, data })
+          : await prisma.posPartnerLead.update({ where: { id: String(b.id) }, data })
+        return NextResponse.json({ ok: true, id: r.id })
       }
       default:
         throw new ErrorPos("Acción no válida.")

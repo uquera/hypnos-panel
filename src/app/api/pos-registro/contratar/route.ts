@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       return jsonError("Recibimos demasiados registros desde tu conexión. Intenta en una hora o escríbenos por WhatsApp.", 429)
     }
 
-    const id = await crearRestaurante(datos, { enPrueba: true, origen: "REGISTRO", ip, onboarding, tipo, cajas })
+    const id = await crearRestaurante(datos, { enPrueba: true, origen: "REGISTRO", ip, onboarding, tipo, cajas, diasPrueba: cat.diasPrueba })
     await prisma.posCuenta.update({
       where: { id },
       data: {

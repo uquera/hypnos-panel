@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Package, CalendarDays, RefreshCw, Save, Trash2, Plus } from "lucide-react"
+import { Loader2, Package, CalendarDays, RefreshCw, Save, Trash2, Plus, CreditCard, Handshake } from "lucide-react"
 import { clp, type Catalogo, type Linea } from "@/lib/pos/contratar-calculo"
 
 export interface PedidoFila {
@@ -12,6 +12,14 @@ export interface PedidoFila {
   maquinas: number; direccionEnvio: string; despacho: string; seriales: string; marcha: string
   notasAdmin: string; detalle: string | null; mpPaymentId: string | null; origen: string
   cuenta: { id: string; nombre: string; codigo: string; tipo: string; whatsapp: string; rut: string; razonSocial: string; comuna: string; dueno: string; email: string }
+}
+export interface SolicitudFila {
+  id: string; fecha: string; marca: string; rut: string; razonSocial: string; nombre: string; telefono: string
+  email: string; comuna: string; estado: string; notas: string; origen: string; cuenta: { id: string; nombre: string } | null
+}
+export interface PartnerFila {
+  id: string; fecha: string; tipo: string; nombre: string; oficina: string; rut: string; telefono: string
+  email: string; clientes: string; estado: string; notas: string; origen: string
 }
 export interface CuponFila {
   id: string; codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; soloAnual: boolean
@@ -29,6 +37,12 @@ const ESTADO: Record<string, [string, string]> = {
 const DESPACHO: [string, string][] = [["POR_DESPACHAR", "Por despachar"], ["DESPACHADA", "Despachada"], ["ENTREGADA", "Entregada"]]
 const MARCHA: [string, string][] = [["POR_AGENDAR", "Por agendar"], ["AGENDADA", "Agendada"], ["HECHA", "Hecha"]]
 const inp = "h-9 px-3 rounded-lg border border-gray-200 text-sm bg-white"
+const ESTADO_SOL: [string, string, string][] = [
+  ["PENDIENTE", "Pendiente", "bg-amber-100 text-amber-800"],
+  ["CONTACTADO", "Contactado", "bg-blue-100 text-blue-800"],
+  ["CERRADO", "Cerrado", "bg-gray-100 text-gray-600"],
+]
+const wa = (t: string) => { let d = t.replace(/\D/g, ""); if (d.length === 9 && d.startsWith("9")) d = "56" + d; return d }
 
 async function llamar(body: Record<string, unknown>) {
   const r = await fetch("/api/pos-admin/contratar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -37,7 +51,9 @@ async function llamar(body: Record<string, unknown>) {
   return d
 }
 
-export default function ContratarAdmin({ catalogo, pedidos, cupones }: { catalogo: Catalogo; pedidos: PedidoFila[]; cupones: CuponFila[] }) {
+export default function ContratarAdmin({ catalogo, pedidos, cupones, solicitudes, partners }: {
+  catalogo: Catalogo; pedidos: PedidoFila[]; cupones: CuponFila[]; solicitudes: SolicitudFila[]; partners: PartnerFila[]
+}) {
   const router = useRouter()
   const [ocupado, setOcupado] = useState("")
   const [msg, setMsg] = useState("")
@@ -140,6 +156,24 @@ export default function ContratarAdmin({ catalogo, pedidos, cupones }: { catalog
         })}
       </section>
 
+      <Solicitudes titulo="Solicitudes de máquina" ancla="maquinas" accion="solicitud" hacer={hacer}
+        icono={<CreditCard size={16} />} vacio="Aún no hay solicitudes de máquina (página /pos/maquina)."
+        filas={solicitudes.map(s => ({
+          id: s.id, estado: s.estado, notas: s.notas,
+          titulo: s.razonSocial, etiqueta: s.marca === "TUU" ? "TUU" : "Point Smart 2",
+          sub: `${s.fecha} · RUT ${s.rut} · ${s.comuna}${s.origen ? ` · vía ${s.origen}` : ""}`,
+          contacto: { nombre: s.nombre, telefono: s.telefono, email: s.email },
+          cuenta: s.cuenta,
+        }))} />
+      <Solicitudes titulo="Partners (contadores)" ancla="partners" accion="partner" hacer={hacer}
+        icono={<Handshake size={16} />} vacio="Aún no hay interesados en el programa de partners (página /pos/contadores)."
+        filas={partners.map(l => ({
+          id: l.id, estado: l.estado, notas: l.notas,
+          titulo: l.oficina || l.nombre, etiqueta: l.tipo === "CONTADOR" ? "Contador" : "Otro",
+          sub: `${l.fecha} · ${l.clientes} clientes pyme${l.rut ? ` · RUT ${l.rut}` : ""}${l.origen ? ` · vía ${l.origen}` : ""}`,
+          contacto: { nombre: l.nombre, telefono: l.telefono, email: l.email },
+          cuenta: null,
+        }))} />
       <Cupones cupones={cupones} hacer={hacer} ocupado={ocupado} />
       <Precios catalogo={catalogo} hacer={hacer} ocupado={ocupado} />
     </div>
@@ -147,6 +181,60 @@ export default function ContratarAdmin({ catalogo, pedidos, cupones }: { catalog
 }
 
 type Hacer = (clave: string, body: Record<string, unknown>, confirmar?: string) => Promise<void>
+
+interface FilaSolicitud {
+  id: string; estado: string; notas: string; titulo: string; etiqueta: string; sub: string
+  contacto: { nombre: string; telefono: string; email: string }; cuenta: { id: string; nombre: string } | null
+}
+
+/** Solicitudes de máquina y partners: misma gestión manual (estado y notas). */
+function Solicitudes({ titulo, ancla, accion, filas, hacer, icono, vacio }: {
+  titulo: string; ancla: string; accion: "solicitud" | "partner"; filas: FilaSolicitud[]; hacer: Hacer; icono: React.ReactNode; vacio: string
+}) {
+  const [verCerradas, setVerCerradas] = useState(false)
+  const abiertas = filas.filter(f => f.estado !== "CERRADO")
+  const lista = verCerradas ? filas : abiertas
+  return (
+    <section id={ancla} className="space-y-3 scroll-mt-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-bold text-gray-900 inline-flex items-center gap-2">{icono} {titulo}</h2>
+        <div className="inline-flex p-1 rounded-lg bg-gray-100 text-sm">
+          {([[false, `Abiertas (${abiertas.length})`], [true, `Todas (${filas.length})`]] as const).map(([v, t]) => (
+            <button key={String(v)} onClick={() => setVerCerradas(v)} className={`px-3 h-8 rounded-md font-semibold ${verCerradas === v ? "bg-white shadow" : "text-gray-500"}`}>{t}</button>
+          ))}
+        </div>
+      </div>
+      {lista.length === 0 && <p className="text-sm text-gray-500 bg-white rounded-2xl border border-gray-100 p-6 text-center">{filas.length ? "Nada abierto." : vacio}</p>}
+      {lista.map(f => {
+        const [, et, ec] = ESTADO_SOL.find(e => e[0] === f.estado) ?? [f.estado, f.estado, "bg-gray-100"]
+        const w = wa(f.contacto.telefono)
+        return (
+          <div key={f.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <span className="font-bold text-gray-900">{f.titulo}</span>
+                <span className="ml-2 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">{f.etiqueta}</span>
+                {f.cuenta && <Link href={`/admin/pos/${f.cuenta.id}`} className="ml-2 text-xs text-indigo-600 hover:underline">cliente: {f.cuenta.nombre}</Link>}
+                <p className="text-xs text-gray-400 mt-0.5">{f.sub}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {f.contacto.nombre} · <a className="hover:underline" href={`mailto:${f.contacto.email}`}>{f.contacto.email}</a> · {w ? <a className="hover:underline" href={`https://wa.me/${w}`} target="_blank" rel="noreferrer">{f.contacto.telefono}</a> : f.contacto.telefono}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${ec}`}>{et}</span>
+                <select className={inp} defaultValue={f.estado} aria-label="Estado" onChange={e => hacer(`${accion}-${f.id}`, { accion, id: f.id, estado: e.target.value })}>
+                  {ESTADO_SOL.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <input className={`${inp} w-full`} defaultValue={f.notas} placeholder="Notas internas"
+              onBlur={e => e.target.value !== f.notas && hacer(`${accion}-not-${f.id}`, { accion, id: f.id, notas: e.target.value })} />
+          </div>
+        )
+      })}
+    </section>
+  )
+}
 
 function Cupones({ cupones, hacer, ocupado }: { cupones: CuponFila[]; hacer: Hacer; ocupado: string }) {
   const vacio = { id: "", codigo: "", tipo: "PORCENTAJE" as const, valor: 10, soloAnual: false, venceAt: "", usosMax: null as number | null, activo: true, notas: "" }
@@ -216,6 +304,7 @@ function Precios({ catalogo, hacer, ocupado }: { catalogo: Catalogo; hacer: Hace
           {num("point", "Point Smart 2 ($ c/u)")}
           {num("cuotas", "Cuotas máx. (Mercado Pago)")}
           {num("maxCajas", "Máx. cajas")}
+          {num("diasPrueba", "Días de prueba en la contratación", "Plan mensual sin pago hoy")}
         </div>
         <div className="flex flex-wrap gap-5 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={c.pointActiva} onChange={e => setC({ ...c, pointActiva: e.target.checked })} /> Vender Point Smart 2 (apágalo si no hay stock)</label>

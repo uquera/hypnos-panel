@@ -5,7 +5,7 @@ import { logActividad } from "@/lib/actividad"
 import { ErrorPos } from "./usuarios"
 import { precioDe, registrarPagoPos } from "./cobro"
 import { cancelarSuscripcion, suscripcionVigente } from "./mp-suscripcion"
-import { correoAvisosHypnos, formatoCLP, precioMensual, whatsappDigitos } from "./config"
+import { correoAvisosHypnos, diasPrueba, formatoCLP, precioMensual, whatsappDigitos } from "./config"
 import { basePortal, basePublica } from "./servidor"
 import { enviarCorreoPos, escHtml as esc } from "./email"
 import {
@@ -34,7 +34,7 @@ export const mpCheckoutListo = () => token() !== ""
 // ─── Catálogo (editable en /admin/pos/contratar, guardado en pos_config) ──────
 
 export async function getCatalogo(): Promise<Catalogo> {
-  const def = CATALOGO_DEFECTO(precioMensual())
+  const def = CATALOGO_DEFECTO(precioMensual(), diasPrueba())
   const row = await prisma.posConfig.findUnique({ where: { clave: CLAVE_CATALOGO } }).catch(() => null)
   if (!row) return def
   try {
@@ -49,6 +49,7 @@ export async function getCatalogo(): Promise<Catalogo> {
       cuotasSinInteres: typeof v.cuotasSinInteres === "boolean" ? v.cuotasSinInteres : def.cuotasSinInteres,
       pointActiva: typeof v.pointActiva === "boolean" ? v.pointActiva : def.pointActiva,
       maxCajas: Math.min(n(v.maxCajas, def.maxCajas, 1), 50),
+      diasPrueba: Math.min(n(v.diasPrueba, def.diasPrueba, 1), 90),
     }
   } catch {
     return def

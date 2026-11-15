@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { diasPrueba } from "@/lib/pos/config"
 import { getCatalogo, mpCheckoutListo } from "@/lib/pos/contratar"
 import ContratarForm from "./ContratarForm"
 
@@ -14,10 +13,11 @@ export const dynamic = "force-dynamic"
 // ?o=canal queda en el pedido para saber de dónde vino (demo, instagram, whatsapp, almacenes…).
 export default async function ContratarPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams
+  const catalogo = await getCatalogo()
   return (
     <ContratarForm
-      catalogo={await getCatalogo()}
-      diasPrueba={diasPrueba()}
+      catalogo={catalogo}
+      diasPrueba={catalogo.diasPrueba}
       mpListo={mpCheckoutListo()}
       inicial={{
         tipo: sp.tipo === "almacen" ? "ALMACEN" : "RESTAURANTE",

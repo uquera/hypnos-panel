@@ -7,7 +7,7 @@ import { getCatalogo, leerLineas, mpCheckoutListo } from "@/lib/pos/contratar"
 import { basePortal } from "@/lib/pos/servidor"
 import { fechaCorta } from "@/lib/pos/fechas"
 import { formatoRut } from "@/lib/pos/contratar-calculo"
-import ContratarAdmin, { type PedidoFila, type CuponFila } from "./ContratarAdmin"
+import ContratarAdmin, { type PedidoFila, type CuponFila, type SolicitudFila, type PartnerFila } from "./ContratarAdmin"
 
 export const metadata = { title: "Contratación online — Hypnos POS" }
 export const dynamic = "force-dynamic"
@@ -19,7 +19,7 @@ export default async function ContratarAdminPage({ searchParams }: { searchParam
   if (!session || session.user.role !== "ADMIN") redirect("/admin")
   const { cuenta } = await searchParams
 
-  const [catalogo, pedidos, cupones] = await Promise.all([
+  const [catalogo, pedidos, cupones, solicitudes, partners] = await Promise.all([
     getCatalogo(),
     prisma.posPedido.findMany({
       where: cuenta ? { cuentaId: cuenta } : {},
@@ -27,6 +27,8 @@ export default async function ContratarAdminPage({ searchParams }: { searchParam
       include: { cuenta: { select: { id: true, nombre: true, codigo: true, tipo: true, whatsapp: true, rut: true, razonSocial: true, comuna: true, usuarios: { where: { rol: "DUENO" }, take: 1, select: { nombre: true, email: true } } } } },
     }),
     prisma.posCupon.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.posSolicitudMaquina.findMany({ orderBy: { createdAt: "desc" }, take: 300, include: { cuenta: { select: { id: true, nombre: true } } } }),
+    prisma.posPartnerLead.findMany({ orderBy: { createdAt: "desc" }, take: 300 }),
   ])
 
   const filas: PedidoFila[] = pedidos.map(p => ({
@@ -45,13 +47,23 @@ export default async function ContratarAdminPage({ searchParams }: { searchParam
     venceAt: c.venceAt ? c.venceAt.toISOString().slice(0, 10) : "", usosMax: c.usosMax, usos: c.usos, activo: c.activo, notas: c.notas,
   }))
 
+  const sols: SolicitudFila[] = solicitudes.map(s => ({
+    id: s.id, fecha: fechaCorta(s.createdAt), marca: s.marca, rut: formatoRut(s.rut), razonSocial: s.razonSocial,
+    nombre: s.nombre, telefono: s.telefono, email: s.email, comuna: s.comuna, estado: s.estado, notas: s.notas, origen: s.origen,
+    cuenta: s.cuenta ? { id: s.cuenta.id, nombre: s.cuenta.nombre } : null,
+  }))
+  const parts: PartnerFila[] = partners.map(l => ({
+    id: l.id, fecha: fechaCorta(l.createdAt), tipo: l.tipo, nombre: l.nombre, oficina: l.oficina, rut: l.rut ? formatoRut(l.rut) : "",
+    telefono: l.telefono, email: l.email, clientes: l.clientes, estado: l.estado, notas: l.notas, origen: l.origen,
+  }))
+
   return (
     <div className="max-w-6xl space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <Link href="/admin/pos" className="text-sm text-gray-500 inline-flex items-center gap-1 hover:text-gray-700"><ArrowLeft size={14} /> Hypnos POS</Link>
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">Contratación online</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Pedidos, despachos de máquinas, puestas en marcha, cupones y precios{cuenta ? " · filtrado por un local" : ""}</p>
+          <p className="text-sm text-gray-500 mt-0.5">Pedidos, despachos de máquinas, puestas en marcha, solicitudes de máquina, partners, cupones y precios{cuenta ? " · filtrado por un local" : ""}</p>
         </div>
         <a href={`${basePortal()}/pos/contratar`} target="_blank" rel="noreferrer"
           className="inline-flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 shrink-0">
@@ -61,7 +73,7 @@ export default async function ContratarAdminPage({ searchParams }: { searchParam
       {!mpCheckoutListo() && (
         <p className="text-sm rounded-xl bg-amber-50 border border-amber-200 text-amber-800 p-3">Falta MP_ACCESS_TOKEN en el .env del panel: la página solo ofrecerá transferencia.</p>
       )}
-      <ContratarAdmin catalogo={catalogo} pedidos={filas} cupones={cups} />
+      <ContratarAdmin catalogo={catalogo} pedidos={filas} cupones={cups} solicitudes={sols} partners={parts} />
     </div>
   )
 }

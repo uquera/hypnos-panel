@@ -54,13 +54,14 @@ export async function crearRestaurante(d: DatosRestaurante, o: {
   onboarding?: Onboarding   // logo, menú, mesas, dirección, horario, clientes (ya validados)
   tipo?:    "RESTAURANTE" | "ALMACEN"   // ALMACEN: minimarket (registro de /almacenes)
   cajas?:   number          // cajas que usará (el plan se cobra por caja)
+  diasPrueba?: number       // días de prueba (la contratación online usa los de su catálogo); default POS_DIAS_PRUEBA
 }) {
   const errCodigo = await errorCodigoDisponible(d.codigo)
   if (errCodigo) throw new ErrorPos(errCodigo, 409)
   await validarCorreo(d.email)
 
   const ahora = new Date()
-  const vence = o.enPrueba ? new Date(ahora.getTime() + diasPrueba() * 86_400_000) : o.vence
+  const vence = o.enPrueba ? new Date(ahora.getTime() + (o.diasPrueba ?? diasPrueba()) * 86_400_000) : o.vence
   if (!vence || isNaN(vence.getTime())) throw new ErrorPos("Indica la fecha de vencimiento.")
 
   const host = `${d.codigo}.${DOMINIO_POS}`

@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic"
 const WA = "https://wa.me/56933688302?text=" + encodeURIComponent("Hola, tengo un almacén y quiero conocer el sistema de caja de Hypnos")
 const DEMO = "https://demo-almacen.hypnosapps.com"
 const CONTRATAR = "/pos/contratar?tipo=almacen&o=almacenes"
+const MAQUINA = "/pos/maquina?o=almacenes"
 const PUESTA_EN_MARCHA = 100_000
 
 const DOLORES = [
@@ -31,7 +32,7 @@ const FUNCIONES = [
   { icon: Scale, titulo: "Venta por peso", texto: "Pan, fiambre, fruta y verdura: escribe los gramos o el monto («mil pesos de pan») y el sistema calcula." },
   { icon: Truck, titulo: "Recibir mercancía", texto: "Escanea lo que llega del proveedor, pon cantidad y costo, y el stock sube. La compra queda registrada." },
   { icon: BarChart3, titulo: "Ventas y ganancia", texto: "Cuánto vendiste, qué productos se mueven más y cuánto ganaste, por día o por mes." },
-  { icon: CreditCard, titulo: "Máquina de tarjetas", texto: "Se conecta con la máquina TUU: el monto llega solo a la máquina y la venta se registra al aprobarse." },
+  { icon: CreditCard, titulo: "Funciona con tu máquina", texto: "Se conecta con tu máquina TUU o Mercado Pago, sin cambiarla: el monto llega solo a la máquina y la venta se registra al aprobarse." },
 ]
 
 const PASOS = [
@@ -112,6 +113,14 @@ export default function AlmacenesPage() {
           <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-stone-600">
             {["Sin tarjeta", "Listo en 2 minutos", "Funciona en el celular que ya tienes"].map(t => <li key={t} className="flex items-center gap-1.5"><Check size={15} className="text-emerald-600" /> {t}</li>)}
           </ul>
+          <div className="mt-5 flex max-w-lg items-start gap-3 rounded-2xl border border-stone-200 bg-[#ffffff] p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-[#f26522]"><CreditCard size={20} /></span>
+            <div>
+              <p className="font-bold">Funciona con tu máquina TUU o Mercado Pago, sin cambiarla</p>
+              <p className="text-xs text-stone-500">Getnet y otras, próximamente.</p>
+              <p className="mt-1 text-sm text-stone-600">¿No tienes máquina? <a href={MAQUINA} className="font-semibold text-[#c2410c] underline">Consigue tu máquina</a> y la dejamos conectada a tu caja.</p>
+            </div>
+          </div>
         </div>
         <Telefono />
       </section>

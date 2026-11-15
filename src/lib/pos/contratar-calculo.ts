@@ -15,6 +15,7 @@ export interface Catalogo {
   cuotasSinInteres: boolean // solo texto: las cuotas sin interés se activan en la cuenta de Mercado Pago
   pointActiva: boolean    // vender máquinas (apagar si no hay stock)
   maxCajas:    number
+  diasPrueba:  number     // días de prueba gratis de las cuentas creadas desde la contratación
 }
 
 export interface Cupon { codigo: string; tipo: "PORCENTAJE" | "MONTO"; valor: number; soloAnual: boolean }
@@ -42,7 +43,7 @@ export interface Pedido {
   cuponMotivo?: string    // por qué el cupón no aplica
 }
 
-export const CATALOGO_DEFECTO = (mensual = 20_000): Catalogo => ({
+export const CATALOGO_DEFECTO = (mensual = 20_000, diasPrueba = 7): Catalogo => ({
   mensualCaja: mensual,
   anualCaja: mensual * 10,
   marcha: 100_000,
@@ -51,6 +52,7 @@ export const CATALOGO_DEFECTO = (mensual = 20_000): Catalogo => ({
   cuotasSinInteres: true,
   pointActiva: true,
   maxCajas: 10,
+  diasPrueba,
 })
 
 const entero = (n: unknown, min: number, max: number, def: number) => {

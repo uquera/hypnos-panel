@@ -210,6 +210,11 @@ export default function ContratarForm({ catalogo: cat, diasPrueba, mpListo, inic
           <p className="mt-3 text-gray-300 max-w-xl text-[15px]">
             Para restaurantes y almacenes. <strong className="text-white">Sin costo de incorporación</strong>, sin contratos y con {diasPrueba} días gratis en el plan mensual.
           </p>
+          <p className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-white/10 px-3.5 py-2 text-sm">
+            <CreditCard size={16} style={{ color: NARANJA }} />
+            <strong className="text-white">Funciona con tu máquina TUU o Mercado Pago, sin cambiarla</strong>
+            <span className="text-gray-400 text-xs">Getnet y otras, próximamente</span>
+          </p>
         </div>
       </header>
 
@@ -280,6 +285,10 @@ export default function ContratarForm({ catalogo: cat, diasPrueba, mpListo, inic
               <div className="mb-2">
                 <h2 className="text-xl font-bold text-gray-900">Agrega lo que necesites</h2>
                 <p className="text-sm text-gray-500 mt-1">Todo es opcional. Puedes pedirlo después desde Mi Hypnos.</p>
+                <p className="text-sm text-gray-600 mt-2 rounded-xl bg-gray-50 px-3 py-2">
+                  <strong>Funciona con tu máquina TUU o Mercado Pago, sin cambiarla.</strong> <span className="text-gray-400 text-xs">Getnet y otras, próximamente.</span>
+                  {" "}¿No tienes máquina o prefieres una TUU? <a href={`/pos/maquina${inicial.origen ? `?o=${encodeURIComponent(inicial.origen)}` : ""}`} target="_blank" rel="noreferrer" className="font-semibold underline" style={{ color: "#c2410c" }}>Consigue tu máquina</a>
+                </p>
               </div>
               {([
                 cat.marcha > 0 && { a: "marcha" as Adicional, t: "Puesta en marcha asistida", d: `Cargamos tu ${tipo === "ALMACEN" ? "lista de productos" : "carta"}, configuramos tus impresoras y te capacitamos por videollamada.`,
