@@ -20,6 +20,8 @@ interface Props {
   sinPlan: boolean
   /** Pago automático mensual con Mercado Pago; null = no disponible en este servidor. */
   automatico: { estado: string | null; email: string; initPoint: string | null; ultimoCobro: string | null } | null
+  /** Oferta "pásate al plan anual" con Mercado Pago (contratación online); null = no se muestra. */
+  anual: { montoTxt: string; mensualTxt: string; ahorroTxt: string; cuotas: number; sinInteres: boolean; marcha: boolean } | null
   pagos: { id: string; fecha: string; monto: string; periodo: string }[]
   comprobantes: { id: string; fecha: string; monto: string; estado: string; motivo: string | null }[]
 }
@@ -33,7 +35,7 @@ const TONOS = {
 const MAX = 8 * 1024 * 1024
 const card = "bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
 
-export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, planesOnline, error, contacto, sinPlan, automatico, pagos, comprobantes }: Props) {
+export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, planesOnline, error, contacto, sinPlan, automatico, anual, pagos, comprobantes }: Props) {
   const online = planesOnline.length > 0
   const linkTarjeta = online || opciones.length > 0
   const router = useRouter()
@@ -106,6 +108,7 @@ export default function PagoCliente({ estado, monto, montoTxt, datos, opciones, 
         <div className={card}><p className="text-sm text-gray-600">Tu cuenta aún no tiene un plan asociado. Escríbenos a {contacto}.</p></div>
       ) : (
         <>
+          {anual && <OfertaAnual o={anual} />}
           {automatico && <PagoAutomatico a={automatico} montoTxt={montoTxt} />}
           <div className={card}>
             <div className="flex items-start justify-between gap-3">
@@ -310,6 +313,39 @@ function PagoAutomatico({ a, montoTxt }: { a: NonNullable<Props["automatico"]>; 
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function OfertaAnual({ o }: { o: NonNullable<Props["anual"]> }) {
+  const [cargando, setCargando] = useState(false)
+  async function pagar() {
+    setCargando(true)
+    try {
+      const r = await fetch("/api/pos-portal/anual", { method: "POST" })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d.url) { window.location.href = d.url; return }
+      toast.error(d.error ?? "No pudimos abrir Mercado Pago.")
+    } catch {
+      toast.error("Error de red. Intenta de nuevo.")
+    } finally {
+      setCargando(false)
+    }
+  }
+  return (
+    <div id="anual" className="rounded-2xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 p-5 scroll-mt-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-orange-700">Ahorra {o.ahorroTxt} al año</p>
+      <p className="mt-1 text-lg font-extrabold text-gray-900">Pásate al plan anual: {o.montoTxt}</p>
+      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+        <li>✓ 12 meses por el precio de 10 (equivale a {o.mensualTxt} al mes)</li>
+        {o.marcha && <li>✓ Puesta en marcha asistida incluida: cargamos tu carta y configuramos tus impresoras</li>}
+        <li>✓ {o.cuotas > 1 ? `Hasta ${o.cuotas} cuotas${o.sinInteres ? " sin interés" : ""} con tarjeta de crédito` : "Un solo pago con tarjeta o saldo Mercado Pago"}</li>
+        <li>✓ Te olvidas de pagar cada mes (si tienes pago automático, lo cancelamos solos)</li>
+      </ul>
+      <button type="button" onClick={pagar} disabled={cargando}
+        className="mt-4 inline-flex items-center gap-2 px-5 h-11 rounded-xl text-white font-bold disabled:opacity-60" style={{ background: "#009ee3" }}>
+        {cargando ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Pagar {o.montoTxt} con Mercado Pago
+      </button>
     </div>
   )
 }

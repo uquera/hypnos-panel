@@ -90,7 +90,10 @@ export async function correoBienvenida(d: {
 }
 
 /** Aviso de prueba que termina (3 o 1 día). */
-export async function correoPruebaTermina(d: { to: string; restaurante: string; dias: number; vence: Date; linkPago: string; monto: number; linkOnline?: string | null }) {
+export async function correoPruebaTermina(d: {
+  to: string; restaurante: string; dias: number; vence: Date; linkPago: string; monto: number; linkOnline?: string | null
+  anual?: { monto: number; ahorro: number; marcha: boolean; cuotas: number } | null   // oferta del plan anual (Mercado Pago)
+}) {
   const cuando = d.dias <= 1 ? "mañana" : `en ${d.dias} días`
   await enviarCorreoPos({
     to: d.to,
@@ -99,6 +102,9 @@ export async function correoPruebaTermina(d: { to: string; restaurante: string; 
     parrafos: [
       `Hola, equipo de <strong>${esc(d.restaurante)}</strong>:`,
       `Tu prueba gratis de Hypnos POS termina el <strong>${esc(fechaLarga(d.vence))}</strong>. Para seguir usando el sistema sin interrupciones, transfiere la mensualidad y sube el comprobante en tu portal:`,
+      ...(d.anual ? [
+        `💡 <strong>O págalo anual y ahorra ${esc(formatoCLP(d.anual.ahorro))}:</strong> 12 meses por ${esc(formatoCLP(d.anual.monto))}${d.anual.marcha ? ", con la puesta en marcha asistida incluida" : ""}${d.anual.cuotas > 1 ? `, hasta en ${d.anual.cuotas} cuotas con Mercado Pago` : " con Mercado Pago"}. <a href="${esc(d.linkPago)}#anual" style="color:#f26522;font-weight:bold">Pásate al plan anual</a>.`,
+      ] : []),
     ],
     bloque: await bloqueTransferencia(d.monto, d.linkOnline),
     boton: { texto: "Subir comprobante", link: d.linkPago },

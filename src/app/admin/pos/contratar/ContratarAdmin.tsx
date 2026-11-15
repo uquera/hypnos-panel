@@ -10,7 +10,7 @@ export interface PedidoFila {
   id: string; fecha: string; estado: string; medio: string; plan: string; cajas: number
   total: number; descuento: number; cupon: string | null; lineas: Linea[]
   maquinas: number; direccionEnvio: string; despacho: string; seriales: string; marcha: string
-  notasAdmin: string; detalle: string | null; mpPaymentId: string | null
+  notasAdmin: string; detalle: string | null; mpPaymentId: string | null; origen: string
   cuenta: { id: string; nombre: string; codigo: string; tipo: string; whatsapp: string; rut: string; razonSocial: string; comuna: string; dueno: string; email: string }
 }
 export interface CuponFila {
@@ -78,6 +78,7 @@ export default function ContratarAdmin({ catalogo, pedidos, cupones }: { catalog
                 <div>
                   <Link href={`/admin/pos/${p.cuenta.id}`} className="font-bold text-gray-900 hover:underline">{p.cuenta.nombre}</Link>
                   <span className="ml-2 text-xs text-gray-400">{p.cuenta.codigo} · {p.cuenta.tipo === "ALMACEN" ? "almacén" : "restaurante"} · {p.fecha}</span>
+                  {p.origen && <span className="ml-2 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">vía {p.origen}</span>}
                   <p className="text-xs text-gray-500 mt-0.5">{p.cuenta.dueno} · {p.cuenta.email} · {p.cuenta.whatsapp}{p.cuenta.rut ? ` · RUT ${p.cuenta.rut} ${p.cuenta.razonSocial} · ${p.cuenta.comuna}` : ""}</p>
                 </div>
                 <div className="text-right">

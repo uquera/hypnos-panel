@@ -7,6 +7,7 @@ import { diasGracia } from "@/lib/pos/config"
 import { claveDiaChile, diasHastaChile } from "@/lib/pos/fechas"
 import { correoCobroDe, precioDe } from "@/lib/pos/cobro"
 import { correoCobro, correoPruebaTermina } from "@/lib/pos/correos"
+import { ofertaAnual } from "@/lib/pos/contratar"
 import { linkPagoOnline } from "@/lib/pos/cobro-online"
 import { sincronizarSuscripciones } from "@/lib/pos/mp-suscripcion"
 
@@ -84,7 +85,11 @@ export async function GET(req: NextRequest) {
         res.suspendidas++
       } else if (to) {
         if (c.enPrueba && dias > 0) {
-          await correoPruebaTermina({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, monto, linkOnline })
+          const of = await ofertaAnual(c.id).catch(() => null)
+          await correoPruebaTermina({
+            to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, monto, linkOnline,
+            anual: of ? { monto: of.anual, ahorro: of.ahorro, marcha: of.incluyeMarcha, cuotas: of.cuotas } : null,
+          })
         } else {
           await correoCobro({ to, restaurante: c.nombre, dias, vence: cliente.fechaVencimiento, linkPago, enPrueba: c.enPrueba, monto, linkOnline })
         }

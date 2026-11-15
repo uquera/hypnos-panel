@@ -33,7 +33,7 @@ export default async function ContratarAdminPage({ searchParams }: { searchParam
     id: p.id, fecha: fechaCorta(p.createdAt), estado: p.estado, medio: p.medio, plan: p.plan, cajas: p.cajas,
     total: p.total, descuento: p.descuento, cupon: p.cuponCodigo, lineas: leerLineas(p.items),
     maquinas: p.maquinas, direccionEnvio: p.direccionEnvio, despacho: p.despacho, seriales: p.seriales, marcha: p.marcha,
-    notasAdmin: p.notasAdmin, detalle: p.detalle, mpPaymentId: p.mpPaymentId,
+    notasAdmin: p.notasAdmin, detalle: p.detalle, mpPaymentId: p.mpPaymentId, origen: p.origen,
     cuenta: {
       id: p.cuenta.id, nombre: p.cuenta.nombre, codigo: p.cuenta.codigo, tipo: p.cuenta.tipo, whatsapp: p.cuenta.whatsapp,
       rut: p.cuenta.rut ? formatoRut(p.cuenta.rut) : "", razonSocial: p.cuenta.razonSocial, comuna: p.cuenta.comuna,

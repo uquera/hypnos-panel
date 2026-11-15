@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     const { pedidoId, pedido, pagarUrl, errorPago } = await crearPedido({
       cuentaId: id, seleccion, cuponId: cupon?.id ?? null, medio,
       facturacion: { rut, razonSocial, comuna, direccionEnvio },
-      email: datos.email, dueno: datos.dueno, local: datos.nombre,
+      email: datos.email, dueno: datos.dueno, local: datos.nombre, origen: txt(fd.get("origen"), 40),
     })
 
     void avisoPedido(pedidoId, "nuevo").catch(e => console.error("[contratar] aviso a Hypnos:", e))

@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic"
 
 const WA = "https://wa.me/56933688302?text=" + encodeURIComponent("Hola, tengo un almacén y quiero conocer el sistema de caja de Hypnos")
 const DEMO = "https://demo-almacen.hypnosapps.com"
+const CONTRATAR = "/pos/contratar?tipo=almacen&o=almacenes"
 const PUESTA_EN_MARCHA = 100_000
 
 const DOLORES = [
@@ -106,6 +107,7 @@ export default function AlmacenesPage() {
             <a href="#probar" className={cta}>Probar gratis {dias} días</a>
             <a href={DEMO} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-[#ffffff] px-5 text-base font-semibold text-stone-800"><Play size={18} className="text-[#f26522]" /> Ver la demo ahora</a>
           </div>
+          <p className="mt-3 text-sm text-stone-600">¿Ya te decidiste? <a href={CONTRATAR} className="font-semibold text-[#c2410c] underline">Contrata en 5 pasos</a>, sin costo de incorporación.</p>
           <p className="mt-2 text-sm text-stone-500">La demo se abre al tiro, sin registrarte: un almacén de ejemplo para vender, recibir mercadería y anotar fiados.</p>
           <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-stone-600">
             {["Sin tarjeta", "Listo en 2 minutos", "Funciona en el celular que ya tienes"].map(t => <li key={t} className="flex items-center gap-1.5"><Check size={15} className="text-emerald-600" /> {t}</li>)}
@@ -178,6 +180,10 @@ export default function AlmacenesPage() {
             </ul>
             <p className="mt-4 rounded-xl bg-stone-100 px-3 py-2 text-sm text-stone-700">Si cargas tus productos por tu cuenta, no tiene costo: solo pagas el plan mensual.</p>
           </div>
+        </div>
+        <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-2xl bg-stone-900 px-6 py-5 text-white sm:flex-row">
+          <p className="text-sm sm:text-base"><b>Plan anual: 12 meses por el precio de 10</b>, con la puesta en marcha incluida y hasta 3 cuotas.</p>
+          <a href={`${CONTRATAR}&plan=anual`} className="shrink-0 rounded-xl bg-[#f26522] px-5 py-2.5 font-bold hover:bg-[#d9551a]">Contratar anual</a>
         </div>
       </section>
 

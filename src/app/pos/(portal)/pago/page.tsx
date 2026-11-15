@@ -10,6 +10,7 @@ import { tuuOnlineEnabled } from "@/lib/tuu-online"
 import { planesOnline } from "@/lib/pos/cobro-online"
 import { planesBoton } from "../../_components/BotonesPagoOnline"
 import { mpSuscripcionesListas, sincronizarSuscripcion, suscripcionVigente } from "@/lib/pos/mp-suscripcion"
+import { ofertaAnual } from "@/lib/pos/contratar"
 
 export const metadata = { title: "Pago — Mi Hypnos" }
 export const dynamic = "force-dynamic"
@@ -50,6 +51,8 @@ export default async function PosPagoPage({ searchParams }: { searchParams: Prom
   // pago en línea TUU (renovación automática por callback); sin configurar, quedan los links fijos
   const planes = tuuOnlineEnabled() && cuenta.cliente ? planesBoton(monto, await planesOnline(monto), formatoCLP) : []
 
+  const oferta = estado === "SUSPENDIDO" ? null : await ofertaAnual(cuenta.id).catch(() => null)
+
   let titulo = ETIQUETA_ESTADO[estado]
   let detalle = ""
   let tono: "verde" | "ambar" | "rojo" | "gris" = "gris"
@@ -77,6 +80,10 @@ export default async function PosPagoPage({ searchParams }: { searchParams: Prom
         error={error ? error.slice(0, 200) : null}
         contacto={CORREO_CONTACTO}
         sinPlan={!cuenta.cliente}
+        anual={oferta && !oferta.yaAnual ? {
+          montoTxt: formatoCLP(oferta.anual), mensualTxt: formatoCLP(Math.round(oferta.anual / 12)), ahorroTxt: formatoCLP(oferta.ahorro),
+          cuotas: oferta.cuotas, sinInteres: oferta.cuotasSinInteres, marcha: oferta.incluyeMarcha,
+        } : null}
         automatico={mpSuscripcionesListas() ? {
           estado: sus?.estado ?? null,
           email: sus?.payerEmail || yo.email,

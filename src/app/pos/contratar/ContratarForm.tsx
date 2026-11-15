@@ -34,7 +34,7 @@ function sugerir(nombre: string): string {
 
 export default function ContratarForm({ catalogo: cat, diasPrueba, mpListo, inicial }: {
   catalogo: Catalogo; diasPrueba: number; mpListo: boolean
-  inicial: { tipo: TipoNegocio; plan: Plan; cupon: string }
+  inicial: { tipo: TipoNegocio; plan: Plan; cupon: string; origen: string }
 }) {
   const [paso, setPaso] = useState(1)
   const [tipo, setTipo] = useState<TipoNegocio>(inicial.tipo)
@@ -151,7 +151,7 @@ export default function ContratarForm({ catalogo: cat, diasPrueba, mpListo, inic
       for (const [k, v] of Object.entries({ ...form, codigo, rut: rutOk ?? form.rut })) fd.set(k, v.trim())
       fd.set("tipo", tipo); fd.set("plan", plan); fd.set("cajas", String(cajas))
       fd.set("adicionales", [...adds].join(",")); fd.set("maquinas", String(maquinas))
-      fd.set("medio", medio); fd.set("terminos", "true")
+      fd.set("medio", medio); fd.set("terminos", "true"); fd.set("origen", inicial.origen)
       if (cupon && !pedido.prueba) fd.set("cupon", cupon.c.codigo)
       if (tipo === "ALMACEN") fd.set("mesas", "0")
       if (logo) fd.set("logo", logo)

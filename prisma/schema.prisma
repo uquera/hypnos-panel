@@ -453,6 +453,7 @@ model PosPedido {
   total           Int                                   // a pagar hoy (0 = prueba gratis)
   cuponCodigo     String?
   medio           String    @default("PRUEBA")          // PRUEBA | MERCADOPAGO | TRANSFERENCIA
+  origen          String    @default("")                // canal (?o= del link: demo, instagram, almacenes, portal-anual…)
   estado          String    @default("PENDIENTE")       // PENDIENTE | PAGADO | RECHAZADO | CANCELADO | ERROR | SIN_PAGO
   mpPreferenceId  String?
   initPoint       String?

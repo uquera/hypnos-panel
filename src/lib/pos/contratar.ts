@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { OWNER_EMAIL } from "@/lib/auth"
 import { logActividad } from "@/lib/actividad"
 import { ErrorPos } from "./usuarios"
-import { registrarPagoPos } from "./cobro"
+import { precioDe, registrarPagoPos } from "./cobro"
+import { cancelarSuscripcion, suscripcionVigente } from "./mp-suscripcion"
 import { correoAvisosHypnos, formatoCLP, precioMensual, whatsappDigitos } from "./config"
 import { basePortal, basePublica } from "./servidor"
 import { enviarCorreoPos, escHtml as esc } from "./email"
@@ -93,6 +94,9 @@ async function usarCupon(id: string): Promise<boolean> {
   return r.count > 0
 }
 
+/** Canal del pedido (?o= del link): minúsculas, letras, números y guiones. */
+export const normalizarOrigen = (v: unknown) => String(v ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40)
+
 // ─── Token del pedido (la página "listo" lo usa para consultar el estado) ─────
 
 function secreto(): string {
@@ -173,7 +177,7 @@ export interface DatosFacturacion { rut: string; razonSocial: string; comuna: st
 
 export async function crearPedido(p: {
   cuentaId: string; seleccion: Seleccion; cuponId?: string | null; medio: "MERCADOPAGO" | "TRANSFERENCIA"
-  facturacion: DatosFacturacion; email: string; dueno: string; local: string
+  facturacion: DatosFacturacion; email: string; dueno: string; local: string; origen?: string
 }): Promise<{ pedidoId: string; pedido: Pedido; pagarUrl: string | null; errorPago: string | null }> {
   const cat = await getCatalogo()
   // el cupón solo se marca como usado si de verdad descuenta algo
@@ -191,7 +195,7 @@ export async function crearPedido(p: {
       items: JSON.stringify(pedido.lineas),
       subtotal: pedido.subtotal, descuento: pedido.descuento, total: pedido.total,
       cuponCodigo: pedido.cuponAplicado ? sel.cupon?.codigo ?? null : null,
-      medio, estado: pedido.total === 0 ? "SIN_PAGO" : "PENDIENTE",
+      medio, estado: pedido.total === 0 ? "SIN_PAGO" : "PENDIENTE", origen: normalizarOrigen(p.origen),
       maquinas: pedido.maquinas, direccionEnvio: pedido.maquinas ? p.facturacion.direccionEnvio : "",
     },
   })
@@ -205,6 +209,42 @@ export async function crearPedido(p: {
     }
   }
   return { pedidoId: creado.id, pedido, pagarUrl, errorPago }
+}
+
+/**
+ * Oferta anual para un local que ya existe (Mi Hypnos → Pago y correo de fin de prueba):
+ * 12 meses al precio del plan anual (proporcional a su precio mensual, que puede ser especial)
+ * y, si aún está en prueba, la puesta en marcha incluida.
+ */
+export async function ofertaAnual(cuentaId: string) {
+  const cuenta = await prisma.posCuenta.findUnique({ where: { id: cuentaId }, include: { cliente: true } })
+  if (!cuenta?.cliente || cuenta.eliminadaAt || !mpCheckoutListo()) return null
+  const cat = await getCatalogo()
+  const mensual = precioDe(cuenta)
+  const anual = Math.round(mensual * cat.anualCaja / cat.mensualCaja)
+  if (anual >= mensual * 12) return null
+  return {
+    mensual, anual, ahorro: mensual * 12 - anual, cuotas: cat.cuotas, cuotasSinInteres: cat.cuotasSinInteres,
+    incluyeMarcha: cuenta.enPrueba && cat.marcha > 0, marcha: cat.marcha, yaAnual: cuenta.planPeriodo === "ANUAL" && !cuenta.enPrueba,
+  }
+}
+
+export async function crearPedidoAnualPortal(cuentaId: string): Promise<string> {
+  const oferta = await ofertaAnual(cuentaId)
+  if (!oferta) throw new ErrorPos("El pago anual con Mercado Pago no está disponible. Escríbenos a contacto@hypnosapps.com.", 409)
+  // reutiliza un pedido anual pendiente del mismo monto (no llenar el admin de pedidos repetidos)
+  const previo = await prisma.posPedido.findFirst({ where: { cuentaId, plan: "ANUAL", estado: "PENDIENTE", medio: "MERCADOPAGO", total: oferta.anual, origen: "portal-anual" }, orderBy: { createdAt: "desc" } })
+  if (previo) return previo.id
+  const cuenta = await prisma.posCuenta.findUnique({ where: { id: cuentaId }, select: { cajas: true } })
+  const lineas: Linea[] = [{ clave: "plan", nombre: `Plan anual · ${cuenta?.cajas ?? 1} caja${(cuenta?.cajas ?? 1) > 1 ? "s" : ""}`, cantidad: cuenta?.cajas ?? 1, monto: oferta.anual, nota: "12 meses" }]
+  if (oferta.incluyeMarcha) lineas.push({ clave: "marcha", nombre: "Puesta en marcha asistida", cantidad: 1, monto: 0, nota: "incluida en el plan anual" })
+  const p = await prisma.posPedido.create({
+    data: {
+      cuentaId, plan: "ANUAL", cajas: cuenta?.cajas ?? 1, items: JSON.stringify(lineas),
+      subtotal: oferta.anual, total: oferta.anual, medio: "MERCADOPAGO", estado: "PENDIENTE", origen: "portal-anual",
+    },
+  })
+  return p.id
 }
 
 /** Link de Mercado Pago de un pedido pendiente (lo crea si aún no existe o si se perdió). */
@@ -343,6 +383,15 @@ export async function aplicarPedidoPagado(pedidoId: string, respaldo: string, op
         registradoPorId: op.id,
       },
     })
+  }
+  // Pasó al plan anual: el pago automático mensual ya no corresponde
+  if (pedido.plan === "ANUAL") {
+    const sus = await suscripcionVigente(pedido.cuentaId)
+    if (sus && sus.estado !== "cancelled") {
+      await cancelarSuscripcion(pedido.cuentaId, "Hypnos (pasó al plan anual)")
+        .catch(e => console.error("[contratar] no se pudo cancelar el pago automático mensual:", e))
+    }
+    await prisma.posCuenta.update({ where: { id: pedido.cuentaId }, data: { planPeriodo: "ANUAL" } })
   }
   const tieneMarcha = lineas.some(l => l.clave === "marcha")
   await prisma.posPedido.update({

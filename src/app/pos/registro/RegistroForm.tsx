@@ -220,6 +220,9 @@ export default function RegistroForm({ precio, diasPrueba }: { precio: string; d
             Mesas, comandas a cocina, caja y pagos con tu máquina. Pruébalo <strong className="text-white">{diasPrueba} días gratis</strong>, sin tarjeta.
             ¿Vienes de Fudo? Traemos tu menú y tus clientes.
           </p>
+          <p className="mt-2 text-sm text-gray-400">
+            ¿Prefieres el plan anual o necesitas una máquina para cobrar? <a href="/pos/contratar?o=registro" className="font-semibold text-white underline">Contrata en 5 pasos</a>.
+          </p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs text-gray-300">
             {[{ i: LayoutGrid, t: "Mesas y comandas" }, { i: Receipt, t: "Caja y boletas" }, { i: Wallet, t: `${precio}/mes después` }].map(x => (
               <span key={x.t} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-white/10"><x.i size={14} /> {x.t}</span>
