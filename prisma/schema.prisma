@@ -247,6 +247,12 @@ model PosCuenta {
   tipo               String       @default("RESTAURANTE") // RESTAURANTE | ALMACEN (minimarket: se instala con --tipo almacen)
   terminosAt         DateTime?                           // aceptación de términos en el registro público
   precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
+  // Contratación online (/pos/contratar): plan elegido y datos de facturación de Hypnos al cliente
+  planPeriodo        String       @default("MENSUAL")    // MENSUAL | ANUAL (informativo: la renovación sigue en /pos/pago)
+  cajas              Int          @default(1)            // cajas contratadas (el plan se cobra por caja)
+  rut                String       @default("")           // RUT de la empresa (boleta/factura de Hypnos)
+  razonSocial        String       @default("")
+  comuna             String       @default("")
   eliminadaAt        DateTime?                           // eliminada (instancia respaldada y fuera de línea); se conserva el historial
   archivadaAt        DateTime?                           // fuera del tablero para no estorbar (suspendidos, impagos); no cambia licencia ni instancia
   // Onboarding (registro / crear restaurante): se pasa a hypnos-pos-tenant create.
@@ -263,6 +269,7 @@ model PosCuenta {
   avisos             PosAviso[]
   cobrosOnline       PosCobroOnline[]
   suscripciones      PosSuscripcion[]
+  pedidos            PosPedido[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -430,6 +437,62 @@ model PosToken {
 
 // Ajustes de Hypnos POS editables desde el panel (clave → valor JSON).
 // linksPago: { "20000": "https://…", "40000": "…", "45000": "…" } links de cobro TUU por monto.
+// Pedido de la contratación online (/pos/contratar): plan + adicionales (puesta en marcha, máquina
+// Point Smart 2, migración). Si hay algo que pagar hoy se paga con Mercado Pago Checkout Pro (cuenta de
+// Hypnos SpA) o por transferencia. El pago se confirma SOLO releyendo el pago en la API de Mercado Pago
+// (webhook o sincronización); mpPaymentId único = un pago se aplica una sola vez.
+model PosPedido {
+  id              String    @id @default(cuid())
+  cuentaId        String
+  cuenta          PosCuenta @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  plan            String                                // MENSUAL | ANUAL
+  cajas           Int       @default(1)
+  items           String                                // JSON [{clave, nombre, cantidad, monto}] calculado en el servidor
+  subtotal        Int                                   // CLP, IVA incluido
+  descuento       Int       @default(0)                 // cupón (solo sobre el plan)
+  total           Int                                   // a pagar hoy (0 = prueba gratis)
+  cuponCodigo     String?
+  medio           String    @default("PRUEBA")          // PRUEBA | MERCADOPAGO | TRANSFERENCIA
+  estado          String    @default("PENDIENTE")       // PENDIENTE | PAGADO | RECHAZADO | CANCELADO | ERROR | SIN_PAGO
+  mpPreferenceId  String?
+  initPoint       String?
+  mpPaymentId     String?   @unique
+  pagadoAt        DateTime?
+  detalle         String?                               // error al aplicar o motivo (sin secretos)
+  // Máquinas Point vendidas: despacho manual de Hypnos (revendedor Mercado Pago)
+  maquinas        Int       @default(0)
+  direccionEnvio  String    @default("")
+  despacho        String    @default("")                // "" | POR_DESPACHAR | DESPACHADA | ENTREGADA
+  seriales        String    @default("")                // números de serie (premio del programa de revendedores)
+  // Puesta en marcha asistida
+  marcha          String    @default("")                // "" | POR_AGENDAR | AGENDADA | HECHA
+  notasAdmin      String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([cuentaId])
+  @@index([estado])
+  @@map("pos_pedidos")
+}
+
+// Cupones de la contratación online. Descuentan solo el plan (nunca la máquina).
+model PosCupon {
+  id         String    @id @default(cuid())
+  codigo     String    @unique                         // MAYÚSCULAS
+  tipo       String    @default("PORCENTAJE")          // PORCENTAJE | MONTO
+  valor      Int                                       // % (1-100) o CLP
+  soloAnual  Boolean   @default(false)
+  venceAt    DateTime?
+  usosMax    Int?                                      // null = sin límite
+  usos       Int       @default(0)
+  activo     Boolean   @default(true)
+  notas      String    @default("")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("pos_cupones")
+}
+
 model PosConfig {
   clave     String   @id
   valor     String

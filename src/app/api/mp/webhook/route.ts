@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { procesarAvisoSuscripcion } from "@/lib/pos/mp-suscripcion"
+import { procesarOrdenComercial, procesarPagoContratacion } from "@/lib/pos/contratar"
 
 // POST /api/mp/webhook — dirección ÚNICA de avisos de la app de Mercado Pago de Hypnos
 // (Mercado Pago Developers → app → Webhooks admite una sola URL para todas las cuentas).
 //  - Suscripciones (cobro automático de Hypnos POS): se procesan aquí, en el panel.
+//  - Pagos de la contratación online (temas "payment" y "merchant_order", vienen de la notification_url
+//    de cada preferencia): se aplican al pedido si su external_reference es "pedido:<id>"; otros se ignoran.
 //  - Máquinas Point (tema "order"): se reenvían a cada local de Hypnos POS. Cada uno vuelve a pedir
 //    la order a Mercado Pago con SU token: si no es suya, la ignora (por eso basta reenviar a todos).
 // Nunca se confía en el contenido del aviso: todo se relee en la API de Mercado Pago.
@@ -42,6 +45,8 @@ export async function POST(req: NextRequest) {
     let hecho = "ignorado"
     if (SUSCRIPCION.has(tipo)) hecho = await procesarAvisoSuscripcion(tipo, id)
     else if (tipo === "order") hecho = await reenviarALocales(req, raw)
+    else if (tipo === "payment") hecho = `payment:${await procesarPagoContratacion(id)}`
+    else if (tipo === "merchant_order") hecho = `merchant_order:${await procesarOrdenComercial(id)}`
     console.info("[mp-webhook]", tipo || "-", body?.action ?? "", id, hecho)
   } catch (e) {
     console.error("[mp-webhook] error", tipo, id, e)

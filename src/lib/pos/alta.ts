@@ -2,6 +2,7 @@ import { spawn } from "child_process"
 import fs from "fs"
 import { prisma } from "@/lib/prisma"
 import { logActividad } from "@/lib/actividad"
+import { patchLicenciaRemota } from "@/lib/gobernanza-remota"
 import { basePortal, basePublica, dirLogos } from "./servidor"
 import { rutaLogo, rutaClientes, type ResultadoAlta } from "./onboarding"
 import { enviarInvitacion } from "./usuarios"
@@ -283,12 +284,22 @@ async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
     clienteNombre: cuenta.nombre, accion: "POS_ALTA_LISTA", detalle: `${cuenta.codigo} → ${url}`,
   })
 
+  // Si pagó mientras se instalaba (contratación online), la instancia nació con la licencia de prueba
+  // (--vence y --prueba se leen al lanzar el comando): se le envía la licencia vigente del panel.
+  const fresca = await prisma.posCuenta.findUnique({ where: { id: cuentaId }, include: { cliente: true } })
+  if (fresca?.cliente && cuenta.cliente && !fresca.enPrueba) {
+    const r2 = await patchLicenciaRemota(fresca.cliente, {
+      fechaVencimiento: fresca.cliente.fechaVencimiento.toISOString(), suspendida: fresca.cliente.suspendida, enPrueba: false,
+    }).catch(e => ({ ok: false, error: String(e) }))
+    if (!r2.ok) console.warn("[pos-alta] no se pudo enviar la licencia vigente", { codigo: cuenta.codigo, error: r2.error })
+  }
+
   const dueno = cuenta.usuarios[0]
   if (!dueno) return
   try {
     await correoBienvenida({
       to: dueno.email, dueno: dueno.nombre, restaurante: cuenta.nombre, url,
-      enPrueba: cuenta.enPrueba, vence: cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${basePortal()}/pos/pago`,
+      enPrueba: fresca?.enPrueba ?? cuenta.enPrueba, vence: fresca?.cliente?.fechaVencimiento ?? cuenta.cliente?.fechaVencimiento ?? new Date(), linkPago: `${basePortal()}/pos/pago`,
       monto: cuenta.precioMensual ?? precioMensual(),
       mesas: cuenta.mesas, menuUrl: cuenta.menuUrl, resultado: resultadoAlta, almacen: cuenta.tipo === "ALMACEN",
     })
