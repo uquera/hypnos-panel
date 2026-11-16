@@ -1,3 +1,4 @@
+import { tuuOnlineEnabled } from "@/lib/tuu-online"
 import { opcionesPago } from "./links-pago"
 import { enviarCorreoPos, escHtml as esc, multilinea } from "./email"
 import { correoAvisosHypnos, datosTransferencia, formatoCLP, whatsappDigitos, CORREO_CONTACTO } from "./config"
@@ -20,6 +21,12 @@ async function bloqueTransferencia(monto: number, linkOnline?: string | null): P
     `<a href="${esc(url)}" style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:11px 20px;border-radius:10px;">${texto}</a>`
   const opciones = await opcionesPago(monto)
   const mes = opciones.find(o => o.meses === 1)
+  if (linkOnline && !tuuOnlineEnabled()) {
+    // sin TUU en línea, el link lleva al pago automático con Mercado Pago (/pos/pagar)
+    return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${boton(linkOnline, "Pagar con Mercado Pago")}`
+      + `<br><span style="color:#6b7280;font-size:12px;">Autorizas tu tarjeta una sola vez y Mercado Pago cobra cada mes: tu plan se renueva solo, sin subir comprobantes.</span>`
+      + `<br><br><strong>O transfiere a:</strong><br>${cuerpo}`
+  }
   if (linkOnline) {
     const respaldo = mes ? `<br><span style="color:#6b7280;font-size:12px;">¿Problemas con el botón? <a href="${esc(mes.url)}" style="color:#6b7280;">Paga con este link</a> y sube el comprobante en tu portal.</span>` : ""
     return `<strong>Monto: ${esc(formatoCLP(monto))}</strong><br><br>${boton(linkOnline, "Pagar ahora con tarjeta o Webpay")}`

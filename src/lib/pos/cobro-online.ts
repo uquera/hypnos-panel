@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { OWNER_EMAIL } from "@/lib/auth"
-import { camposIntento, telefonoCl, tuuOnlineConfig, type TuuOnlineConfig } from "@/lib/tuu-online"
+import { camposIntento, telefonoCl, tuuOnlineConfig, type TuuOnlineConfig, appUrl } from "@/lib/tuu-online"
 import { ErrorPos } from "./usuarios"
 import { correoCobroDe, precioDe, registrarPagoPos } from "./cobro"
 import { opcionesPago } from "./links-pago"
@@ -61,9 +61,10 @@ export function tokenPagoValido(cuentaId: string, token: string): boolean {
 
 /** Link absoluto de pago en línea de la cuenta, o null si TUU en línea no está configurado. */
 export function linkPagoOnline(cuentaId: string): string | null {
-  const cfg = tuuOnlineConfig()
-  if (!cfg) return null
-  return `${cfg.baseUrl}/pos/pagar?c=${encodeURIComponent(cuentaId)}&t=${tokenPago(cuentaId)}`
+  // /pos/pagar ofrece el pago en línea TUU (si está configurado) y el pago automático con Mercado Pago
+  const base = tuuOnlineConfig()?.baseUrl ?? (process.env.MP_ACCESS_TOKEN?.trim() ? appUrl() : null)
+  if (!base) return null
+  return `${base}/pos/pagar?c=${encodeURIComponent(cuentaId)}&t=${tokenPago(cuentaId)}`
 }
 
 // ─── 1. Crear cobro ────────────────────────────────────────────────────────────
