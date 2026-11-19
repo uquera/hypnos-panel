@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import {
   COOKIE_NOMBRE, COOKIE_PATH, GOOGLE_TOKEN_URL,
-  conParametros, configClienteGoogle, enmascararCorreo, igualSeguro, jwksGoogle,
+  conFragmento, conParametros, configClienteGoogle, enmascararCorreo, igualSeguro, jwksGoogle,
   readCookie, signLocalToken, verifyGoogleIdToken,
 } from "@/lib/cliente-google"
 
@@ -54,7 +54,8 @@ export async function GET(req: NextRequest) {
     const aud = new URL(estado.return).hostname.toLowerCase()
     const token = signLocalToken(perfil, aud, cfg.secret)
     console.log(`[cliente-google] ingreso para ${aud} (${enmascararCorreo(perfil.email)})`)
-    return ir(conParametros(estado.return, { token }), 303)
+    // en el fragmento: no viaja al servidor del local ni queda en sus registros
+    return ir(conFragmento(estado.return, { token }), 303)
   } catch (e) {
     console.warn(`[cliente-google] fallo para ${new URL(estado.return).hostname}: ${e instanceof Error ? e.message : "error"}`)
     return ir(conParametros(estado.return, { error: "google" }), 303)

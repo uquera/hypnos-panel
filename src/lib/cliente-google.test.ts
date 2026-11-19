@@ -1,7 +1,7 @@
 import crypto from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
-  allowedReturn, conParametros, enmascararCorreo, hostsPermitidos, pkceChallenge,
+  allowedReturn, conFragmento, conParametros, enmascararCorreo, hostsPermitidos, pkceChallenge,
   readCookie, signCookie, signLocalToken, verifyGoogleIdToken, type Jwk,
 } from "./cliente-google"
 
@@ -138,5 +138,6 @@ describe("utilidades", () => {
   it("agrega parámetros con ? o &", () => {
     expect(conParametros("https://a.cl/cliente/google", { token: "x" })).toBe("https://a.cl/cliente/google?token=x")
     expect(conParametros("https://a.cl/cliente/google?m=1", { error: "google" })).toBe("https://a.cl/cliente/google?m=1&error=google")
+    expect(conFragmento("https://a.cl/pos/cliente/google", { token: "a.b.c" })).toBe("https://a.cl/pos/cliente/google#token=a.b.c")
   })
 })

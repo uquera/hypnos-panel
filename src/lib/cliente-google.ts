@@ -98,6 +98,16 @@ export function allowedReturn(url: string | null | undefined, hosts: Set<string>
 }
 
 /** Agrega parámetros a la URL de retorno (con ? o & según corresponda). */
+/**
+ * Como conParametros, pero en el fragmento (#token=…): el navegador no lo envía al servidor, así que el
+ * token no queda en los registros de nginx ni en el historial del servidor del local.
+ */
+export function conFragmento(retorno: string, params: Record<string, string>): string {
+  const u = new URL(retorno)
+  u.hash = new URLSearchParams(params).toString()
+  return u.toString()
+}
+
 export function conParametros(retorno: string, params: Record<string, string>): string {
   const u = new URL(retorno)
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
