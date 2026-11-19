@@ -9,7 +9,9 @@ import { NextResponse, type NextRequest } from "next/server"
 // Sin POS_PORTAL_URL no cambia nada (todo en una sola dirección, como antes).
 
 const PORTAL_PAGINAS = ["/pos", "/almacenes"]
-const PORTAL_APIS = ["/api/pos-portal", "/api/pos-pago", "/api/pos-registro", "/api/pos-app", "/api/almacenes"]
+const PORTAL_APIS = ["/api/pos-portal", "/api/pos-pago", "/api/pos-registro", "/api/pos-app", "/api/almacenes",
+  // puente de ingreso con Google de los clientes finales de los POS (público, responde en ambos hosts)
+  "/api/cliente-google"]
 
 const empieza = (path: string, prefijos: string[]) => prefijos.some((p) => path === p || path.startsWith(`${p}/`))
 

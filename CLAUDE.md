@@ -104,6 +104,23 @@ Una sola app para todos los clientes: el negocio escribe su **código** y la app
   "Bloquear app" = `PosCuenta.activo=false` (la app Android y el portal quedan fuera).
 - Eliminar restaurante: `destroy` + `PosCuenta.eliminadaAt` y `Cliente.activo=false` (pagos e historial se conservan).
 
+### Ingreso con Google de los clientes finales de los POS (puente OAuth)
+Un solo cliente OAuth de Hypnos sirve a todos los POS (otros dominios): el local manda al cliente a
+`GET /api/cliente-google/start?return=https://<local>/cliente/google` (se admite basePath, ej.
+`https://donnaany.com/pos/cliente/google`), el panel lo lleva a Google (state + nonce + PKCE S256 en
+cookie firmada de 10 min) y en `GET /api/cliente-google/callback` verifica el id_token (RS256 con las
+JWKS de Google, sin dependencias) y devuelve 303 a `return?token=<jwt>` (HS256, 120 s,
+`aud` = host del local, `iss` = `panel.hypnosapps.com`) o `return?error=cancelado|google`.
+- `return` solo a locales conocidos: host de `Cliente.dominio`/`Cliente.apiUrl`, de `PosCuenta.posUrl`,
+  `<PosCuenta.codigo>.hypnosapps.com` (con o sin www) y siempre `donnaany.com`; https y path `/cliente/google`.
+- URI de redirección autorizada en Google Cloud: `https://panel.hypnosapps.com/api/cliente-google/callback`.
+- Variables del panel: `GOOGLE_CLIENTE_ID`, `GOOGLE_CLIENTE_SECRET` (las carga el usuario) y
+  `HYPNOS_CLIENTE_GOOGLE_SECRET` (`openssl rand` en el servidor). Sin las tres, ambas rutas responden 503.
+- **`HYPNOS_CLIENTE_GOOGLE_SECRET` es la misma clave que usan los POS** para verificar el token
+  (`shared.env` de pos-saas y `.env` de Doña Any): si se rota, rotarla en los tres lados.
+- No guarda nada del cliente final en la base; el log solo dice el host y el correo enmascarado.
+- Código: `src/lib/cliente-google.ts` (funciones puras, tests en `cliente-google.test.ts`, `npm test`).
+
 ---
 
 ## Estándar obligatorio: Gobernanza en apps cliente
