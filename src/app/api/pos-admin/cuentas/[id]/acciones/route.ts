@@ -11,6 +11,7 @@ import { correoBienvenida } from "@/lib/pos/correos"
 import { finDelDiaChile } from "@/lib/pos/fechas"
 import { precioMensual } from "@/lib/pos/config"
 import { leerResultadoAlta, validarMenuUrl } from "@/lib/pos/onboarding"
+import { parsePlanPos } from "@/lib/pos/plan-pos"
 
 // POST /api/pos-admin/cuentas/:id/acciones — acciones de Hypnos sobre un restaurante (solo ADMIN).
 // { accion, ...datos }:
@@ -94,6 +95,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
         let sync: { syncedRemote: boolean; syncError?: string } | null = null
         let venceIgnorado = false
+        // Plan (Básico / Pro): se guarda y se manda a la licencia del local
+        if (body.planPos !== undefined) {
+          const plan = parsePlanPos(body.planPos)
+          if (!plan) throw new ErrorPos("Plan no válido.")
+          if (plan !== cuenta.planPos) sync = await cambiarLicenciaPos(id, { plan }, operador)
+        }
         if (cuenta.cliente && body.vence) {
           const vence = finDelDiaChile(String(body.vence))
           if (!vence) throw new ErrorPos("Fecha de vencimiento no válida.")

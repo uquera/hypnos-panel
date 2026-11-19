@@ -112,6 +112,7 @@ export default async function CuentaPosPage({ params }: { params: Promise<{ id: 
           notas: cuenta.cliente?.notasAdmin ?? "",
           vence: cuenta.cliente ? claveDiaChile(cuenta.cliente.fechaVencimiento) : "",
           precioMensual: cuenta.precioMensual ? String(cuenta.precioMensual) : "",
+          planPos: cuenta.planPos,
           menuUrl: cuenta.menuUrl, mesas: String(cuenta.mesas), direccion: cuenta.direccion, horario: cuenta.horario,
         }}
         precioGeneral={precioMensual()}

@@ -12,7 +12,7 @@ import { ModalComprobante, type AvisoComprobante } from "../../_components/Compr
 import { accionPos, postFormDetallado } from "../_components/accionPos"
 
 interface Datos {
-  nombre: string; dueno: string; email: string; whatsapp: string; notas: string; vence: string; precioMensual: string
+  nombre: string; dueno: string; email: string; whatsapp: string; notas: string; vence: string; precioMensual: string; planPos: string
   menuUrl: string; mesas: string; direccion: string; horario: string
 }
 
@@ -164,6 +164,14 @@ export default function FichaGestion({ fila, datos, precioGeneral, tieneDueno, c
               <input className={input} type="date" value={form.vence} disabled={bloqueada} onChange={e => setForm({ ...form, vence: e.target.value })} />
             </div>
           )}
+          <div className="space-y-1">
+            <label className={label}>Plan</label>
+            <select className={input} value={form.planPos} disabled={bloqueada} onChange={e => setForm({ ...form, planPos: e.target.value })}>
+              <option value="BASICO">Básico · $20.000 (POS completo)</option>
+              <option value="PRO">Pro · $40.000 (Club de Puntos + WhatsApp con IA)</option>
+            </select>
+            <p className="text-[11px] text-gray-500">Se envía a la licencia del local al guardar. Ajusta el precio mensual si corresponde.</p>
+          </div>
           <div className="space-y-1">
             <label className={label}>Precio mensual (CLP)</label>
             <input className={input} inputMode="numeric" placeholder={`General: ${precioGeneral.toLocaleString("es-CL")}`} value={form.precioMensual} disabled={bloqueada}

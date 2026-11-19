@@ -247,6 +247,7 @@ model PosCuenta {
   tipo               String       @default("RESTAURANTE") // RESTAURANTE | ALMACEN (minimarket: se instala con --tipo almacen)
   terminosAt         DateTime?                           // aceptación de términos en el registro público
   precioMensual      Int?                                // CLP; null = POS_PRECIO_MENSUAL (precio especial por cuenta)
+  planPos            String       @default("BASICO")     // BASICO ($20.000) | PRO ($40.000: Club de Puntos + WhatsApp con IA); viaja en la licencia
   // Contratación online (/pos/contratar): plan elegido y datos de facturación de Hypnos al cliente
   planPeriodo        String       @default("MENSUAL")    // MENSUAL | ANUAL (informativo: la renovación sigue en /pos/pago)
   cajas              Int          @default(1)            // cajas contratadas (el plan se cobra por caja)

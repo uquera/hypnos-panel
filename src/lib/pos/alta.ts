@@ -284,6 +284,13 @@ async function terminar(cuentaId: string, r: ResultadoCmd, log: string) {
     clienteNombre: cuenta.nombre, accion: "POS_ALTA_LISTA", detalle: `${cuenta.codigo} → ${url}`,
   })
 
+  // La instancia nace con la licencia en PRO por defecto: se le manda el plan real de la cuenta
+  const conPlan = await prisma.posCuenta.findUnique({ where: { id: cuentaId }, include: { cliente: true } })
+  if (conPlan?.cliente) {
+    const r1 = await patchLicenciaRemota(conPlan.cliente, { plan: conPlan.planPos }).catch(e => ({ ok: false, error: String(e) }))
+    if (!r1.ok) console.warn("[pos-alta] no se pudo enviar el plan", { codigo: cuenta.codigo, error: r1.error })
+  }
+
   // Si pagó mientras se instalaba (contratación online), la instancia nació con la licencia de prueba
   // (--vence y --prueba se leen al lanzar el comando): se le envía la licencia vigente del panel.
   const fresca = await prisma.posCuenta.findUnique({ where: { id: cuentaId }, include: { cliente: true } })

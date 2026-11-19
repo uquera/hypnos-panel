@@ -5,6 +5,7 @@ import { ErrorPos } from "./usuarios"
 import { precioMensual } from "./config"
 import { diasHastaChile, sumarMeses, fechaLarga } from "./fechas"
 import { correoPagoAprobado } from "./correos"
+import { PLANES_POS, type PlanPos } from "@/lib/pos/plan-pos"
 
 // Cobro mensual de Hypnos POS: estado de cada restaurante, registro de pagos
 // (comprobante aprobado o pago manual) y cambios de licencia sincronizados con la instancia.
@@ -128,7 +129,7 @@ export async function registrarPagoPos(p: {
     : p.operador.nombre
 
   const [lic] = await Promise.all([
-    patchLicenciaRemota(cliente, { fechaVencimiento: fin.toISOString(), suspendida: false, enPrueba: false }),
+    patchLicenciaRemota(cliente, { fechaVencimiento: fin.toISOString(), suspendida: false, enPrueba: false, plan: cuenta.planPos }),
     postPagoRemoto(cliente, {
       monto: p.monto, moneda: "CLP", periodoInicio: inicio.toISOString(), periodoFin: fin.toISOString(),
       fechaPago: fechaPago.toISOString(), notas: pago.notas,
@@ -153,7 +154,7 @@ export async function registrarPagoPos(p: {
  * Cambia la licencia (suspensión, vencimiento, prueba) en el panel y la sincroniza con la instancia.
  */
 export async function cambiarLicenciaPos(cuentaId: string, cambios: {
-  suspendida?: boolean; fechaVencimiento?: Date; enPrueba?: boolean
+  suspendida?: boolean; fechaVencimiento?: Date; enPrueba?: boolean; plan?: PlanPos
 }, operador: Operador, accion = "LICENCIA_SYNC") {
   const { cuenta, cliente } = await cuentaConCliente(cuentaId)
   const dataCliente: { suspendida?: boolean; fechaVencimiento?: Date } = {}
@@ -163,12 +164,15 @@ export async function cambiarLicenciaPos(cuentaId: string, cambios: {
   await prisma.$transaction([
     prisma.cliente.update({ where: { id: cliente.id }, data: dataCliente }),
     ...(cambios.enPrueba !== undefined ? [prisma.posCuenta.update({ where: { id: cuenta.id }, data: { enPrueba: cambios.enPrueba } })] : []),
+    ...(cambios.plan ? [prisma.posCuenta.update({ where: { id: cuenta.id }, data: { planPos: cambios.plan } })] : []),
   ])
 
   const remoto: Record<string, unknown> = {}
   if (cambios.suspendida !== undefined) remoto.suspendida = cambios.suspendida
   if (cambios.fechaVencimiento) remoto.fechaVencimiento = cambios.fechaVencimiento.toISOString()
   if (cambios.enPrueba !== undefined) remoto.enPrueba = cambios.enPrueba
+  // el plan siempre viaja: es lo que enciende (PRO) o apaga (BASICO) el Club de Puntos y WhatsApp en el local
+  remoto.plan = cambios.plan ?? cuenta.planPos
   // Las instancias en instalación aún no responden: no se intenta sincronizar
   const res = cuenta.estadoAlta === "LISTO"
     ? await patchLicenciaRemota(cliente, remoto)
@@ -178,6 +182,7 @@ export async function cambiarLicenciaPos(cuentaId: string, cambios: {
   if (cambios.suspendida !== undefined) det.push(cambios.suspendida ? "Suspendida" : "Reactivada")
   if (cambios.fechaVencimiento) det.push(`Vence: ${fechaLarga(cambios.fechaVencimiento)}`)
   if (cambios.enPrueba !== undefined) det.push(cambios.enPrueba ? "En prueba" : "Cliente pagado")
+  if (cambios.plan) det.push(`Plan: ${PLANES_POS[cambios.plan].nombre}`)
   await logActividad({
     usuarioId: operador.id, usuarioNombre: operador.nombre, clienteId: cliente.id, clienteNombre: cliente.nombre,
     accion, detalle: `[Hypnos POS] ${det.join(" · ")}${res.ok ? "" : " · sin sincronizar"}`,

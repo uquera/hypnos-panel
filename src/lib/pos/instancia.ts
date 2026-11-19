@@ -127,7 +127,7 @@ export async function resumenSuscripcion(cuentaId: string) {
   return {
     local: cuenta.nombre,
     plan: {
-      nombre: cuenta.planPeriodo === "ANUAL" ? "Hypnos POS · plan anual" : "Hypnos POS · plan mensual",
+      nombre: `Hypnos POS · ${cuenta.planPos === "PRO" ? "Plan Pro" : "Plan Básico"} ${cuenta.planPeriodo === "ANUAL" ? "anual" : "mensual"}`,
       periodo: cuenta.planPeriodo,
       cajas: cuenta.cajas,
       precioMensual: precio,
